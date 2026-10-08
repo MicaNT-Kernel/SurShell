@@ -10,6 +10,7 @@
 
 #include "types.hpp"
 #include "compositor.hpp"
+#include "icons.hpp"
 #include <string>
 #include <vector>
 #include <memory>
@@ -34,6 +35,7 @@ struct WindowFrame {
     uint32_t id{0};
     std::string title;
     std::string iconGlyph{"[W]"};
+    IconId iconId{IconId::FileGeneric};
     Rect normalBounds{100, 100, 640, 420};
     Rect currentBounds{100, 100, 640, 420};
     WindowState state{WindowState::Normal};
@@ -69,7 +71,7 @@ public:
 
     void setScreenSize(uint32_t width, uint32_t height, int32_t taskbarHeight);
 
-    uint32_t createWindow(std::string title, Rect bounds, std::string glyph = "[W]");
+    uint32_t createWindow(std::string title, Rect bounds, std::string glyph = "[W]", IconId iconId = IconId::FileGeneric);
     void closeWindow(uint32_t windowId);
     void setWindowActive(uint32_t windowId);
     void setWindowState(uint32_t windowId, WindowState state);

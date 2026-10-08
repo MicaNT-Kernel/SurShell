@@ -504,6 +504,101 @@ void Test_MicaNT_Kernel_Bridge() {
     std::cout << "[TEST] Suite 12: MicaNT Executive LPC Syscall Bridge PASSED.\n";
 }
 
+void Test_Procedural_Icon_Engine() {
+    std::cout << "[TEST] Running Suite 13: Sovereign Procedural Vector Icon Engine...\n";
+
+    // 1. Verify Extension Resolver
+    TEST_ASSERT(surshell::IconRenderer::iconForExtension("", true) == surshell::IconId::Folder, "Directory maps to Folder");
+    TEST_ASSERT(surshell::IconRenderer::iconForExtension(".exe", false) == surshell::IconId::FileExecutable, ".exe maps to FileExecutable");
+    TEST_ASSERT(surshell::IconRenderer::iconForExtension(".bat", false) == surshell::IconId::FileExecutable, ".bat maps to FileExecutable");
+    TEST_ASSERT(surshell::IconRenderer::iconForExtension(".dll", false) == surshell::IconId::FileLibrary, ".dll maps to FileLibrary");
+    TEST_ASSERT(surshell::IconRenderer::iconForExtension(".sys", false) == surshell::IconId::FileLibrary, ".sys maps to FileLibrary");
+    TEST_ASSERT(surshell::IconRenderer::iconForExtension(".cpp", false) == surshell::IconId::FileCode, ".cpp maps to FileCode");
+    TEST_ASSERT(surshell::IconRenderer::iconForExtension(".hpp", false) == surshell::IconId::FileCode, ".hpp maps to FileCode");
+    TEST_ASSERT(surshell::IconRenderer::iconForExtension(".py", false) == surshell::IconId::FileCode, ".py maps to FileCode");
+    TEST_ASSERT(surshell::IconRenderer::iconForExtension(".png", false) == surshell::IconId::FileImage, ".png maps to FileImage");
+    TEST_ASSERT(surshell::IconRenderer::iconForExtension(".zip", false) == surshell::IconId::FileArchive, ".zip maps to FileArchive");
+    TEST_ASSERT(surshell::IconRenderer::iconForExtension(".txt", false) == surshell::IconId::FileText, ".txt maps to FileText");
+    TEST_ASSERT(surshell::IconRenderer::iconForExtension(".unknown_format", false) == surshell::IconId::FileGeneric, "Unknown ext maps to FileGeneric");
+
+    // 2. Verify AppId Resolver
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("this_pc") == surshell::IconId::ThisPC, "this_pc maps to ThisPC");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("explorer") == surshell::IconId::FileExplorer, "explorer maps to FileExplorer");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("cmd") == surshell::IconId::Terminal, "cmd maps to Terminal");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("terminal") == surshell::IconId::Terminal, "terminal maps to Terminal");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("settings") == surshell::IconId::Settings, "settings maps to Settings");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("taskmgr") == surshell::IconId::TaskManager, "taskmgr maps to TaskManager");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("sentinel") == surshell::IconId::SentinelSec, "sentinel maps to SentinelSec");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("netbird") == surshell::IconId::NetBirdMesh, "netbird maps to NetBirdMesh");
+
+    // 3. Rasterize All 38 Procedural Vector Icons at Multiple Scales (14, 16, 24, 28, 32, 48px)
+    surshell::Surface testCanvas(256, 256, surshell::Color::fromHex(0x0E1420));
+    const std::vector<surshell::IconId> allIcons = {
+        surshell::IconId::StartPrism,
+        surshell::IconId::ThisPC,
+        surshell::IconId::LocalDisk,
+        surshell::IconId::DriveStorage,
+        surshell::IconId::Terminal,
+        surshell::IconId::Settings,
+        surshell::IconId::TaskManager,
+        surshell::IconId::SentinelSec,
+        surshell::IconId::NetBirdMesh,
+        surshell::IconId::FileExplorer,
+        surshell::IconId::Folder,
+        surshell::IconId::FolderOpen,
+        surshell::IconId::FileGeneric,
+        surshell::IconId::FileText,
+        surshell::IconId::FileCode,
+        surshell::IconId::FileExecutable,
+        surshell::IconId::FileLibrary,
+        surshell::IconId::FileImage,
+        surshell::IconId::FileArchive,
+        surshell::IconId::NavBack,
+        surshell::IconId::NavForward,
+        surshell::IconId::NavUp,
+        surshell::IconId::NavRefresh,
+        surshell::IconId::Search,
+        surshell::IconId::NewFolder,
+        surshell::IconId::Delete,
+        surshell::IconId::Edit,
+        surshell::IconId::Copy,
+        surshell::IconId::Properties,
+        surshell::IconId::ViewList,
+        surshell::IconId::ViewGrid,
+        surshell::IconId::SortAsc,
+        surshell::IconId::SortDesc,
+        surshell::IconId::VolumeHigh,
+        surshell::IconId::VolumeMute,
+        surshell::IconId::BatteryCharging,
+        surshell::IconId::NetworkOnline,
+        surshell::IconId::Clock
+    };
+
+    TEST_ASSERT(allIcons.size() == 38, "All 38 procedural vector icons enumerated");
+
+    const int32_t testSizes[] = {14, 16, 24, 28, 32, 48};
+    for (surshell::IconId id : allIcons) {
+        for (int32_t sz : testSizes) {
+            testCanvas.clear(surshell::Color::fromHex(0x0E1420));
+            surshell::IconRenderer::draw(testCanvas, id, surshell::Point{10, 10}, sz);
+
+            // Verify at least one pixel changed from background (guarantees non-blank rendering)
+            bool drewSomething = false;
+            for (int32_t y = 10; y < 10 + sz && !drewSomething; ++y) {
+                for (int32_t x = 10; x < 10 + sz && !drewSomething; ++x) {
+                    const auto px = testCanvas.getPixel(x, y);
+                    if (px.toRgba() != surshell::Color::fromHex(0x0E1420).toRgba()) {
+                        drewSomething = true;
+                    }
+                }
+            }
+            TEST_ASSERT(drewSomething, "Icon must rasterize non-blank geometry at size");
+        }
+    }
+
+    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (38 icons verified across 6 DPI scales).\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -522,9 +617,10 @@ int main() {
     Test_Quick_Settings_Flyout();
     Test_Virtual_Desktops();
     Test_MicaNT_Kernel_Bridge();
+    Test_Procedural_Icon_Engine();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 12 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 13 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

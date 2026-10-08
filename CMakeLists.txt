@@ -19,6 +19,7 @@ set(SURSHELL_SOURCES
     src/virtual_desktop.cpp
     src/kernel_bridge.cpp
     src/text_viewer.cpp
+    src/icons.cpp
     src/surshell.cpp
 )
 

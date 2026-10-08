@@ -10,6 +10,7 @@
 
 #include "types.hpp"
 #include "compositor.hpp"
+#include "icons.hpp"
 #include <vector>
 #include <string>
 #include <functional>
@@ -22,7 +23,8 @@ struct DesktopIcon {
     std::string label;
     std::string executable;
     std::string arguments;
-    std::string iconGlyph;
+    std::string iconGlyph{"[P]"};
+    IconId iconId{IconId::StartPrism};
     int32_t gridX{0};
     int32_t gridY{0};
     Rect bounds{};

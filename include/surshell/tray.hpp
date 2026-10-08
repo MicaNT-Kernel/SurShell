@@ -10,6 +10,7 @@
 
 #include "types.hpp"
 #include "compositor.hpp"
+#include "icons.hpp"
 #include <string>
 #include <vector>
 #include <chrono>
@@ -22,6 +23,7 @@ struct TrayIcon {
     std::string id;
     std::string glyph;
     std::string tooltip;
+    std::optional<IconId> iconId{std::nullopt};
     bool visible{true};
     Rect bounds{};
 };
@@ -32,7 +34,7 @@ public:
 
     SystemTray();
 
-    void addIcon(std::string id, std::string glyph, std::string tooltip = "");
+    void addIcon(std::string id, std::string glyph, std::string tooltip = "", std::optional<IconId> iconId = std::nullopt);
     void removeIcon(std::string_view id);
     void updateTooltip(std::string_view id, std::string tooltip);
     void setIconVisible(std::string_view id, bool visible);

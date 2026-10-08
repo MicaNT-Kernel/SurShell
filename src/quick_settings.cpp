@@ -4,18 +4,19 @@
 // ============================================================================
 
 #include "surshell/quick_settings.hpp"
+#include "surshell/icons.hpp"
 #include <algorithm>
 
 namespace surshell {
 
 QuickSettingsFlyout::QuickSettingsFlyout() {
     toggles_ = {
-        QuickToggle{.id = "mesh", .label = "RazzleNet Mesh", .statusText = "3 Nodes Active", .iconGlyph = "[M]", .enabled = true},
-        QuickToggle{.id = "sentinel", .label = "SentinelSec", .statusText = "Shield Guard", .iconGlyph = "[S]", .enabled = true},
-        QuickToggle{.id = "nightlight", .label = "Night Light", .statusText = "Warm 4500K", .iconGlyph = "[N]", .enabled = false},
-        QuickToggle{.id = "focus", .label = "Focus Session", .statusText = "Quiet Hours", .iconGlyph = "[F]", .enabled = false},
-        QuickToggle{.id = "eco", .label = "Daytona Eco", .statusText = "Balanced", .iconGlyph = "[E]", .enabled = false},
-        QuickToggle{.id = "prism_audio", .label = "Prism Spatial", .statusText = "3D HRTF", .iconGlyph = "[A]", .enabled = true}
+        QuickToggle{.id = "mesh", .label = "RazzleNet Mesh", .statusText = "3 Nodes Active", .iconGlyph = "[M]", .iconId = IconId::NetBirdMesh, .enabled = true},
+        QuickToggle{.id = "sentinel", .label = "SentinelSec", .statusText = "Shield Guard", .iconGlyph = "[S]", .iconId = IconId::SentinelSec, .enabled = true},
+        QuickToggle{.id = "nightlight", .label = "Night Light", .statusText = "Warm 4500K", .iconGlyph = "[N]", .iconId = IconId::Clock, .enabled = false},
+        QuickToggle{.id = "focus", .label = "Focus Session", .statusText = "Quiet Hours", .iconGlyph = "[F]", .iconId = IconId::Clock, .enabled = false},
+        QuickToggle{.id = "eco", .label = "Daytona Eco", .statusText = "Balanced", .iconGlyph = "[E]", .iconId = IconId::BatteryCharging, .enabled = false},
+        QuickToggle{.id = "prism_audio", .label = "Prism Spatial", .statusText = "3D HRTF", .iconGlyph = "[A]", .iconId = IconId::VolumeHigh, .enabled = true}
     };
 }
 
@@ -161,7 +162,8 @@ void QuickSettingsFlyout::render(Surface& surface, const ThemePalette& theme) {
     // 3. Header: Title, Telemetry & Status
     surface.drawString(bounds_.x + 18, bounds_.y + 16, "Quick Controls", theme.textPrimary, 1);
     surface.drawString(bounds_.x + 18, bounds_.y + 32, "MicaNT Sentinel & Mesh Active", theme.accentColor, 1);
-    surface.drawString(bounds_.right() - 88, bounds_.y + 16, "100% [AC]", theme.accentSecondary, 1);
+    IconRenderer::draw(surface, IconId::BatteryCharging, Rect{bounds_.right() - 104, bounds_.y + 15, 14, 14}, theme.accentSecondary);
+    surface.drawString(bounds_.right() - 86, bounds_.y + 16, "100% AC", theme.accentSecondary, 1);
 
     surface.fillRect(Rect{bounds_.x + 16, bounds_.y + 52, bounds_.width - 32, 1}, Color::fromRgba(255, 255, 255, 25));
 
@@ -175,16 +177,18 @@ void QuickSettingsFlyout::render(Surface& surface, const ThemePalette& theme) {
         surface.drawRoundedRect(t.bounds, 8, bg, true);
         surface.drawRoundedRect(t.bounds, 8, border, false);
 
-        // Icon glyph
-        surface.drawString(t.bounds.x + 10, t.bounds.y + 14, t.iconGlyph, textCol, 1);
+        // Procedural vector icon
+        IconRenderer::draw(surface, t.iconId, Rect{t.bounds.x + 10, t.bounds.y + (t.bounds.height - 18) / 2, 18, 18}, textCol);
 
         // Label and status text
-        surface.drawString(t.bounds.x + 38, t.bounds.y + 10, t.label, textCol, 1);
-        surface.drawString(t.bounds.x + 38, t.bounds.y + 24, t.statusText, subCol, 1);
+        surface.drawString(t.bounds.x + 36, t.bounds.y + 10, t.label, textCol, 1);
+        surface.drawString(t.bounds.x + 36, t.bounds.y + 24, t.statusText, subCol, 1);
     }
 
     // 5. Volume Slider
-    surface.drawString(volumeSliderBounds_.x, volumeSliderBounds_.y - 12, "Volume (" + std::to_string(volume_) + "%)", theme.textSecondary, 1);
+    const IconId volIcon = (volume_ == 0) ? IconId::VolumeMute : IconId::VolumeHigh;
+    IconRenderer::draw(surface, volIcon, Rect{volumeSliderBounds_.x, volumeSliderBounds_.y - 14, 14, 14}, theme.textSecondary);
+    surface.drawString(volumeSliderBounds_.x + 18, volumeSliderBounds_.y - 12, "Volume (" + std::to_string(volume_) + "%)", theme.textSecondary, 1);
     surface.drawRoundedRect(volumeSliderBounds_, 6, Color::fromRgba(35, 50, 75, 220), true);
     const int32_t volFillWidth = static_cast<int32_t>((volumeSliderBounds_.width * volume_) / 100);
     if (volFillWidth > 0) {
@@ -195,7 +199,8 @@ void QuickSettingsFlyout::render(Surface& surface, const ThemePalette& theme) {
     surface.drawRoundedRect(Rect{volThumbX - 4, volumeSliderBounds_.y - 2, 8, volumeSliderBounds_.height + 4}, 4, theme.textPrimary, true);
 
     // 6. Brightness Slider
-    surface.drawString(brightnessSliderBounds_.x, brightnessSliderBounds_.y - 12, "Brightness (" + std::to_string(brightness_) + "%)", theme.textSecondary, 1);
+    IconRenderer::draw(surface, IconId::StartPrism, Rect{brightnessSliderBounds_.x, brightnessSliderBounds_.y - 14, 14, 14}, Color::fromHex(0xFFB900));
+    surface.drawString(brightnessSliderBounds_.x + 18, brightnessSliderBounds_.y - 12, "Brightness (" + std::to_string(brightness_) + "%)", theme.textSecondary, 1);
     surface.drawRoundedRect(brightnessSliderBounds_, 6, Color::fromRgba(35, 50, 75, 220), true);
     const int32_t brightFillWidth = static_cast<int32_t>((brightnessSliderBounds_.width * brightness_) / 100);
     if (brightFillWidth > 0) {
@@ -212,7 +217,8 @@ void QuickSettingsFlyout::render(Surface& surface, const ThemePalette& theme) {
     // Settings Button
     surface.drawRoundedRect(settingsButtonBounds_, 6, theme.startCardBg, true);
     surface.drawRoundedRect(settingsButtonBounds_, 6, theme.startCardBorder, false);
-    surface.drawString(settingsButtonBounds_.x + 8, settingsButtonBounds_.y + 8, "Settings", theme.textPrimary, 1);
+    IconRenderer::draw(surface, IconId::Settings, Rect{settingsButtonBounds_.x + 8, settingsButtonBounds_.y + 5, 16, 16}, theme.textPrimary);
+    surface.drawString(settingsButtonBounds_.x + 28, settingsButtonBounds_.y + 8, "Settings", theme.textPrimary, 1);
 }
 
 } // namespace surshell

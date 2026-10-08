@@ -5,6 +5,7 @@
 
 #include "surshell/window_manager.hpp"
 #include "surshell/theme.hpp"
+#include "surshell/icons.hpp"
 
 namespace surshell {
 
@@ -95,12 +96,13 @@ Rect WindowManager::availableWorkspace() const noexcept {
     return Rect{0, 0, static_cast<int32_t>(screenWidth_), static_cast<int32_t>(screenHeight_) - taskbarHeight_};
 }
 
-uint32_t WindowManager::createWindow(std::string title, Rect bounds, std::string glyph) {
+uint32_t WindowManager::createWindow(std::string title, Rect bounds, std::string glyph, IconId iconId) {
     const uint32_t id = nextWindowId_++;
     auto win = std::make_unique<WindowFrame>();
     win->id = id;
     win->title = std::move(title);
     win->iconGlyph = std::move(glyph);
+    win->iconId = iconId;
     win->normalBounds = bounds;
     win->currentBounds = bounds;
     win->state = WindowState::Normal;
@@ -693,25 +695,37 @@ void WindowManager::render(Surface& surface) {
             surface.drawVerticalGradient(capRect, Color::fromRgba(25, 38, 62, 230), Color::fromRgba(16, 24, 40, 230));
         }
 
-        // Icon Glyph
-        surface.drawString(capRect.x + 10, capRect.y + 10, win->iconGlyph, palette.accentColor, 1);
+        // Procedural Vector Icon in Caption
+        IconRenderer::draw(surface, win->iconId, Rect{capRect.x + 10, capRect.y + (capRect.height - 16) / 2, 16, 16}, palette.accentColor);
 
         // Window Title
-        surface.drawString(capRect.x + 36, capRect.y + 10, win->title, palette.textPrimary, 1);
+        surface.drawString(capRect.x + 32, capRect.y + 10, win->title, palette.textPrimary, 1);
 
-        // 4. Caption Buttons: Minimize [_], Maximize [[]], Close [X]
+        // 4. Caption Buttons: Minimize, Maximize, Close
         Rect minBtn = win->minButtonBounds();
         Rect maxBtn = win->maxButtonBounds();
         Rect closeBtn = win->closeButtonBounds();
 
+        // Minimize Button
         surface.drawRoundedRect(minBtn, metrics.buttonCornerRadius, Color::fromRgba(35, 48, 72, 180), true);
-        surface.drawString(minBtn.x + 10, minBtn.y + 8, "_", palette.textSecondary, 1);
+        const int32_t minLineY = minBtn.y + minBtn.height / 2 + 2;
+        surface.fillRect(Rect{minBtn.x + 8, minLineY, minBtn.width - 16, 2}, palette.textSecondary);
 
+        // Maximize Button
         surface.drawRoundedRect(maxBtn, metrics.buttonCornerRadius, Color::fromRgba(35, 48, 72, 180), true);
-        surface.drawString(maxBtn.x + 8, maxBtn.y + 8, "[]", palette.textSecondary, 1);
+        surface.drawRect(Rect{maxBtn.x + 8, maxBtn.y + 7, maxBtn.width - 16, maxBtn.height - 14}, palette.textSecondary);
 
+        // Close Button
         surface.drawRoundedRect(closeBtn, metrics.buttonCornerRadius, Color::fromRgba(180, 35, 45, 180), true);
-        surface.drawString(closeBtn.x + 10, closeBtn.y + 8, "X", Color::fromHex(0xFFFFFF), 1);
+        const int32_t cx1 = closeBtn.x + 9;
+        const int32_t cy1 = closeBtn.y + 7;
+        const int32_t span = std::min(closeBtn.width - 18, closeBtn.height - 14);
+        for (int32_t i = 0; i < span; ++i) {
+            surface.putPixel(cx1 + i, cy1 + i, Color::fromHex(0xFFFFFF));
+            surface.putPixel(cx1 + i + 1, cy1 + i, Color::fromHex(0xFFFFFF));
+            surface.putPixel(cx1 + span - 1 - i, cy1 + i, Color::fromHex(0xFFFFFF));
+            surface.putPixel(cx1 + span - i, cy1 + i, Color::fromHex(0xFFFFFF));
+        }
 
         // 5. Client Area
         Rect clientRect = win->clientAreaBounds();

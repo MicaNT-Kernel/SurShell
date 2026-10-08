@@ -5,6 +5,7 @@
 
 #include "surshell/start_menu.hpp"
 #include "surshell/theme.hpp"
+#include "surshell/icons.hpp"
 
 namespace surshell {
 
@@ -273,14 +274,14 @@ void StartMenu::render(Surface& surface, Rect menuBounds) {
     surface.drawRoundedRect(searchBox, 10, palette.startMenuSearchBg, true);
     surface.drawRoundedRect(searchBox, 10, palette.startMenuSearchBorder, false);
 
-    // Search Icon glyph
-    surface.drawString(searchBox.x + 14, searchBox.y + 16, "?", palette.accentColor, 1);
+    // Search Icon from IconPack
+    IconRenderer::draw(surface, IconId::Search, Rect{searchBox.x + 12, searchBox.y + 12, 16, 16}, palette.accentColor);
 
     if (searchQuery_.empty()) {
-        surface.drawString(searchBox.x + 32, searchBox.y + 16, "Search MicaNT apps, settings, commands...", palette.textDisabled, 1);
+        surface.drawString(searchBox.x + 36, searchBox.y + 16, "Search MicaNT apps, settings, commands...", palette.textDisabled, 1);
     } else {
         std::string displayQuery = searchQuery_ + "|";
-        surface.drawString(searchBox.x + 32, searchBox.y + 16, displayQuery, palette.textPrimary, 1);
+        surface.drawString(searchBox.x + 36, searchBox.y + 16, displayQuery, palette.textPrimary, 1);
     }
 
     // 4. Section Label with subtle accent divider
@@ -308,26 +309,12 @@ void StartMenu::render(Surface& surface, Rect menuBounds) {
         surface.drawRoundedRect(cardRect, 8, cardBg, true);
         surface.drawRoundedRect(cardRect, 8, borderCol, false);
 
-        // Procedural Vector Icon Tile (34x34)
+        // Procedural Vector Icon from Sovereign IconPack (34x34)
         Rect iconTile{cardRect.x + 8, cardRect.y + 10, 34, 34};
-        if (app.id == "explorer") {
-            surface.drawVectorFolder(iconTile, Color::fromHex(0x1E88E5), Color::fromHex(0x64B5F6));
-        } else if (app.id == "cmd") {
-            surface.drawVectorTerminal(iconTile, Color::fromHex(0x10141E), palette.accentColor);
-        } else if (app.id == "taskmgr") {
-            surface.drawVectorTaskMgr(iconTile, Color::fromHex(0x141A28), Color::fromHex(0x00FF9D));
-        } else if (app.id == "sentinel") {
-            surface.drawVectorShield(iconTile, Color::fromHex(0x2E7D32), Color::fromHex(0x81C784));
-        } else if (app.id == "netbird") {
-            surface.drawVectorMesh(iconTile, Color::fromHex(0x00D4FF), Color::fromHex(0x006699));
-        } else if (app.id == "settings") {
-            surface.drawVectorGear(iconTile, Color::fromHex(0x78909C));
-        } else if (app.id == "prismx") {
-            surface.drawVectorPrismIcon(iconTile, palette.accentColor);
-        } else {
-            surface.drawRoundedRect(iconTile, 6, Color::fromRgba(30, 42, 65, 220), true);
-            surface.drawString(iconTile.x + 8, iconTile.y + 12, app.iconGlyph, palette.accentColor, 1);
-        }
+        surface.drawRoundedRect(iconTile, 6, Color::fromRgba(25, 36, 56, 200), true);
+        surface.drawRoundedRect(iconTile, 6, Color::fromRgba(48, 68, 104, 140), false);
+        const Rect innerIcon{iconTile.x + 3, iconTile.y + 3, 28, 28};
+        IconRenderer::draw(surface, IconRenderer::iconForAppId(app.id), innerIcon);
 
         // App Title
         surface.drawString(cardRect.x + 50, cardRect.y + 14, app.title, palette.textPrimary, 1);

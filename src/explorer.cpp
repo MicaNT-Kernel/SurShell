@@ -250,6 +250,7 @@ void FileExplorer::refreshCurrentDirectory() {
                 .dateModified = "Recent",
                 .typeDescription = isDir ? "File folder" : (ext.empty() ? "File" : (ext.substr(1) + " File")),
                 .iconGlyph = getFileIconGlyph(ext, isDir),
+                .iconId = IconRenderer::iconForExtension(ext, isDir),
                 .bounds = Rect{},
                 .selected = false
             });
@@ -260,30 +261,30 @@ void FileExplorer::refreshCurrentDirectory() {
     // Sovereign fallback if directory cannot be read or in mock test environment
     if (!traversedReal || tab.allItems.empty()) {
         if (tab.currentPath == "C:\\" || tab.currentPath == "C:") {
-            tab.allItems.push_back(FileItem{.name = "Windows", .fullPath = "C:\\Windows", .isDirectory = true, .iconGlyph = "[D]"});
-            tab.allItems.push_back(FileItem{.name = "Users", .fullPath = "C:\\Users", .isDirectory = true, .iconGlyph = "[D]"});
-            tab.allItems.push_back(FileItem{.name = "Program Files", .fullPath = "C:\\Program Files", .isDirectory = true, .iconGlyph = "[D]"});
-            tab.allItems.push_back(FileItem{.name = "source", .fullPath = "C:\\source", .isDirectory = true, .iconGlyph = "[D]"});
-            tab.allItems.push_back(FileItem{.name = "boot.ini", .fullPath = "C:\\boot.ini", .extension = ".ini", .isDirectory = false, .sizeBytes = 512, .iconGlyph = "[T]"});
-            tab.allItems.push_back(FileItem{.name = "pagefile.sys", .fullPath = "C:\\pagefile.sys", .extension = ".sys", .isDirectory = false, .sizeBytes = 2147483648ULL, .iconGlyph = "[L]"});
+            tab.allItems.push_back(FileItem{.name = "Windows", .fullPath = "C:\\Windows", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "Users", .fullPath = "C:\\Users", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "Program Files", .fullPath = "C:\\Program Files", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "source", .fullPath = "C:\\source", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "boot.ini", .fullPath = "C:\\boot.ini", .extension = ".ini", .isDirectory = false, .sizeBytes = 512, .iconGlyph = "[T]", .iconId = IconId::FileText});
+            tab.allItems.push_back(FileItem{.name = "pagefile.sys", .fullPath = "C:\\pagefile.sys", .extension = ".sys", .isDirectory = false, .sizeBytes = 2147483648ULL, .iconGlyph = "[L]", .iconId = IconId::FileLibrary});
         } else if (tab.currentPath == "C:\\Windows") {
-            tab.allItems.push_back(FileItem{.name = "System32", .fullPath = "C:\\Windows\\System32", .isDirectory = true, .iconGlyph = "[D]"});
-            tab.allItems.push_back(FileItem{.name = "SysWOW64", .fullPath = "C:\\Windows\\SysWOW64", .isDirectory = true, .iconGlyph = "[D]"});
-            tab.allItems.push_back(FileItem{.name = "explorer.exe", .fullPath = "C:\\Windows\\explorer.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 384000, .iconGlyph = "[X]"});
-            tab.allItems.push_back(FileItem{.name = "notepad.exe", .fullPath = "C:\\Windows\\notepad.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 192000, .iconGlyph = "[X]"});
-            tab.allItems.push_back(FileItem{.name = "win.ini", .fullPath = "C:\\Windows\\win.ini", .extension = ".ini", .isDirectory = false, .sizeBytes = 1024, .iconGlyph = "[T]"});
+            tab.allItems.push_back(FileItem{.name = "System32", .fullPath = "C:\\Windows\\System32", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "SysWOW64", .fullPath = "C:\\Windows\\SysWOW64", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "explorer.exe", .fullPath = "C:\\Windows\\explorer.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 384000, .iconGlyph = "[X]", .iconId = IconId::FileExecutable});
+            tab.allItems.push_back(FileItem{.name = "notepad.exe", .fullPath = "C:\\Windows\\notepad.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 192000, .iconGlyph = "[X]", .iconId = IconId::FileExecutable});
+            tab.allItems.push_back(FileItem{.name = "win.ini", .fullPath = "C:\\Windows\\win.ini", .extension = ".ini", .isDirectory = false, .sizeBytes = 1024, .iconGlyph = "[T]", .iconId = IconId::FileText});
         } else if (tab.currentPath == "C:\\Windows\\System32") {
-            tab.allItems.push_back(FileItem{.name = "kernel32.dll", .fullPath = "C:\\Windows\\System32\\kernel32.dll", .extension = ".dll", .isDirectory = false, .sizeBytes = 840000, .iconGlyph = "[L]"});
-            tab.allItems.push_back(FileItem{.name = "user32.dll", .fullPath = "C:\\Windows\\System32\\user32.dll", .extension = ".dll", .isDirectory = false, .sizeBytes = 920000, .iconGlyph = "[L]"});
-            tab.allItems.push_back(FileItem{.name = "csrss.exe", .fullPath = "C:\\Windows\\System32\\csrss.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 145000, .iconGlyph = "[X]"});
-            tab.allItems.push_back(FileItem{.name = "conhost.exe", .fullPath = "C:\\Windows\\System32\\conhost.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 320000, .iconGlyph = "[X]"});
-            tab.allItems.push_back(FileItem{.name = "cmd.exe", .fullPath = "C:\\Windows\\System32\\cmd.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 280000, .iconGlyph = "[X]"});
-            tab.allItems.push_back(FileItem{.name = "sentinel.dll", .fullPath = "C:\\Windows\\System32\\sentinel.dll", .extension = ".dll", .isDirectory = false, .sizeBytes = 210000, .iconGlyph = "[L]"});
+            tab.allItems.push_back(FileItem{.name = "kernel32.dll", .fullPath = "C:\\Windows\\System32\\kernel32.dll", .extension = ".dll", .isDirectory = false, .sizeBytes = 840000, .iconGlyph = "[L]", .iconId = IconId::FileLibrary});
+            tab.allItems.push_back(FileItem{.name = "user32.dll", .fullPath = "C:\\Windows\\System32\\user32.dll", .extension = ".dll", .isDirectory = false, .sizeBytes = 920000, .iconGlyph = "[L]", .iconId = IconId::FileLibrary});
+            tab.allItems.push_back(FileItem{.name = "csrss.exe", .fullPath = "C:\\Windows\\System32\\csrss.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 145000, .iconGlyph = "[X]", .iconId = IconId::FileExecutable});
+            tab.allItems.push_back(FileItem{.name = "conhost.exe", .fullPath = "C:\\Windows\\System32\\conhost.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 320000, .iconGlyph = "[X]", .iconId = IconId::FileExecutable});
+            tab.allItems.push_back(FileItem{.name = "cmd.exe", .fullPath = "C:\\Windows\\System32\\cmd.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 280000, .iconGlyph = "[X]", .iconId = IconId::FileExecutable});
+            tab.allItems.push_back(FileItem{.name = "sentinel.dll", .fullPath = "C:\\Windows\\System32\\sentinel.dll", .extension = ".dll", .isDirectory = false, .sizeBytes = 210000, .iconGlyph = "[L]", .iconId = IconId::FileLibrary});
         } else {
-            tab.allItems.push_back(FileItem{.name = "Desktop", .fullPath = tab.currentPath + "\\Desktop", .isDirectory = true, .iconGlyph = "[D]"});
-            tab.allItems.push_back(FileItem{.name = "Documents", .fullPath = tab.currentPath + "\\Documents", .isDirectory = true, .iconGlyph = "[D]"});
-            tab.allItems.push_back(FileItem{.name = "Downloads", .fullPath = tab.currentPath + "\\Downloads", .isDirectory = true, .iconGlyph = "[D]"});
-            tab.allItems.push_back(FileItem{.name = "source", .fullPath = tab.currentPath + "\\source", .isDirectory = true, .iconGlyph = "[D]"});
+            tab.allItems.push_back(FileItem{.name = "Desktop", .fullPath = tab.currentPath + "\\Desktop", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "Documents", .fullPath = tab.currentPath + "\\Documents", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "Downloads", .fullPath = tab.currentPath + "\\Downloads", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "source", .fullPath = tab.currentPath + "\\source", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
         }
     }
 
@@ -442,26 +443,26 @@ void FileExplorer::openContextMenu(Point pt, bool forItem) {
     contextMenu_.hoveredIndex = -1;
 
     if (forItem) {
-        contextMenu_.items.push_back(ContextMenuItem{.id = "open", .label = "Open", .shortcut = "Enter", .iconGlyph = "[>]"});
-        contextMenu_.items.push_back(ContextMenuItem{.id = "terminal", .label = "Open in Terminal", .shortcut = "", .iconGlyph = ">_"});
-        contextMenu_.items.push_back(ContextMenuItem{.id = "editor", .label = "Open with Editor", .shortcut = "", .iconGlyph = "[E]"});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "open", .label = "Open", .shortcut = "Enter", .iconGlyph = "[>]", .iconId = IconId::NavForward});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "terminal", .label = "Open in Terminal", .shortcut = "", .iconGlyph = ">_", .iconId = IconId::Terminal});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "editor", .label = "Open with Editor", .shortcut = "", .iconGlyph = "[E]", .iconId = IconId::Edit});
         contextMenu_.items.push_back(ContextMenuItem{.isSeparator = true});
-        contextMenu_.items.push_back(ContextMenuItem{.id = "copy_path", .label = "Copy Full Path", .shortcut = "Ctrl+C", .iconGlyph = "[C]"});
-        contextMenu_.items.push_back(ContextMenuItem{.id = "delete", .label = "Delete", .shortcut = "Del", .iconGlyph = "[X]"});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "copy_path", .label = "Copy Full Path", .shortcut = "Ctrl+C", .iconGlyph = "[C]", .iconId = IconId::Copy});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "delete", .label = "Delete", .shortcut = "Del", .iconGlyph = "[X]", .iconId = IconId::Delete});
         contextMenu_.items.push_back(ContextMenuItem{.isSeparator = true});
-        contextMenu_.items.push_back(ContextMenuItem{.id = "properties", .label = "Properties", .shortcut = "Alt+Enter", .iconGlyph = "[*]"});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "properties", .label = "Properties", .shortcut = "Alt+Enter", .iconGlyph = "[*]", .iconId = IconId::Properties});
     } else {
-        contextMenu_.items.push_back(ContextMenuItem{.id = "view_list", .label = "View: Details List", .shortcut = "", .iconGlyph = "[=]"});
-        contextMenu_.items.push_back(ContextMenuItem{.id = "view_grid", .label = "View: Tiles Grid", .shortcut = "", .iconGlyph = "[#]"});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "view_list", .label = "View: Details List", .shortcut = "", .iconGlyph = "[=]", .iconId = IconId::ViewList});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "view_grid", .label = "View: Tiles Grid", .shortcut = "", .iconGlyph = "[#]", .iconId = IconId::ViewGrid});
         contextMenu_.items.push_back(ContextMenuItem{.isSeparator = true});
-        contextMenu_.items.push_back(ContextMenuItem{.id = "sort_name", .label = "Sort by: Name", .shortcut = "", .iconGlyph = " A "});
-        contextMenu_.items.push_back(ContextMenuItem{.id = "sort_date", .label = "Sort by: Date Modified", .shortcut = "", .iconGlyph = " D "});
-        contextMenu_.items.push_back(ContextMenuItem{.id = "sort_type", .label = "Sort by: Type", .shortcut = "", .iconGlyph = " T "});
-        contextMenu_.items.push_back(ContextMenuItem{.id = "sort_size", .label = "Sort by: Size", .shortcut = "", .iconGlyph = " S "});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "sort_name", .label = "Sort by: Name", .shortcut = "", .iconGlyph = " A ", .iconId = IconId::SortAsc});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "sort_date", .label = "Sort by: Date Modified", .shortcut = "", .iconGlyph = " D ", .iconId = IconId::SortAsc});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "sort_type", .label = "Sort by: Type", .shortcut = "", .iconGlyph = " T ", .iconId = IconId::SortAsc});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "sort_size", .label = "Sort by: Size", .shortcut = "", .iconGlyph = " S ", .iconId = IconId::SortDesc});
         contextMenu_.items.push_back(ContextMenuItem{.isSeparator = true});
-        contextMenu_.items.push_back(ContextMenuItem{.id = "new_folder", .label = "New Folder", .shortcut = "Ctrl+Shift+N", .iconGlyph = "[+]"});
-        contextMenu_.items.push_back(ContextMenuItem{.id = "refresh", .label = "Refresh", .shortcut = "F5", .iconGlyph = " R "});
-        contextMenu_.items.push_back(ContextMenuItem{.id = "open_terminal", .label = "Open Terminal Here", .shortcut = "", .iconGlyph = ">_"});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "new_folder", .label = "New Folder", .shortcut = "Ctrl+Shift+N", .iconGlyph = "[+]", .iconId = IconId::NewFolder});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "refresh", .label = "Refresh", .shortcut = "F5", .iconGlyph = " R ", .iconId = IconId::NavRefresh});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "open_terminal", .label = "Open Terminal Here", .shortcut = "", .iconGlyph = ">_", .iconId = IconId::Terminal});
     }
 
     constexpr int32_t itemH = 26;
@@ -875,10 +876,10 @@ void FileExplorer::render(Surface& clientSurface) {
         clientSurface.drawRoundedRect(tab.tabBounds, 6, tabBorder, false);
 
         // Tab Folder Icon & Title
-        clientSurface.drawString(tab.tabBounds.x + 8, tab.tabBounds.y + 7, "[D]", Color::fromHex(0xFFD700), 1);
+        IconRenderer::draw(clientSurface, IconId::Folder, Point{tab.tabBounds.x + 8, tab.tabBounds.y + 5}, 16);
         std::string shortTitle = tab.title;
         if (shortTitle.length() > 14) shortTitle = shortTitle.substr(0, 12) + "..";
-        clientSurface.drawString(tab.tabBounds.x + 30, tab.tabBounds.y + 7, shortTitle, isActive ? palette.textPrimary : palette.textSecondary, 1);
+        clientSurface.drawString(tab.tabBounds.x + 28, tab.tabBounds.y + 7, shortTitle, isActive ? palette.textPrimary : palette.textSecondary, 1);
 
         // Tab Close Button [x]
         tab.closeButtonBounds = Rect{tab.tabBounds.right() - 20, tab.tabBounds.y + 5, 14, 14};
@@ -905,16 +906,16 @@ void FileExplorer::render(Surface& clientSurface) {
     navRefreshBtn_ = Rect{98, 36, 26, 24};
 
     clientSurface.drawRoundedRect(navBackBtn_, 4, Color::fromRgba(32, 45, 68, 200), true);
-    clientSurface.drawString(navBackBtn_.x + 8, navBackBtn_.y + 6, "<", palette.textPrimary, 1);
+    IconRenderer::draw(clientSurface, IconId::NavBack, Point{navBackBtn_.x + 5, navBackBtn_.y + 4}, 16);
 
     clientSurface.drawRoundedRect(navFwdBtn_, 4, Color::fromRgba(32, 45, 68, 200), true);
-    clientSurface.drawString(navFwdBtn_.x + 8, navFwdBtn_.y + 6, ">", palette.textPrimary, 1);
+    IconRenderer::draw(clientSurface, IconId::NavForward, Point{navFwdBtn_.x + 5, navFwdBtn_.y + 4}, 16);
 
     clientSurface.drawRoundedRect(navUpBtn_, 4, Color::fromRgba(32, 45, 68, 200), true);
-    clientSurface.drawString(navUpBtn_.x + 8, navUpBtn_.y + 6, "^", palette.textPrimary, 1);
+    IconRenderer::draw(clientSurface, IconId::NavUp, Point{navUpBtn_.x + 5, navUpBtn_.y + 4}, 16);
 
     clientSurface.drawRoundedRect(navRefreshBtn_, 4, Color::fromRgba(32, 45, 68, 200), true);
-    clientSurface.drawString(navRefreshBtn_.x + 8, navRefreshBtn_.y + 6, "R", palette.accentColor, 1);
+    IconRenderer::draw(clientSurface, IconId::NavRefresh, Point{navRefreshBtn_.x + 5, navRefreshBtn_.y + 4}, 16);
 
     // Breadcrumb Address Bar
     const int32_t searchW = 180;
@@ -948,10 +949,12 @@ void FileExplorer::render(Surface& clientSurface) {
     clientSurface.drawRoundedRect(searchBoxBounds_, 4, Color::fromRgba(25, 36, 58, 240), true);
     clientSurface.drawRoundedRect(searchBoxBounds_, 4, searchBoxFocused_ ? palette.accentColor : Color::fromRgba(60, 85, 125, 160), false);
 
+    IconRenderer::draw(clientSurface, IconId::Search, Point{searchBoxBounds_.x + 6, searchBoxBounds_.y + 4}, 16, palette.textDisabled);
+
     if (searchQuery().empty()) {
-        clientSurface.drawString(searchBoxBounds_.x + 8, searchBoxBounds_.y + 6, "? Search files...", palette.textDisabled, 1);
+        clientSurface.drawString(searchBoxBounds_.x + 26, searchBoxBounds_.y + 6, "Search files...", palette.textDisabled, 1);
     } else {
-        clientSurface.drawString(searchBoxBounds_.x + 8, searchBoxBounds_.y + 6, searchQuery() + "|", palette.textPrimary, 1);
+        clientSurface.drawString(searchBoxBounds_.x + 26, searchBoxBounds_.y + 6, searchQuery() + "|", palette.textPrimary, 1);
     }
 
     // ------------------------------------------------------------------------
@@ -960,18 +963,21 @@ void FileExplorer::render(Surface& clientSurface) {
     clientSurface.fillRect(Rect{0, 66, width, 32}, Color::fromRgba(16, 22, 36, 240));
     clientSurface.fillRect(Rect{0, 97, width, 1}, Color::fromRgba(38, 52, 78, 160));
 
-    cmdNewFolder_ = Rect{8, 70, 100, 24};
-    cmdDelete_ = Rect{114, 70, 78, 24};
-    cmdViewToggle_ = Rect{198, 70, 94, 24};
+    cmdNewFolder_ = Rect{8, 70, 110, 24};
+    cmdDelete_ = Rect{124, 70, 82, 24};
+    cmdViewToggle_ = Rect{212, 70, 96, 24};
 
     clientSurface.drawRoundedRect(cmdNewFolder_, 4, Color::fromRgba(28, 40, 64, 180), true);
-    clientSurface.drawString(cmdNewFolder_.x + 8, cmdNewFolder_.y + 6, "+ New Folder", palette.accentColor, 1);
+    IconRenderer::draw(clientSurface, IconId::NewFolder, Point{cmdNewFolder_.x + 6, cmdNewFolder_.y + 4}, 16);
+    clientSurface.drawString(cmdNewFolder_.x + 26, cmdNewFolder_.y + 6, "New Folder", palette.accentColor, 1);
 
     clientSurface.drawRoundedRect(cmdDelete_, 4, Color::fromRgba(28, 40, 64, 180), true);
-    clientSurface.drawString(cmdDelete_.x + 8, cmdDelete_.y + 6, "Delete", Color::fromHex(0xFF6B6B), 1);
+    IconRenderer::draw(clientSurface, IconId::Delete, Point{cmdDelete_.x + 6, cmdDelete_.y + 4}, 16);
+    clientSurface.drawString(cmdDelete_.x + 26, cmdDelete_.y + 6, "Delete", Color::fromHex(0xFF6B6B), 1);
 
     clientSurface.drawRoundedRect(cmdViewToggle_, 4, Color::fromRgba(28, 40, 64, 180), true);
-    clientSurface.drawString(cmdViewToggle_.x + 8, cmdViewToggle_.y + 6, viewMode_ == ExplorerViewMode::DetailsList ? "View: List" : "View: Grid", palette.textSecondary, 1);
+    IconRenderer::draw(clientSurface, viewMode_ == ExplorerViewMode::DetailsList ? IconId::ViewGrid : IconId::ViewList, Point{cmdViewToggle_.x + 6, cmdViewToggle_.y + 4}, 16);
+    clientSurface.drawString(cmdViewToggle_.x + 26, cmdViewToggle_.y + 6, viewMode_ == ExplorerViewMode::DetailsList ? "View: Grid" : "View: List", palette.textSecondary, 1);
 
     // ------------------------------------------------------------------------
     // Layer 4: Left Sidebar (Quick Access & Drive Cards)
@@ -989,18 +995,24 @@ void FileExplorer::render(Surface& clientSurface) {
     clientSurface.drawString(12, sideY, "QUICK ACCESS", palette.accentColor, 1);
     sideY += 18;
 
-    const std::pair<const char*, const char*> pins[] = {
-        {"[P] This PC", "This PC"},
-        {"[*] Desktop", "C:\\Users\\admin\\Desktop"},
-        {"[D] Documents", "C:\\Users\\admin\\Documents"},
-        {"[F] Downloads", "C:\\Users\\admin\\Downloads"},
-        {"[C] Source / Repos", "C:\\Users\\admin\\source"}
+    struct QuickPin {
+        const char* label;
+        const char* targetPath;
+        IconId iconId;
+    };
+    const QuickPin pins[] = {
+        {"This PC", "This PC", IconId::ThisPC},
+        {"Desktop", "C:\\Users\\admin\\Desktop", IconId::DriveStorage},
+        {"Documents", "C:\\Users\\admin\\Documents", IconId::Folder},
+        {"Downloads", "C:\\Users\\admin\\Downloads", IconId::Folder},
+        {"Source / Repos", "C:\\Users\\admin\\source", IconId::FileCode}
     };
 
     for (const auto& pin : pins) {
         Rect pinRect{8, sideY, sidebarW - 16, 22};
-        sidebarQuickPins_.push_back({pin.second, pinRect});
-        clientSurface.drawString(pinRect.x + 6, pinRect.y + 4, pin.first, palette.textSecondary, 1);
+        sidebarQuickPins_.push_back({pin.targetPath, pinRect});
+        IconRenderer::draw(clientSurface, pin.iconId, Point{pinRect.x + 4, pinRect.y + 3}, 16);
+        clientSurface.drawString(pinRect.x + 24, pinRect.y + 4, pin.label, palette.textSecondary, 1);
         sideY += 24;
     }
 
@@ -1013,7 +1025,8 @@ void FileExplorer::render(Surface& clientSurface) {
         clientSurface.drawRoundedRect(drive.bounds, 4, Color::fromRgba(24, 34, 52, 180), true);
         clientSurface.drawRoundedRect(drive.bounds, 4, Color::fromRgba(48, 68, 104, 140), false);
 
-        clientSurface.drawString(drive.bounds.x + 6, drive.bounds.y + 6, drive.label, palette.textPrimary, 1);
+        IconRenderer::draw(clientSurface, (drive.rootPath[0] == 'C' ? IconId::LocalDisk : IconId::DriveStorage), Point{drive.bounds.x + 6, drive.bounds.y + 5}, 16);
+        clientSurface.drawString(drive.bounds.x + 26, drive.bounds.y + 6, drive.label, palette.textPrimary, 1);
 
         // Capacity Bar
         Rect barRect{drive.bounds.x + 6, drive.bounds.y + 24, drive.bounds.width - 12, 6};
@@ -1039,6 +1052,8 @@ void FileExplorer::render(Surface& clientSurface) {
     const int32_t contentX = sidebarW + 12;
     const int32_t contentW = width - contentX - 16;
     const int32_t viewportH = mainContentH - 24;
+
+    clientSurface.fillRect(Rect{sidebarW, mainContentY, width - sidebarW, mainContentH}, Color::fromHex(0x0C121D));
 
     if (activeTabIndex_ < tabs_.size()) {
         auto& tab = tabs_[activeTabIndex_];
@@ -1080,18 +1095,13 @@ void FileExplorer::render(Surface& clientSurface) {
                         clientSurface.drawRoundedRect(item.bounds, 4, Color::fromRgba(0, 212, 255, 160), false);
                     }
 
-                    // File icon glyph
-                    Color glyphCol = item.isDirectory ? Color::fromHex(0xFFD700) : palette.accentColor;
-                    if (item.extension == ".cpp" || item.extension == ".hpp") glyphCol = Color::fromHex(0x00FF9D);
-                    else if (item.extension == ".dll" || item.extension == ".sys") glyphCol = Color::fromHex(0x9C27B0);
-                    else if (item.extension == ".exe") glyphCol = Color::fromHex(0x00D4FF);
-
-                    clientSurface.drawString(item.bounds.x + 8, item.bounds.y + 6, item.iconGlyph, glyphCol, 1);
+                    // File vector icon
+                    IconRenderer::draw(clientSurface, item.iconId, Point{item.bounds.x + 8, item.bounds.y + 3}, 16);
 
                     // Name
                     std::string displayName = item.name;
                     if (displayName.length() > 30) displayName = displayName.substr(0, 28) + "..";
-                    clientSurface.drawString(item.bounds.x + 32, item.bounds.y + 6, displayName, palette.textPrimary, 1);
+                    clientSurface.drawString(item.bounds.x + 30, item.bounds.y + 6, displayName, palette.textPrimary, 1);
 
                     // Date modified
                     clientSurface.drawString(dateHeaderBounds_.x + 8, item.bounds.y + 6, item.dateModified, palette.textSecondary, 1);
@@ -1143,17 +1153,16 @@ void FileExplorer::render(Surface& clientSurface) {
                     clientSurface.drawRoundedRect(item.bounds, 6, tileBg, true);
                     clientSurface.drawRoundedRect(item.bounds, 6, tileBorder, false);
 
-                    // Icon
-                    Color glyphCol = item.isDirectory ? Color::fromHex(0xFFD700) : palette.accentColor;
-                    clientSurface.drawString(item.bounds.x + 10, item.bounds.y + 12, item.iconGlyph, glyphCol, 1);
+                    // Procedural Vector Icon (32x32)
+                    IconRenderer::draw(clientSurface, item.iconId, Point{item.bounds.x + 8, item.bounds.y + (tileH - 32) / 2}, 32);
 
                     // Name & size
                     std::string shortName = item.name;
                     if (shortName.length() > 14) shortName = shortName.substr(0, 12) + "..";
-                    clientSurface.drawString(item.bounds.x + 36, item.bounds.y + 12, shortName, palette.textPrimary, 1);
+                    clientSurface.drawString(item.bounds.x + 46, item.bounds.y + 14, shortName, palette.textPrimary, 1);
 
                     std::string subText = item.isDirectory ? "Folder" : formatBytes(item.sizeBytes);
-                    clientSurface.drawString(item.bounds.x + 36, item.bounds.y + 28, subText, palette.textSecondary, 1);
+                    clientSurface.drawString(item.bounds.x + 46, item.bounds.y + 32, subText, palette.textSecondary, 1);
                 }
 
                 tileX += tileW + tileGap;
@@ -1227,11 +1236,11 @@ void FileExplorer::render(Surface& clientSurface) {
                     clientSurface.drawRoundedRect(mItem.bounds, 4, Color::fromRgba(0, 212, 255, 45), true);
                 }
 
-                // Glyph
-                clientSurface.drawString(mItem.bounds.x + 8, mItem.bounds.y + 6, mItem.iconGlyph, palette.accentColor, 1);
+                // Vector Icon
+                IconRenderer::draw(clientSurface, mItem.iconId, Point{mItem.bounds.x + 6, mItem.bounds.y + 4}, 16);
 
                 // Label
-                clientSurface.drawString(mItem.bounds.x + 32, mItem.bounds.y + 6, mItem.label, palette.textPrimary, 1);
+                clientSurface.drawString(mItem.bounds.x + 28, mItem.bounds.y + 6, mItem.label, palette.textPrimary, 1);
 
                 // Shortcut hint
                 if (!mItem.shortcut.empty()) {
@@ -1269,10 +1278,10 @@ void FileExplorer::render(Surface& clientSurface) {
 
         // Icon + Name
         const auto& item = propertiesDialog_.item;
-        clientSurface.drawString(propertiesDialog_.bounds.x + 16, propertiesDialog_.bounds.y + 44, item.iconGlyph, Color::fromHex(0x00FF9D), 1);
+        IconRenderer::draw(clientSurface, item.iconId, Point{propertiesDialog_.bounds.x + 16, propertiesDialog_.bounds.y + 38}, 24);
         std::string nameTitle = item.name;
         if (nameTitle.length() > 28) nameTitle = nameTitle.substr(0, 26) + "..";
-        clientSurface.drawString(propertiesDialog_.bounds.x + 46, propertiesDialog_.bounds.y + 44, nameTitle, palette.textPrimary, 1);
+        clientSurface.drawString(propertiesDialog_.bounds.x + 48, propertiesDialog_.bounds.y + 44, nameTitle, palette.textPrimary, 1);
 
         // Fields
         int32_t fY = propertiesDialog_.bounds.y + 76;

@@ -20,6 +20,7 @@
 #include "quick_settings.hpp"
 #include "virtual_desktop.hpp"
 #include "kernel_bridge.hpp"
+#include "icons.hpp"
 
 namespace surshell {
 

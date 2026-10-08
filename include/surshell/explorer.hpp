@@ -15,6 +15,7 @@
 #include "compositor.hpp"
 #include "theme.hpp"
 #include "window_manager.hpp"
+#include "icons.hpp"
 #include <string>
 #include <string_view>
 #include <vector>
@@ -46,6 +47,7 @@ struct FileItem {
     std::string dateModified{};
     std::string typeDescription{};
     std::string iconGlyph{"[F]"};
+    IconId iconId{IconId::FileGeneric};
     Rect bounds{};
     bool selected{false};
 };
@@ -83,6 +85,7 @@ struct ContextMenuItem {
     std::string label;
     std::string shortcut;
     std::string iconGlyph;
+    IconId iconId{IconId::FileGeneric};
     bool isSeparator{false};
     bool isEnabled{true};
     Rect bounds{};

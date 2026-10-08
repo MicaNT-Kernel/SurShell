@@ -11,6 +11,7 @@
 #include "types.hpp"
 #include "compositor.hpp"
 #include "theme.hpp"
+#include "icons.hpp"
 #include <string>
 #include <vector>
 #include <functional>
@@ -22,6 +23,7 @@ struct QuickToggle {
     std::string label;
     std::string statusText;
     std::string iconGlyph;
+    IconId iconId{IconId::Settings};
     bool enabled{false};
     Rect bounds{};
 };

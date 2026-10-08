@@ -13,15 +13,16 @@ namespace surshell {
 
 SystemTray::SystemTray() {
     // Standard sovereign status icons
-    addIcon("security", "[SEC]", "Sentinel Security Authority: Active");
-    addIcon("rosenpass", "[PQ]", "Rosenpass Post-Quantum WireGuard: Enabled");
+    addIcon("security", "[SEC]", "Sentinel Security Authority: Active", IconId::SentinelSec);
+    addIcon("rosenpass", "[PQ]", "Rosenpass Post-Quantum WireGuard: Enabled", IconId::NetBirdMesh);
 }
 
-void SystemTray::addIcon(std::string id, std::string glyph, std::string tooltip) {
+void SystemTray::addIcon(std::string id, std::string glyph, std::string tooltip, std::optional<IconId> iconId) {
     icons_.push_back(TrayIcon{
         .id = std::move(id),
         .glyph = std::move(glyph),
         .tooltip = std::move(tooltip),
+        .iconId = iconId,
         .visible = true,
         .bounds = Rect{0, 0, 0, 0}
     });
@@ -86,8 +87,8 @@ int32_t SystemTray::preferredWidth() const noexcept {
     for (const auto& icon : icons_) {
         if (icon.visible) visibleIcons++;
     }
-    // Chevron (18px) + Quick Controls pill (100px) + Extra icons + Clock & Date pill (88px) + Show desktop (8px)
-    return static_cast<int32_t>(18 + 106 + visibleIcons * 28 + 92 + 10);
+    // Chevron (16px) + Quick Controls pill (82px) + Pill margin (8px) + Extra icons + Clock pill (88px) + Peek (10px)
+    return static_cast<int32_t>(16 + 82 + 8 + visibleIcons * 28 + 88 + 10);
 }
 
 void SystemTray::onMouseMove(Point pt) {
@@ -118,23 +119,23 @@ void SystemTray::render(Surface& surface, Rect trayRect) {
     const int32_t trayH = trayRect.height;
 
     // 1. Windows Hidden Icons Chevron [^]
-    surface.drawString(curX, trayRect.y + (trayH - 8) / 2, "^", palette.textSecondary, 1);
+    IconRenderer::draw(surface, IconId::NavUp, Point{curX, trayRect.y + (trayH - 12) / 2}, 12, palette.textSecondary);
     curX += 16;
 
     // 2. Windows 11 Quick Controls Pill (Network + Volume + Battery)
-    const Rect quickPillRect{curX, trayRect.y + 4, 102, trayH - 8};
+    const Rect quickPillRect{curX, trayRect.y + 4, 82, trayH - 8};
     surface.drawRoundedRect(quickPillRect, 6, Color::fromRgba(28, 38, 58, 160), true);
     surface.drawRoundedRect(quickPillRect, 6, Color::fromRgba(56, 76, 114, 120), false);
 
-    // Mesh glyph / text
+    // Network vector icon
     Color netColor = networkOnline_ ? palette.accentColor : Color::fromHex(0xFF4D4D);
-    surface.drawString(quickPillRect.x + 8, quickPillRect.y + 8, "NET", netColor, 1);
+    IconRenderer::draw(surface, IconId::NetworkOnline, Point{quickPillRect.x + 8, quickPillRect.y + (quickPillRect.height - 14) / 2}, 14, netColor);
 
-    // Volume level
-    surface.drawString(quickPillRect.x + 36, quickPillRect.y + 8, std::to_string(volumePercent_) + "%", palette.textPrimary, 1);
+    // Volume vector icon
+    IconRenderer::draw(surface, (volumePercent_ == 0 ? IconId::VolumeMute : IconId::VolumeHigh), Point{quickPillRect.x + 32, quickPillRect.y + (quickPillRect.height - 14) / 2}, 14, palette.textPrimary);
 
-    // Power / Battery
-    surface.drawString(quickPillRect.x + 68, quickPillRect.y + 8, "[AC]", Color::fromHex(0x00FF9D), 1);
+    // Power / Battery vector icon
+    IconRenderer::draw(surface, IconId::BatteryCharging, Point{quickPillRect.x + 56, quickPillRect.y + (quickPillRect.height - 14) / 2}, 16, Color::fromHex(0x00FF9D));
 
     curX = quickPillRect.right() + 8;
 
@@ -147,7 +148,11 @@ void SystemTray::render(Surface& surface, Rect trayRect) {
             surface.drawRoundedRect(icon.bounds, 4, Color::fromRgba(255, 255, 255, 25), true);
         }
 
-        surface.drawString(icon.bounds.x + 4, icon.bounds.y + 8, icon.glyph, palette.accentColor, 1);
+        if (icon.iconId.has_value()) {
+            IconRenderer::draw(surface, *icon.iconId, Point{icon.bounds.x + 5, icon.bounds.y + (icon.bounds.height - 16) / 2}, 16);
+        } else {
+            surface.drawString(icon.bounds.x + 4, icon.bounds.y + 8, icon.glyph, palette.accentColor, 1);
+        }
         curX += 28;
     }
 

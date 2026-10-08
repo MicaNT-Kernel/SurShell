@@ -19,8 +19,8 @@ SurShellDesktop::SurShellDesktop(uint32_t width, uint32_t height)
       quickSettings_(),
       virtualDesktops_(),
       kernelBridge_() {
-    setupDefaultEnvironment();
     wireSubsystemCallbacks();
+    setupDefaultEnvironment();
 }
 
 void SurShellDesktop::setScreenSize(uint32_t width, uint32_t height) {
@@ -44,7 +44,8 @@ void SurShellDesktop::setupDefaultEnvironment() {
         .label = "This PC",
         .executable = "C:\\Windows\\explorer.exe",
         .arguments = "",
-        .iconGlyph = "[P]"
+        .iconGlyph = "[P]",
+        .iconId = IconId::ThisPC
     });
 
     desktop_.addIcon(DesktopIcon{
@@ -52,7 +53,8 @@ void SurShellDesktop::setupDefaultEnvironment() {
         .label = "Terminal",
         .executable = "C:\\Windows\\System32\\cmd.exe",
         .arguments = "",
-        .iconGlyph = ">_"
+        .iconGlyph = ">_",
+        .iconId = IconId::Terminal
     });
 
     desktop_.addIcon(DesktopIcon{
@@ -60,7 +62,8 @@ void SurShellDesktop::setupDefaultEnvironment() {
         .label = "Explorer",
         .executable = "C:\\Windows\\explorer.exe",
         .arguments = "",
-        .iconGlyph = "[E]"
+        .iconGlyph = "[E]",
+        .iconId = IconId::FileExplorer
     });
 
     desktop_.addIcon(DesktopIcon{
@@ -68,7 +71,8 @@ void SurShellDesktop::setupDefaultEnvironment() {
         .label = "Sentinel",
         .executable = "C:\\Program Files\\Sentinel\\sentinel.exe",
         .arguments = "",
-        .iconGlyph = "[S]"
+        .iconGlyph = "[S]",
+        .iconId = IconId::SentinelSec
     });
 
     desktop_.addIcon(DesktopIcon{
@@ -76,7 +80,8 @@ void SurShellDesktop::setupDefaultEnvironment() {
         .label = "Settings",
         .executable = "C:\\Windows\\System32\\control.exe",
         .arguments = "",
-        .iconGlyph = "[*]"
+        .iconGlyph = "[*]",
+        .iconId = IconId::Settings
     });
 
     // 3. Spawn Initial Sovereign Windows: Command Prompt & File Explorer
@@ -89,7 +94,7 @@ void SurShellDesktop::setupDefaultEnvironment() {
 }
 
 uint32_t SurShellDesktop::openFileExplorerWindow(std::string path) {
-    const uint32_t winExp = windowManager_.createWindow("File Explorer - " + path, Rect{440, 130, 720, 460}, "[E]");
+    const uint32_t winExp = windowManager_.createWindow("File Explorer - " + path, Rect{440, 130, 720, 460}, "[E]", IconId::FileExplorer);
     virtualDesktops_.assignWindowToDesktop(winExp, virtualDesktops_.activeIndex());
     auto* expWin = windowManager_.findWindow(winExp);
     if (expWin) {
@@ -99,7 +104,7 @@ uint32_t SurShellDesktop::openFileExplorerWindow(std::string path) {
             auto* w = windowManager_.findWindow(winExp);
             if (w) {
                 w->title = "File Explorer - " + newPath;
-                taskbar_.addOrUpdateTask(winExp, w->title, w->iconGlyph, w->isActive, w->state == WindowState::Minimized);
+                taskbar_.addOrUpdateTask(winExp, w->title, w->iconGlyph, w->isActive, w->state == WindowState::Minimized, w->iconId);
             }
         });
 
@@ -127,7 +132,7 @@ uint32_t SurShellDesktop::openTextEditorWindow(std::string filePath) {
         const size_t slash = filePath.find_last_of("\\/");
         title += " - [" + (slash != std::string::npos ? filePath.substr(slash + 1) : filePath) + "]";
     }
-    const uint32_t winId = windowManager_.createWindow(title, Rect{320, 160, 680, 440}, "[T]");
+    const uint32_t winId = windowManager_.createWindow(title, Rect{320, 160, 680, 440}, "[T]", IconId::FileCode);
     virtualDesktops_.assignWindowToDesktop(winId, virtualDesktops_.activeIndex());
     auto* win = windowManager_.findWindow(winId);
     if (win) {
@@ -139,7 +144,7 @@ uint32_t SurShellDesktop::openTextEditorWindow(std::string filePath) {
 }
 
 uint32_t SurShellDesktop::openTerminalWindow(std::string workingDir) {
-    const uint32_t winCmd = windowManager_.createWindow("Command Prompt - [" + workingDir + "]", Rect{50, 45, 680, 420}, ">_");
+    const uint32_t winCmd = windowManager_.createWindow("Command Prompt - [" + workingDir + "]", Rect{50, 45, 680, 420}, ">_", IconId::Terminal);
     virtualDesktops_.assignWindowToDesktop(winCmd, virtualDesktops_.activeIndex());
     auto* cmdWin = windowManager_.findWindow(winCmd);
     if (cmdWin) {
@@ -210,7 +215,7 @@ void SurShellDesktop::wireSubsystemCallbacks() {
         [this](uint32_t windowId, WindowState state, bool active) {
             auto* win = windowManager_.findWindow(windowId);
             if (!win) return;
-            taskbar_.addOrUpdateTask(windowId, win->title, win->iconGlyph, active, state == WindowState::Minimized);
+            taskbar_.addOrUpdateTask(windowId, win->title, win->iconGlyph, active, state == WindowState::Minimized, win->iconId);
         },
         [this](uint32_t windowId) {
             taskbar_.removeTask(windowId);
@@ -226,7 +231,7 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openTerminalWindow("C:\\Users\\admin");
         } else {
             kernelBridge_.spawnProcess(icon.executable, icon.arguments);
-            const uint32_t wid = windowManager_.createWindow(icon.label + " - [" + icon.executable + "]", Rect{200, 150, 640, 400}, icon.iconGlyph);
+            const uint32_t wid = windowManager_.createWindow(icon.label + " - [" + icon.executable + "]", Rect{200, 150, 640, 400}, icon.iconGlyph, icon.iconId);
             virtualDesktops_.assignWindowToDesktop(wid, virtualDesktops_.activeIndex());
         }
     });
@@ -241,7 +246,7 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openTextEditorWindow("");
         } else {
             kernelBridge_.spawnProcess(app.executablePath, app.arguments);
-            const uint32_t wid = windowManager_.createWindow(app.title, Rect{240, 180, 660, 420}, app.iconGlyph);
+            const uint32_t wid = windowManager_.createWindow(app.title, Rect{240, 180, 660, 420}, app.iconGlyph, IconRenderer::iconForAppId(app.id));
             virtualDesktops_.assignWindowToDesktop(wid, virtualDesktops_.activeIndex());
         }
     });

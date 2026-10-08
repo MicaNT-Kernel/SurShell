@@ -10,10 +10,12 @@
 #include "types.hpp"
 #include "compositor.hpp"
 #include "tray.hpp"
+#include "icons.hpp"
 #include <string>
 #include <vector>
 #include <functional>
 #include <memory>
+#include <optional>
 
 namespace surshell {
 
@@ -21,6 +23,7 @@ struct TaskItem {
     uint32_t windowId{0};
     std::string title;
     std::string iconGlyph;
+    IconId iconId{IconId::Terminal};
     bool isActive{false};
     bool isMinimized{false};
     Rect bounds{};
@@ -54,7 +57,7 @@ public:
     [[nodiscard]] Rect startButtonBounds() const noexcept { return startButtonBounds_; }
     [[nodiscard]] Rect taskViewButtonBounds() const noexcept { return taskViewButtonBounds_; }
 
-    void addOrUpdateTask(uint32_t windowId, std::string title, std::string glyph, bool active, bool minimized);
+    void addOrUpdateTask(uint32_t windowId, std::string title, std::string glyph, bool active, bool minimized, std::optional<IconId> iconId = std::nullopt);
     void removeTask(uint32_t windowId);
     void setActiveTask(uint32_t windowId);
 

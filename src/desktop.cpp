@@ -148,27 +148,18 @@ void DesktopManager::render(Surface& surface) {
         surface.drawRoundedRect(iconBox, 8, Color::fromRgba(25, 35, 55, 230), true);
         surface.drawRoundedRect(iconBox, 8, Color::fromRgba(60, 85, 125, 180), false);
 
-        // Procedural vector icon or glyph
+        // Procedural vector icon from Sovereign IconPack
         const Rect innerIcon{iconBox.x + 4, iconBox.y + 4, 32, 32};
-        if (icon.iconGlyph == "[E]") {
-            surface.drawVectorFolder(innerIcon, Color::fromHex(0x1E88E5), Color::fromHex(0x64B5F6));
-        } else if (icon.iconGlyph == ">_") {
-            surface.drawVectorTerminal(innerIcon, Color::fromHex(0x10141E), palette.accentColor);
-        } else if (icon.iconGlyph == "[T]") {
-            surface.drawVectorTaskMgr(innerIcon, Color::fromHex(0x141A28), Color::fromHex(0x00FF9D));
-        } else if (icon.iconGlyph == "[S]") {
-            surface.drawVectorShield(innerIcon, Color::fromHex(0x2E7D32), Color::fromHex(0x81C784));
-        } else if (icon.iconGlyph == "[N]") {
-            surface.drawVectorMesh(innerIcon, Color::fromHex(0x00D4FF), Color::fromHex(0x006699));
-        } else if (icon.iconGlyph == "[*]") {
-            surface.drawVectorGear(innerIcon, Color::fromHex(0x78909C));
-        } else if (icon.iconGlyph == "[P]") {
-            surface.drawVectorPrismIcon(innerIcon, palette.accentColor);
-        } else {
-            int32_t glyphX = iconBox.x + (iconBox.width - static_cast<int32_t>(icon.iconGlyph.size() * 8)) / 2;
-            int32_t glyphY = iconBox.y + 16;
-            surface.drawString(glyphX, glyphY, icon.iconGlyph, palette.accentColor, 1);
-        }
+        IconId actualId = icon.iconId;
+        if (icon.id == "this_pc") actualId = IconId::ThisPC;
+        else if (icon.id == "explorer") actualId = IconId::FileExplorer;
+        else if (icon.id == "cmd") actualId = IconId::Terminal;
+        else if (icon.id == "sentinel") actualId = IconId::SentinelSec;
+        else if (icon.id == "settings") actualId = IconId::Settings;
+        else if (icon.id == "netbird") actualId = IconId::NetBirdMesh;
+        else if (icon.id == "taskmgr") actualId = IconId::TaskManager;
+
+        IconRenderer::draw(surface, actualId, innerIcon);
 
         // Icon Label
         int32_t textX = icon.bounds.x + 4;

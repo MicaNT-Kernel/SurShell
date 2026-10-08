@@ -5,6 +5,7 @@
 
 #include "surshell/taskbar.hpp"
 #include "surshell/theme.hpp"
+#include "surshell/icons.hpp"
 
 namespace surshell {
 
@@ -86,11 +87,24 @@ void Taskbar::recalculateLayout() {
     }
 }
 
-void Taskbar::addOrUpdateTask(uint32_t windowId, std::string title, std::string glyph, bool active, bool minimized) {
+void Taskbar::addOrUpdateTask(uint32_t windowId, std::string title, std::string glyph, bool active, bool minimized, std::optional<IconId> iconId) {
+    IconId resolvedIcon = iconId.value_or(IconId::Terminal);
+    if (!iconId) {
+        if (glyph == "[E]") resolvedIcon = IconId::FileExplorer;
+        else if (glyph == ">_") resolvedIcon = IconId::Terminal;
+        else if (glyph == "[T]") resolvedIcon = IconId::TaskManager;
+        else if (glyph == "[S]") resolvedIcon = IconId::SentinelSec;
+        else if (glyph == "[P]") resolvedIcon = IconId::StartPrism;
+        else if (glyph == "[*]") resolvedIcon = IconId::Settings;
+        else if (glyph == "[N]") resolvedIcon = IconId::NetBirdMesh;
+        else resolvedIcon = IconId::FileGeneric;
+    }
+
     for (auto& task : tasks_) {
         if (task.windowId == windowId) {
             task.title = std::move(title);
             task.iconGlyph = std::move(glyph);
+            task.iconId = resolvedIcon;
             task.isActive = active;
             task.isMinimized = minimized;
             recalculateLayout();
@@ -102,6 +116,7 @@ void Taskbar::addOrUpdateTask(uint32_t windowId, std::string title, std::string 
         .windowId = windowId,
         .title = std::move(title),
         .iconGlyph = std::move(glyph),
+        .iconId = resolvedIcon,
         .isActive = active,
         .isMinimized = minimized,
         .bounds = Rect{0, 0, 0, 0}
@@ -240,21 +255,9 @@ void Taskbar::render(Surface& surface) {
 
             surface.drawRoundedRect(task.bounds, 8, itemBg, true);
 
-            // Draw procedural icon or glyph
-            const Rect iconRect{task.bounds.x + 8, task.bounds.y + 7, 26, 26};
-            if (task.iconGlyph == "[E]") {
-                surface.drawVectorFolder(iconRect, Color::fromHex(0x1E88E5), Color::fromHex(0x64B5F6));
-            } else if (task.iconGlyph == ">_") {
-                surface.drawVectorTerminal(iconRect, Color::fromHex(0x10141E), palette.accentColor);
-            } else if (task.iconGlyph == "[T]") {
-                surface.drawVectorTaskMgr(iconRect, Color::fromHex(0x141A28), Color::fromHex(0x00FF9D));
-            } else if (task.iconGlyph == "[S]") {
-                surface.drawVectorShield(iconRect, Color::fromHex(0x2E7D32), Color::fromHex(0x81C784));
-            } else if (task.iconGlyph == "[P]") {
-                surface.drawVectorPrismIcon(iconRect, palette.accentColor);
-            } else {
-                surface.drawString(task.bounds.x + 10, task.bounds.y + 14, task.iconGlyph, palette.accentColor, 1);
-            }
+            // Draw procedural vector icon from Sovereign IconPack
+            const Rect iconRect{task.bounds.x + (task.bounds.width - 24) / 2, task.bounds.y + (task.bounds.height - 24) / 2, 24, 24};
+            IconRenderer::draw(surface, task.iconId, iconRect);
 
             // Active underline indicator
             if (task.isActive) {
@@ -287,11 +290,11 @@ void Taskbar::render(Surface& surface) {
             if (task.bounds.empty()) continue;
             Color itemBg = task.isActive ? palette.taskbarItemActive : (static_cast<int32_t>(task.windowId) == hoveredTaskWindowId_ ? palette.taskbarItemHover : palette.taskbarItemBg);
             surface.drawRoundedRect(task.bounds, 6, itemBg, true);
-            surface.drawString(task.bounds.x + 8, task.bounds.y + 12, task.iconGlyph, palette.accentColor, 1);
+            IconRenderer::draw(surface, task.iconId, Point{task.bounds.x + 8, task.bounds.y + (task.bounds.height - 18) / 2}, 18);
 
             std::string dispTitle = task.title;
             if (dispTitle.size() > 14) dispTitle = dispTitle.substr(0, 12) + "..";
-            surface.drawString(task.bounds.x + 36, task.bounds.y + 12, dispTitle, palette.textPrimary, 1);
+            surface.drawString(task.bounds.x + 32, task.bounds.y + 12, dispTitle, palette.textPrimary, 1);
 
             if (task.isActive) {
                 surface.fillRect(Rect{task.bounds.x + 16, task.bounds.bottom() - 3, task.bounds.width - 32, 2}, palette.taskbarItemIndicator);
