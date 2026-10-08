@@ -95,7 +95,8 @@ enum class IconId {
     Calendar,
     TerminalTab,
     ShieldAdmin,
-    SearchCategory
+    SearchCategory,
+    Registry
 };
 
 class IconRenderer {
@@ -160,6 +161,7 @@ private:
     static void drawTerminalTab(Surface& s, Rect r, std::optional<Color> tint);
     static void drawShieldAdmin(Surface& s, Rect r, std::optional<Color> tint);
     static void drawSearchCategory(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawRegistry(Surface& s, Rect r, std::optional<Color> tint);
 };
 
 } // namespace surshell

@@ -589,6 +589,7 @@ void Test_Procedural_Icon_Engine() {
     TEST_ASSERT(surshell::IconRenderer::iconForAppId("sentinel") == surshell::IconId::SentinelSec, "sentinel maps to SentinelSec");
     TEST_ASSERT(surshell::IconRenderer::iconForAppId("network") == surshell::IconId::NetworkOnline, "network maps to NetworkOnline");
     TEST_ASSERT(surshell::IconRenderer::iconForAppId("mediaplayer") == surshell::IconId::MediaPlay, "mediaplayer maps to MediaPlay");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("regedit") == surshell::IconId::Registry, "regedit maps to Registry");
 
     // 3. Rasterize All Procedural Vector Icons at Multiple Scales (14, 16, 24, 28, 32, 48px)
     surshell::Surface testCanvas(256, 256, surshell::Color::fromHex(0x0E1420));
@@ -656,10 +657,11 @@ void Test_Procedural_Icon_Engine() {
         surshell::IconId::Calendar,
         surshell::IconId::TerminalTab,
         surshell::IconId::ShieldAdmin,
-        surshell::IconId::SearchCategory
+        surshell::IconId::SearchCategory,
+        surshell::IconId::Registry
     };
 
-    TEST_ASSERT(allIcons.size() == 64, "All 64 procedural vector icons enumerated");
+    TEST_ASSERT(allIcons.size() == 65, "All 65 procedural vector icons enumerated");
 
     const int32_t testSizes[] = {14, 16, 24, 28, 32, 48};
     for (surshell::IconId id : allIcons) {
@@ -681,7 +683,7 @@ void Test_Procedural_Icon_Engine() {
         }
     }
 
-    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (64 icons verified across 6 DPI scales).\n";
+    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (65 icons verified across 6 DPI scales).\n";
 }
 
 void Test_AltTab_And_Taskbar_Hover_Preview() {
@@ -990,6 +992,75 @@ void Test_Settings_And_Personalization() {
     TEST_ASSERT(topBarToggled, "Top diagnostic bar toggle callback fired");
 
     TEST_ASSERT(sSurf.width() == 780 && sSurf.height() == 520, "Settings rendered to surface");
+
+    // Verify all 9 Categories can be activated
+    const surshell::SettingsCategory allCats[] = {
+        surshell::SettingsCategory::System,
+        surshell::SettingsCategory::Personalization,
+        surshell::SettingsCategory::TaskbarDock,
+        surshell::SettingsCategory::Network,
+        surshell::SettingsCategory::Apps,
+        surshell::SettingsCategory::PrivacySecurity,
+        surshell::SettingsCategory::TimeLanguage,
+        surshell::SettingsCategory::Developer,
+        surshell::SettingsCategory::About
+    };
+    for (auto cat : allCats) {
+        settings.setActiveCategory(cat);
+        TEST_ASSERT(settings.activeCategory() == cat, "Activated category successfully");
+        settings.render(sSurf);
+    }
+
+    // Verify search query filters
+    settings.setSearchQuery("volume");
+    TEST_ASSERT(settings.activeCategory() == surshell::SettingsCategory::System, "Search 'volume' routed to System");
+
+    settings.setSearchQuery("wifi");
+    TEST_ASSERT(settings.activeCategory() == surshell::SettingsCategory::Network, "Search 'wifi' routed to Network");
+
+    settings.setSearchQuery("privacy");
+    TEST_ASSERT(settings.activeCategory() == surshell::SettingsCategory::PrivacySecurity, "Search 'privacy' routed to PrivacySecurity");
+
+    settings.setSearchQuery("reg");
+    TEST_ASSERT(settings.activeCategory() == surshell::SettingsCategory::Developer, "Search 'reg' routed to Developer");
+
+    settings.setSearchQuery("clock");
+    TEST_ASSERT(settings.activeCategory() == surshell::SettingsCategory::TimeLanguage, "Search 'clock' routed to TimeLanguage");
+
+    settings.setSearchQuery("app");
+    TEST_ASSERT(settings.activeCategory() == surshell::SettingsCategory::Apps, "Search 'app' routed to Apps");
+
+    // Clear search
+    settings.setSearchQuery("");
+    TEST_ASSERT(settings.searchQuery().empty(), "Search query cleared");
+
+    // Master Volume & Sound Controls
+    int32_t recVol = 0;
+    bool recMute = false;
+    settings.setVolumeCallback([&](int32_t v, bool m) { recVol = v; recMute = m; });
+    settings.setMasterVolume(75);
+    TEST_ASSERT(settings.masterVolume() == 75, "Master volume set to 75%");
+    settings.setIsMuted(true);
+    TEST_ASSERT(settings.isMuted(), "Mute set to true");
+
+    // Power, Display & Storage settings
+    settings.setPowerMode(surshell::PowerMode::PowerSaver);
+    TEST_ASSERT(settings.powerMode() == surshell::PowerMode::PowerSaver, "Power mode set to Power Saver");
+    settings.setDisplayScaling(surshell::DisplayScaling::Scale125);
+    TEST_ASSERT(settings.displayScaling() == surshell::DisplayScaling::Scale125, "Display scaling set to 125%");
+    settings.setRefreshRate120Hz(true);
+    TEST_ASSERT(settings.refreshRate120Hz(), "120Hz refresh rate enabled");
+
+    // Time & Language: 24-Hour Format
+    bool rec24H = false;
+    settings.setTimeFormatCallback([&](bool is24) { rec24H = is24; });
+    settings.setClockFormat24H(true);
+    TEST_ASSERT(settings.clockFormat24H(), "24-Hour clock format enabled");
+
+    // Developer & Tool Launchers
+    std::string recLaunchApp{};
+    settings.setLaunchAppCallback([&](const std::string& app) { recLaunchApp = app; });
+    TEST_ASSERT(settings.developerMode(), "Developer mode is enabled by default");
 
     std::cout << "[TEST] Suite 18: System Settings & Personalization Center PASSED.\n";
 }

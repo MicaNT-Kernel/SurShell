@@ -202,6 +202,9 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
         case IconId::SearchCategory:
             drawSearchCategory(surface, bounds, tintOverride);
             break;
+        case IconId::Registry:
+            drawRegistry(surface, bounds, tintOverride);
+            break;
         default:
             drawDocument(surface, bounds, IconId::FileGeneric, tintOverride);
             break;
@@ -235,6 +238,7 @@ IconId IconRenderer::iconForAppId(std::string_view appId) {
     if (appId == "calendar" || appId == "clock") return IconId::Calendar;
     if (appId == "search" || appId == "find") return IconId::Search;
     if (appId == "admin") return IconId::ShieldAdmin;
+    if (appId == "regedit" || appId == "registry") return IconId::Registry;
     return IconId::StartPrism;
 }
 
@@ -1357,6 +1361,28 @@ void IconRenderer::drawSearchCategory(Surface& s, Rect r, std::optional<Color> t
         s.putPixel(hx1 + i, hy1 + i, Color::fromHex(0x7186A4));
         s.putPixel(hx1 + i + 1, hy1 + i, Color::fromHex(0x7186A4));
     }
+}
+
+void IconRenderer::drawRegistry(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color mainCol = tint.value_or(Color::fromHex(0x00D4FF));
+    const int32_t cx = r.centerX();
+    const int32_t cy = r.centerY();
+    const int32_t sz = std::max(6, std::min(r.width, r.height) / 2 - 1);
+
+    // Main base cube / database hierarchy
+    const Rect baseCube{cx - sz / 2, cy - sz / 4, sz, sz * 3 / 4};
+    s.drawRoundedRect(baseCube, 2, Color::fromHex(0x102038), true);
+    s.drawRoundedRect(baseCube, 2, mainCol, false);
+
+    // Inner divider lines representing database tiers
+    s.fillRect(Rect{baseCube.x + 2, baseCube.y + baseCube.height / 2, baseCube.width - 4, 1}, Color::fromHex(0x284870));
+    s.fillRect(Rect{baseCube.centerX(), baseCube.y + 2, 1, baseCube.height - 4}, Color::fromHex(0x284870));
+
+    // Floating detached registry hive cube on upper right
+    const int32_t floatSz = std::max(3, sz / 2);
+    const Rect floatCube{baseCube.right() - floatSz / 2, baseCube.y - floatSz - 1, floatSz, floatSz};
+    s.drawRoundedRect(floatCube, 1, Color::fromHex(0x00FF9D), true);
+    s.drawRoundedRect(floatCube, 1, Color::fromHex(0xFFFFFF), false);
 }
 
 } // namespace surshell

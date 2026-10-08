@@ -180,7 +180,7 @@ uint32_t SurShellDesktop::openTaskManagerWindow() {
 }
 
 uint32_t SurShellDesktop::openSettingsWindow() {
-    const uint32_t winId = windowManager_.createWindow("System Settings", Rect{260, 75, 820, 540}, "[*]", IconId::Settings);
+    const uint32_t winId = windowManager_.createWindow("System Settings", Rect{200, 60, 880, 560}, "[*]", IconId::Settings);
     virtualDesktops_.assignWindowToDesktop(winId, virtualDesktops_.activeIndex());
     auto* win = windowManager_.findWindow(winId);
     if (win) {
@@ -218,6 +218,29 @@ uint32_t SurShellDesktop::openSettingsWindow() {
 
         settings->setTopBarCallback([this](bool enabled) {
             setTopBarVisible(enabled);
+        });
+
+        settings->setToastCallback([this](const std::string& title, const std::string& body, IconId icon) {
+            toastManager_.showToast(title, body, icon);
+        });
+
+        settings->setVolumeCallback([this](int32_t vol, bool muted) {
+            mediaHud_.showVolume(vol, muted);
+        });
+
+        settings->setTimeFormatCallback([this](bool is24H) {
+            taskbar_.tray().setTimeOverride(is24H ? "14:30" : "02:30 PM");
+            toastManager_.showToast("Time Format", is24H ? "24-Hour Time Enabled" : "12-Hour AM/PM Enabled", IconId::Clock);
+        });
+
+        settings->setLaunchAppCallback([this](const std::string& appId) {
+            if (appId == "taskmgr") {
+                openTaskManagerWindow();
+            } else if (appId == "cmd" || appId == "terminal") {
+                openTerminalWindow();
+            } else if (appId == "regedit" || appId == "registry") {
+                toastManager_.showToast("Registry Editor", "Launching Sovereign Registry Editor (regedit.exe)...", IconId::Registry);
+            }
         });
 
         win->content = settings;

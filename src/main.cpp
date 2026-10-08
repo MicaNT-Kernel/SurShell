@@ -240,6 +240,20 @@ int main(int argc, char* argv[]) {
         std::cout << "  -> Exported: surshell_settings_personalization.bmp (1920x1080 32-bpp)\n";
     }
 
+    // Scene 14b: Settings Developer & Enclave Diagnostics (Registry Launcher)
+    if (auto* sw = shell.windowManager().findWindow(settingsWinId)) {
+        if (auto sContent = std::dynamic_pointer_cast<surshell::SettingsContent>(sw->content)) {
+            sContent->setActiveCategory(surshell::SettingsCategory::Developer);
+            sContent->render(sw->clientSurface);
+            shell.render();
+            if (shell.exportSnapshot("surshell_settings_developer.bmp")) {
+                std::cout << "  -> Exported: surshell_settings_developer.bmp (1920x1080 32-bpp)\n";
+            }
+            sContent->setActiveCategory(surshell::SettingsCategory::System);
+            sContent->render(sw->clientSurface);
+        }
+    }
+
     // ------------------------------------------------------------------------
     // Scene 15: Modern Sovereign Calculator (calc.exe)
     // ------------------------------------------------------------------------
