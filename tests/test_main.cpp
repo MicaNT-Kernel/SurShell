@@ -266,6 +266,35 @@ void Test_File_Explorer_Navigation() {
     exp.navigateForward();
     TEST_ASSERT(exp.currentPath() == "C:\\Windows", "Navigate forward to C:\\Windows");
 
+    // Multi-Tab management
+    TEST_ASSERT(exp.tabCount() == 1, "Initial tab count is 1");
+    exp.addTab("C:\\Windows\\System32");
+    TEST_ASSERT(exp.tabCount() == 2, "Tab count increased to 2");
+    TEST_ASSERT(exp.activeTabIndex() == 1, "New tab is active");
+    TEST_ASSERT(exp.currentPath() == "C:\\Windows\\System32", "Tab 2 path is System32");
+
+    exp.switchTab(0);
+    TEST_ASSERT(exp.activeTabIndex() == 0, "Switched back to tab 0");
+    TEST_ASSERT(exp.currentPath() == "C:\\Windows", "Tab 0 path is C:\\Windows");
+
+    // Search filtering within current folder
+    exp.setSearchQuery("explorer");
+    TEST_ASSERT(!exp.items().empty(), "Search for 'explorer' returns results");
+    TEST_ASSERT(exp.items()[0].name.find("explorer") != std::string::npos, "Filtered item matches query");
+
+    exp.clearSearch();
+    TEST_ASSERT(exp.items().size() >= 3, "Cleared search restores full item list");
+
+    // View mode and sorting
+    exp.setViewMode(surshell::ExplorerViewMode::TilesGrid);
+    TEST_ASSERT(exp.viewMode() == surshell::ExplorerViewMode::TilesGrid, "View mode changed to TilesGrid");
+
+    exp.sortBy(surshell::ExplorerSortColumn::Size, false);
+    TEST_ASSERT(exp.sortColumn() == surshell::ExplorerSortColumn::Size, "Sort column set to Size");
+
+    exp.closeTab(1);
+    TEST_ASSERT(exp.tabCount() == 1, "Closed tab 1, count is 1");
+
     std::cout << "[TEST] Suite 7: File Explorer Navigation PASSED.\n";
 }
 
