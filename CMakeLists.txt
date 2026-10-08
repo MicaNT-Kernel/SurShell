@@ -51,7 +51,19 @@ endif()
 
 # Main Interactive Shell Executable
 add_executable(surshell_app src/main.cpp)
-target_link_libraries(surshell_app PRIVATE surshell)
+if (WIN32)
+    target_link_libraries(surshell_app PRIVATE surshell user32 gdi32 dwmapi)
+else()
+    target_link_libraries(surshell_app PRIVATE surshell)
+endif()
+
+# Standalone Sovereign Registry Editor Executable (regedit.exe)
+add_executable(regedit src/regedit_main.cpp)
+if (WIN32)
+    target_link_libraries(regedit PRIVATE surshell user32 gdi32 dwmapi)
+else()
+    target_link_libraries(regedit PRIVATE surshell)
+endif()
 
 # Standalone Test Suite Executable
 add_executable(surshell_tests tests/test_main.cpp)
@@ -63,6 +75,7 @@ add_test(NAME SurShellCoreTests COMMAND surshell_tests)
 # Output binaries to bin/
 set_target_properties(
     surshell_app
+    regedit
     surshell_tests
     PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )

@@ -6,11 +6,255 @@
 #include "surshell/surshell.hpp"
 #include <iostream>
 #include <chrono>
+#include <memory>
+#include <string>
 
-int main(int argc, char* argv[]) {
-    (void)argc;
-    (void)argv;
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <windowsx.h>
+#include <dwmapi.h>
 
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+
+namespace {
+
+surshell::KeyCode mapVkToKeyCode(WPARAM vk) {
+    switch (vk) {
+        case VK_RETURN: return surshell::KeyCode::Enter;
+        case VK_ESCAPE: return surshell::KeyCode::Escape;
+        case VK_BACK:   return surshell::KeyCode::Backspace;
+        case VK_TAB:    return surshell::KeyCode::Tab;
+        case VK_DELETE: return surshell::KeyCode::Delete;
+        case VK_UP:     return surshell::KeyCode::Up;
+        case VK_DOWN:   return surshell::KeyCode::Down;
+        case VK_LEFT:   return surshell::KeyCode::Left;
+        case VK_RIGHT:  return surshell::KeyCode::Right;
+        case VK_HOME:   return surshell::KeyCode::Home;
+        case VK_END:    return surshell::KeyCode::End;
+        case VK_PRIOR:  return surshell::KeyCode::PageUp;
+        case VK_NEXT:   return surshell::KeyCode::PageDown;
+        case VK_F2:     return surshell::KeyCode::F2;
+        case VK_F5:     return surshell::KeyCode::F5;
+        default:        return surshell::KeyCode::Unknown;
+    }
+}
+
+surshell::Point clientToDesktop(HWND hwnd, LPARAM lParam) {
+    RECT cr;
+    GetClientRect(hwnd, &cr);
+    const int cw = cr.right - cr.left;
+    const int ch = cr.bottom - cr.top;
+    if (cw <= 0 || ch <= 0) return surshell::Point{0, 0};
+    const int cx = GET_X_LPARAM(lParam);
+    const int cy = GET_Y_LPARAM(lParam);
+    const int dx = cx * 1920 / cw;
+    const int dy = cy * 1080 / ch;
+    return surshell::Point{std::clamp(dx, 0, 1919), std::clamp(dy, 0, 1079)};
+}
+
+struct DesktopAppState {
+    std::unique_ptr<surshell::SurShellDesktop> desktop;
+};
+
+LRESULT CALLBACK DesktopWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    auto* state = reinterpret_cast<DesktopAppState*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+
+    switch (msg) {
+        case WM_CREATE: {
+            auto* cs = reinterpret_cast<CREATESTRUCTW*>(lParam);
+            auto* newState = reinterpret_cast<DesktopAppState*>(cs->lpCreateParams);
+            SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(newState));
+            return 0;
+        }
+
+        case WM_ERASEBKGND:
+            return 1; // Prevent GDI flicker
+
+        case WM_SIZE:
+            InvalidateRect(hwnd, nullptr, FALSE);
+            return 0;
+
+        case WM_PAINT: {
+            if (!state) break;
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+
+            state->desktop->render();
+            const auto& fb = state->desktop->framebuffer();
+
+            BITMAPINFO bmi{};
+            bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+            bmi.bmiHeader.biWidth = static_cast<LONG>(fb.width());
+            bmi.bmiHeader.biHeight = -static_cast<LONG>(fb.height()); // Top-down DIB
+            bmi.bmiHeader.biPlanes = 1;
+            bmi.bmiHeader.biBitCount = 32;
+            bmi.bmiHeader.biCompression = BI_RGB;
+
+            RECT clientRect;
+            GetClientRect(hwnd, &clientRect);
+            const int cw = clientRect.right - clientRect.left;
+            const int ch = clientRect.bottom - clientRect.top;
+
+            SetStretchBltMode(hdc, HALFTONE);
+            StretchDIBits(hdc, 0, 0, cw, ch, 0, 0, fb.width(), fb.height(),
+                          fb.pixels().data(), &bmi, DIB_RGB_COLORS, SRCCOPY);
+
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+
+        case WM_LBUTTONDOWN: {
+            if (!state) break;
+            SetCapture(hwnd);
+            state->desktop->onMouseDown(clientToDesktop(hwnd, lParam), surshell::MouseButton::Left);
+            InvalidateRect(hwnd, nullptr, FALSE);
+            return 0;
+        }
+
+        case WM_LBUTTONUP: {
+            if (!state) break;
+            ReleaseCapture();
+            state->desktop->onMouseUp(clientToDesktop(hwnd, lParam), surshell::MouseButton::Left);
+            InvalidateRect(hwnd, nullptr, FALSE);
+            return 0;
+        }
+
+        case WM_RBUTTONDOWN: {
+            if (!state) break;
+            state->desktop->onMouseDown(clientToDesktop(hwnd, lParam), surshell::MouseButton::Right);
+            InvalidateRect(hwnd, nullptr, FALSE);
+            return 0;
+        }
+
+        case WM_RBUTTONUP: {
+            if (!state) break;
+            state->desktop->onMouseUp(clientToDesktop(hwnd, lParam), surshell::MouseButton::Right);
+            InvalidateRect(hwnd, nullptr, FALSE);
+            return 0;
+        }
+
+        case WM_MOUSEMOVE: {
+            if (!state) break;
+            state->desktop->onMouseMove(clientToDesktop(hwnd, lParam));
+            InvalidateRect(hwnd, nullptr, FALSE);
+            return 0;
+        }
+
+        case WM_LBUTTONDBLCLK: {
+            if (!state) break;
+            state->desktop->onDoubleClick(clientToDesktop(hwnd, lParam));
+            InvalidateRect(hwnd, nullptr, FALSE);
+            return 0;
+        }
+
+        case WM_MOUSEWHEEL: {
+            if (!state) break;
+            const int32_t delta = GET_WHEEL_DELTA_WPARAM(wParam);
+            POINT pt{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+            ScreenToClient(hwnd, &pt);
+            RECT cr;
+            GetClientRect(hwnd, &cr);
+            const int cw = cr.right - cr.left;
+            const int ch = cr.bottom - cr.top;
+            const int dx = cw > 0 ? pt.x * 1920 / cw : 0;
+            const int dy = ch > 0 ? pt.y * 1080 / ch : 0;
+            state->desktop->onMouseWheel(surshell::Point{dx, dy}, delta);
+            InvalidateRect(hwnd, nullptr, FALSE);
+            return 0;
+        }
+
+        case WM_CHAR: {
+            if (!state) break;
+            state->desktop->onCharInput(static_cast<char>(wParam));
+            InvalidateRect(hwnd, nullptr, FALSE);
+            return 0;
+        }
+
+        case WM_KEYDOWN: {
+            if (!state) break;
+            const bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+            const bool shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+            const bool alt = (GetKeyState(VK_MENU) & 0x8000) != 0;
+            const auto kc = mapVkToKeyCode(wParam);
+            state->desktop->onKeyDown(kc, ctrl, shift, alt);
+            InvalidateRect(hwnd, nullptr, FALSE);
+            return 0;
+        }
+
+        case WM_DESTROY:
+            PostQuitMessage(0);
+            return 0;
+    }
+    return DefWindowProcW(hwnd, msg, wParam, lParam);
+}
+
+int runInteractiveDesktop() {
+    DesktopAppState state;
+    state.desktop = std::make_unique<surshell::SurShellDesktop>(1920, 1080);
+
+    // Open Registry Editor window by default so it's immediately accessible and focused
+    state.desktop->openRegistryEditorWindow("Computer\\HKEY_LOCAL_MACHINE\\SOFTWARE\\MicaNT\\CurrentVersion");
+
+    HINSTANCE hInstance = GetModuleHandleW(nullptr);
+
+    WNDCLASSEXW wc{};
+    wc.cbSize = sizeof(WNDCLASSEXW);
+    wc.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
+    wc.lpfnWndProc = DesktopWndProc;
+    wc.hInstance = hInstance;
+    wc.hCursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
+    wc.hbrBackground = nullptr;
+    wc.lpszClassName = L"MicaNTSurShellDesktopHost";
+
+    RegisterClassExW(&wc);
+
+    const int screenW = GetSystemMetrics(SM_CXSCREEN);
+    const int screenH = GetSystemMetrics(SM_CYSCREEN);
+    const int winW = std::min(1600, screenW - 60);
+    const int winH = std::min(900, screenH - 80);
+    const int winX = (screenW - winW) / 2;
+    const int winY = (screenH - winH) / 2;
+
+    HWND hwnd = CreateWindowExW(
+        WS_EX_APPWINDOW,
+        L"MicaNTSurShellDesktopHost",
+        L"SurShell: Sovereign Clean-Room Desktop Shell for MicaNT",
+        WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+        winX, winY, winW, winH,
+        nullptr, nullptr, hInstance, &state
+    );
+
+    if (!hwnd) {
+        std::cerr << "Failed to create SurShell Desktop Win32 window.\n";
+        return 1;
+    }
+
+    BOOL darkMode = TRUE;
+    DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
+
+    ShowWindow(hwnd, SW_SHOW);
+    UpdateWindow(hwnd);
+
+    std::cout << "[SurShell] Native Interactive Desktop Window launched.\n";
+    std::cout << "  -> Resolution: " << winW << "x" << winH << " at (" << winX << ", " << winY << ")\n";
+    std::cout << "  -> Registry Editor, Terminal, Explorer, Task Manager & Settings ready.\n";
+    std::cout << "  -> Close the window or press Alt+F4 to exit.\n\n";
+
+    MSG msg;
+    while (GetMessageW(&msg, nullptr, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+    return static_cast<int>(msg.wParam);
+}
+
+} // anonymous namespace
+#endif
+
+int runSnapshotPipeline() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell: Sovereign Clean-Room Desktop Shell for MicaNT\n";
     std::cout << "Named in tribute to Dave Cutler's Windows NT 4.0 'SUR' (Shell Update Release)\n";
@@ -208,17 +452,15 @@ int main(int argc, char* argv[]) {
     // Scene 12: Sovereign Acrylic Desktop Toast Notifications
     // ------------------------------------------------------------------------
     std::cout << "[SurShell] Rendering Scene 12: Sovereign Acrylic Desktop Toast Notifications...\n";
-    shell.toastManager().showToast("Network Connected", "Gigabit Ethernet (1000/1000 Mbps) Online", surshell::IconId::NetworkEthernet, surshell::Color::fromHex(0x00FF9D));
-    shell.toastManager().showToast("SentinelSec Security", "Zero-Telemetry Protection Guard Active", surshell::IconId::SentinelSec, surshell::Color::fromHex(0x00D4FF));
-    shell.toastManager().showToast("MicaNT Audio Engine", "3D Spatial Prism HRTF Ready", surshell::IconId::VolumeHigh, surshell::Color::fromHex(0xFFD54F));
+    shell.toastManager().showToast("SentinelSec Guard", "Kernel Enclave verified. Zero telemetry active.", surshell::IconId::SentinelSec, surshell::Color::fromHex(0x00FF9D));
+    shell.toastManager().showToast("Network Telemetry", "Ethernet 1 Gbps Connected. IPv4: 192.168.1.105", surshell::IconId::NetworkEthernet, surshell::Color::fromHex(0x00D4FF));
     shell.render();
     if (shell.exportSnapshot("surshell_toast_notifications.bmp")) {
         std::cout << "  -> Exported: surshell_toast_notifications.bmp (1920x1080 32-bpp)\n";
     }
-    shell.toastManager().clear();
 
     // ------------------------------------------------------------------------
-    // Scene 13: Modern Audio & Media Playback HUD (OSD Overlay)
+    // Scene 13: Audio & Media Playback HUD (OSD Overlay)
     // ------------------------------------------------------------------------
     std::cout << "[SurShell] Rendering Scene 13: Audio & Media Playback HUD (OSD Overlay)...\n";
     shell.mediaHud().showVolume(85);
@@ -381,4 +623,23 @@ int main(int argc, char* argv[]) {
 
     std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (24 high-resolution scenes generated).\n";
     return 0;
+}
+
+int main(int argc, char* argv[]) {
+    bool runSnapshots = false;
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--snapshots" || arg == "--batch" || arg == "--export" || arg == "--headless" || arg == "--test-scenes") {
+            runSnapshots = true;
+            break;
+        }
+    }
+
+#ifdef _WIN32
+    if (!runSnapshots) {
+        return runInteractiveDesktop();
+    }
+#endif
+
+    return runSnapshotPipeline();
 }
