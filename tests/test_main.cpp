@@ -1680,6 +1680,59 @@ void Test_Storage_Topology_And_Network_Shares() {
     std::cout << "[TEST] Suite 26: Storage Topology, Google Drive & Network Attached Storage (NAS) PASSED.\n";
 }
 
+void Test_Photo_And_Image_Viewer() {
+    std::cout << "[TEST] Running Suite 27: Sovereign Photo & Image Viewer (Photos)...\n";
+
+    // 1. Surface BMP Export & Import Roundtrip Verification
+    surshell::Surface testBmp(64, 48, surshell::Color{255, 128, 64, 255});
+    testBmp.fillRect(surshell::Rect{10, 10, 20, 20}, surshell::Color{0, 212, 255, 255});
+    const std::string testFile = "surshell_test_roundtrip.bmp";
+    TEST_ASSERT(testBmp.exportBmp(testFile), "exportBmp must write valid 32-bit BMP");
+
+    auto loadedBmp = surshell::Surface::loadBmp(testFile);
+    TEST_ASSERT(loadedBmp.has_value(), "Surface::loadBmp must parse exported BMP");
+    TEST_ASSERT(loadedBmp->width() == 64 && loadedBmp->height() == 48, "Decoded BMP dimensions match");
+    const auto px1 = loadedBmp->getPixel(0, 0);
+    TEST_ASSERT(px1.r == 255 && px1.g == 128 && px1.b == 64, "Decoded background pixel color match");
+    const auto px2 = loadedBmp->getPixel(15, 15);
+    TEST_ASSERT(px2.r == 0 && px2.g == 212 && px2.b == 255, "Decoded foreground pixel color match");
+
+    // 2. ImageViewerContent Initialization & State
+    surshell::ImageViewerContent viewer(testFile);
+    TEST_ASSERT(viewer.hasImage(), "ImageViewer must hold active image surface");
+    TEST_ASSERT(viewer.imageWidth() == 64 && viewer.imageHeight() == 48, "Viewer image dimensions match");
+    TEST_ASSERT(viewer.currentFileName() == testFile, "Current filename match");
+
+    // 3. Zooming Operations
+    const float initialZoom = viewer.zoom();
+    viewer.zoomIn();
+    TEST_ASSERT(viewer.zoom() > initialZoom, "zoomIn increases scale");
+    viewer.zoomActual();
+    TEST_ASSERT(viewer.zoom() == 1.0f, "zoomActual sets 1.0f");
+    viewer.zoomOut();
+    TEST_ASSERT(viewer.zoom() < 1.0f, "zoomOut decreases scale");
+    viewer.zoomFit();
+
+    // 4. Rotation Operations
+    viewer.rotateClockwise();
+    TEST_ASSERT(viewer.imageWidth() == 48 && viewer.imageHeight() == 64, "Rotated 90 deg swaps width and height");
+    viewer.rotateClockwise();
+    viewer.rotateClockwise();
+    viewer.rotateClockwise();
+    TEST_ASSERT(viewer.imageWidth() == 64 && viewer.imageHeight() == 48, "Full 360 deg rotation restores dimensions");
+
+    // 5. Client Area Rendering
+    surshell::Surface clientCanvas(800, 600, surshell::Color{12, 16, 24, 255});
+    viewer.render(clientCanvas);
+    TEST_ASSERT(clientCanvas.width() == 800 && clientCanvas.height() == 600, "ImageViewer rendered cleanly onto surface");
+
+    // Cleanup temporary test BMP
+    std::error_code ec;
+    std::filesystem::remove(testFile, ec);
+
+    std::cout << "[TEST] Suite 27: Sovereign Photo & Image Viewer (Photos) PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -1712,9 +1765,10 @@ int main() {
     Test_Lock_Screen_And_Authentication();
     Test_Registry_Editor_Application();
     Test_Storage_Topology_And_Network_Shares();
+    Test_Photo_And_Image_Viewer();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 26 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 27 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

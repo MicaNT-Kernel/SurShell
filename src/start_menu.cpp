@@ -145,6 +145,18 @@ StartMenu::StartMenu() {
         .pinnedToStart = true
     });
 
+    registerApp(ShellAppEntry{
+        .id = "photos",
+        .title = "Photos",
+        .subtitle = "Sovereign Image & Photo Viewer",
+        .executablePath = "C:\\Windows\\System32\\photos.exe",
+        .arguments = "",
+        .iconGlyph = "[P]",
+        .category = AppCategory::Multimedia,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = true
+    });
+
     // Windows 11-style Interactive Power Flyout Options
     powerOptions_ = {
         PowerOptionItem{.action = PowerAction::Sleep, .label = "Sleep", .description = "Save session in low power", .iconId = IconId::Sleep},

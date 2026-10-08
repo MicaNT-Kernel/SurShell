@@ -206,6 +206,9 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
         case IconId::Registry:
             drawRegistry(surface, bounds, tintOverride);
             break;
+        case IconId::ImageViewer:
+            drawImageViewer(surface, bounds, tintOverride);
+            break;
         case IconId::CloudDrive:
             drawCloudDrive(surface, bounds, tintOverride);
             break;
@@ -251,6 +254,7 @@ IconId IconRenderer::iconForAppId(std::string_view appId) {
     if (appId == "search" || appId == "find") return IconId::Search;
     if (appId == "admin") return IconId::ShieldAdmin;
     if (appId == "regedit" || appId == "registry") return IconId::Registry;
+    if (appId == "photos" || appId == "image_viewer" || appId == "image" || appId == "viewer") return IconId::ImageViewer;
     if (appId == "cloud" || appId == "gdrive" || appId == "google_drive") return IconId::CloudDrive;
     if (appId == "nas" || appId == "share" || appId == "storage") return IconId::NetworkShare;
     if (appId == "cd" || appId == "dvd" || appId == "optical") return IconId::OpticalDrive;
@@ -1466,6 +1470,45 @@ void IconRenderer::drawNetworkShare(Surface& s, Rect r, std::optional<Color> tin
     s.putPixel(cx - 1, midY, Color::fromHex(0xFFFFFF));
     s.putPixel(cx, midY, Color::fromHex(0xFFFFFF));
     s.putPixel(cx + 1, midY, Color::fromHex(0xFFFFFF));
+}
+
+void IconRenderer::drawImageViewer(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color frameCol = tint.value_or(Color::fromHex(0x1E293B));
+    const Color borderCol = tint.value_or(Color::fromHex(0x00D4FF));
+    s.drawRoundedRect(r, std::max(2, r.width / 6), frameCol, true);
+    s.drawRoundedRect(r, std::max(2, r.width / 6), borderCol, false);
+
+    const int32_t pad = std::max(2, r.width / 6);
+    const Rect inner{r.x + pad, r.y + pad, r.width - pad * 2, r.height - pad * 2};
+    // Deep blue sky
+    s.fillRect(inner, Color::fromHex(0x0F172A));
+
+    // Glowing sun at top-right
+    s.putPixel(inner.right() - 2, inner.y + 1, Color::fromHex(0xFBBF24));
+    s.putPixel(inner.right() - 3, inner.y + 1, Color::fromHex(0xF59E0B));
+    s.putPixel(inner.right() - 2, inner.y + 2, Color::fromHex(0xF59E0B));
+
+    // Mountain peak 1 (cyan)
+    const int32_t cx = inner.centerX();
+    for (int32_t y = inner.centerY(); y < inner.bottom(); ++y) {
+        const int32_t span = (y - inner.centerY()) + 1;
+        for (int32_t x = cx - span; x <= cx + span; ++x) {
+            if (inner.contains(Point{x, y})) {
+                s.putPixel(x, y, Color::fromHex(0x00D4FF));
+            }
+        }
+    }
+
+    // Mountain peak 2 (emerald green)
+    const int32_t lx = inner.x + std::max(1, inner.width / 4);
+    for (int32_t y = inner.centerY() + 1; y < inner.bottom(); ++y) {
+        const int32_t span = (y - (inner.centerY() + 1));
+        for (int32_t x = lx - span; x <= lx + span; ++x) {
+            if (inner.contains(Point{x, y})) {
+                s.putPixel(x, y, Color::fromHex(0x00FF9D));
+            }
+        }
+    }
 }
 
 void IconRenderer::drawOpticalDrive(Surface& s, Rect r, std::optional<Color> tint) {

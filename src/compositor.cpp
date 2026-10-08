@@ -519,6 +519,87 @@ bool Surface::exportBmp(const std::string& filepath) const {
     return true;
 }
 
+std::optional<Surface> Surface::loadBmp(const std::string& filepath) {
+    std::ifstream in(filepath, std::ios::binary);
+    if (!in.is_open()) return std::nullopt;
+
+    #pragma pack(push, 1)
+    struct BmpFileHeader {
+        uint16_t bfType{0};
+        uint32_t bfSize{0};
+        uint16_t bfReserved1{0};
+        uint16_t bfReserved2{0};
+        uint32_t bfOffBits{0};
+    };
+    struct BmpInfoHeader {
+        uint32_t biSize{0};
+        int32_t  biWidth{0};
+        int32_t  biHeight{0};
+        uint16_t biPlanes{0};
+        uint16_t biBitCount{0};
+        uint32_t biCompression{0};
+        uint32_t biSizeImage{0};
+        int32_t  biXPelsPerMeter{0};
+        int32_t  biYPelsPerMeter{0};
+        uint32_t biClrUsed{0};
+        uint32_t biClrImportant{0};
+    };
+    #pragma pack(pop)
+
+    BmpFileHeader fileHeader;
+    in.read(reinterpret_cast<char*>(&fileHeader), sizeof(fileHeader));
+    if (!in || fileHeader.bfType != 0x4D42) return std::nullopt;
+
+    BmpInfoHeader infoHeader;
+    in.read(reinterpret_cast<char*>(&infoHeader), sizeof(infoHeader));
+    if (!in) return std::nullopt;
+
+    const int32_t rawW = infoHeader.biWidth;
+    const int32_t rawH = infoHeader.biHeight;
+    if (rawW <= 0 || rawH == 0 || rawW > 8192 || std::abs(rawH) > 8192) return std::nullopt;
+
+    const uint32_t w = static_cast<uint32_t>(rawW);
+    const uint32_t h = static_cast<uint32_t>(std::abs(rawH));
+    const bool isTopDown = (rawH < 0);
+
+    if (infoHeader.biBitCount != 24 && infoHeader.biBitCount != 32) return std::nullopt;
+
+    Surface surface(w, h, Color{0, 0, 0, 255});
+    in.seekg(fileHeader.bfOffBits, std::ios::beg);
+
+    if (infoHeader.biBitCount == 32) {
+        std::vector<uint32_t> row(w);
+        for (uint32_t y = 0; y < h; ++y) {
+            const uint32_t destY = isTopDown ? y : (h - 1 - y);
+            in.read(reinterpret_cast<char*>(row.data()), w * sizeof(uint32_t));
+            if (!in) break;
+            for (uint32_t x = 0; x < w; ++x) {
+                uint32_t px = row[x];
+                if ((px & 0xFF000000) == 0) {
+                    px |= 0xFF000000;
+                }
+                surface.setPixelRaw(x, destY, px);
+            }
+        }
+    } else if (infoHeader.biBitCount == 24) {
+        const size_t rowBytes = ((w * 3 + 3) / 4) * 4;
+        std::vector<uint8_t> row(rowBytes);
+        for (uint32_t y = 0; y < h; ++y) {
+            const uint32_t destY = isTopDown ? y : (h - 1 - y);
+            in.read(reinterpret_cast<char*>(row.data()), rowBytes);
+            if (!in) break;
+            for (uint32_t x = 0; x < w; ++x) {
+                const uint8_t b = row[x * 3 + 0];
+                const uint8_t g = row[x * 3 + 1];
+                const uint8_t r = row[x * 3 + 2];
+                surface.putPixel(static_cast<int32_t>(x), static_cast<int32_t>(destY), Color{r, g, b, 255});
+            }
+        }
+    }
+
+    return surface;
+}
+
 void Surface::drawPrismLogo(Point center, int32_t size, Color accent, Color facetDark, Color facetLight) noexcept {
     const int32_t r = size;
     const int32_t cx = center.x;

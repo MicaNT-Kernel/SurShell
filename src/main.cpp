@@ -670,7 +670,18 @@ int runSnapshotPipeline() {
     }
     shell.desktop().closeContextMenu();
 
-    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (26 high-resolution scenes generated).\n";
+    // ------------------------------------------------------------------------
+    // Scene 25: Sovereign Photo & Image Viewer (Windows Photos Parity)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 25: Sovereign Photo & Image Viewer...\n";
+    const uint32_t imgWin = shell.openImageViewerWindow("surshell_desktop_context_menu.bmp");
+    shell.windowManager().setWindowActive(imgWin);
+    shell.render();
+    if (shell.exportSnapshot("surshell_image_viewer.bmp")) {
+        std::cout << "  -> Exported: surshell_image_viewer.bmp (1920x1080 32-bpp)\n";
+    }
+
+    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (27 high-resolution scenes generated).\n";
     return 0;
 }
 

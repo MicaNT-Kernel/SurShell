@@ -32,6 +32,7 @@ set(SURSHELL_SOURCES
     src/search_hub.cpp
     src/lock_screen.cpp
     src/registry_editor.cpp
+    src/image_viewer.cpp
     src/surshell.cpp
 )
 

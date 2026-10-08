@@ -1139,6 +1139,15 @@ void FileExplorer::executeItem(const FileItem& item) {
             executeCallback_(item.fullPath);
         }
         if (toastCallback_) toastCallback_("Opened Document", item.name, IconId::FileCode);
+    } else if (item.extension == ".bmp" || item.extension == ".png" || item.extension == ".jpg" ||
+               item.extension == ".jpeg" || item.extension == ".ico" || item.extension == ".BMP" ||
+               item.extension == ".PNG" || item.extension == ".JPG" || item.extension == ".webp") {
+        if (openImageViewerCallback_) {
+            openImageViewerCallback_(item.fullPath);
+        } else if (executeCallback_) {
+            executeCallback_(item.fullPath);
+        }
+        if (toastCallback_) toastCallback_("Opened Photo", item.name, IconId::ImageViewer);
     } else if (executeCallback_) {
         executeCallback_(item.fullPath);
         if (toastCallback_) toastCallback_("Opened File", item.name, IconId::FileGeneric);

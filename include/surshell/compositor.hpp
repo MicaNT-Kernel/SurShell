@@ -14,6 +14,7 @@
 #include <string>
 #include <string_view>
 #include <fstream>
+#include <optional>
 #include <algorithm>
 #include <cmath>
 
@@ -65,8 +66,17 @@ public:
     void drawVectorGear(Rect bounds, Color gearCol) noexcept;
     void drawVectorPrismIcon(Rect bounds, Color accentCol) noexcept;
 
+    void setPixelRaw(uint32_t x, uint32_t y, uint32_t val) noexcept {
+        if (x < width_ && y < height_) {
+            pixels_[static_cast<size_t>(y) * width_ + static_cast<size_t>(x)] = val;
+        }
+    }
+
     // Export surface to standard 32-bit BMP file
     bool exportBmp(const std::string& filepath) const;
+
+    // Import surface from standard 24-bit or 32-bit BMP file
+    static std::optional<Surface> loadBmp(const std::string& filepath);
 
 private:
     uint32_t width_{0};

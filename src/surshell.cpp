@@ -141,6 +141,10 @@ uint32_t SurShellDesktop::openFileExplorerWindow(std::string path) {
             openTerminalWindow(workingDir);
         });
 
+        explorer->setOpenImageViewerCallback([this](const std::string& imagePath) {
+            openImageViewerWindow(imagePath);
+        });
+
         explorer->setToastCallback([this](const std::string& title, const std::string& message, IconId icon) {
             toastManager_.showToast(title, message, icon);
         });
@@ -322,6 +326,8 @@ uint32_t SurShellDesktop::openRunDialogWindow() {
                 openTerminalWindow("C:\\Users\\admin");
             } else if (lowerCmd == "regedit" || lowerCmd == "regedit.exe" || lowerCmd == "registry") {
                 openRegistryEditorWindow();
+            } else if (lowerCmd == "photos" || lowerCmd == "photos.exe" || lowerCmd == "image") {
+                openImageViewerWindow("");
             } else {
                 kernelBridge_.spawnProcess(cmd, "");
             }
@@ -361,6 +367,23 @@ uint32_t SurShellDesktop::openRegistryEditorWindow(std::string initialKey) {
 
         win->content = regEdit;
         regEdit->render(win->clientSurface);
+    }
+    return winId;
+}
+
+uint32_t SurShellDesktop::openImageViewerWindow(std::string imagePath) {
+    std::string title = "Photos";
+    if (!imagePath.empty()) {
+        const size_t slash = imagePath.find_last_of("\\/");
+        title += " - [" + (slash != std::string::npos ? imagePath.substr(slash + 1) : imagePath) + "]";
+    }
+    const uint32_t winId = windowManager_.createWindow(title, Rect{260, 90, 840, 560}, "[P]", IconId::ImageViewer);
+    virtualDesktops_.assignWindowToDesktop(winId, virtualDesktops_.activeIndex());
+    auto* win = windowManager_.findWindow(winId);
+    if (win) {
+        auto viewer = std::make_shared<ImageViewerContent>(imagePath);
+        win->content = viewer;
+        viewer->render(win->clientSurface);
     }
     return winId;
 }
@@ -456,6 +479,7 @@ void SurShellDesktop::wireSubsystemCallbacks() {
         else if (targetApp == "run") openRunDialogWindow();
         else if (targetApp == "editor") openTextEditorWindow(args);
         else if (targetApp == "regedit" || targetApp == "registry") openRegistryEditorWindow();
+        else if (targetApp == "photos" || targetApp == "image" || targetApp == "viewer") openImageViewerWindow(args);
         else kernelBridge_.spawnProcess(targetApp, args);
     });
 
@@ -585,6 +609,8 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openSettingsWindow();
         } else if (icon.executable == "C:\\Windows\\System32\\calc.exe" || icon.id == "calc") {
             openCalculatorWindow();
+        } else if (icon.executable == "C:\\Windows\\System32\\photos.exe" || icon.id == "photos") {
+            openImageViewerWindow();
         } else {
             const bool spawned = kernelBridge_.spawnProcess(icon.executable, icon.arguments).has_value();
             toastManager_.showToast("Launched", icon.label, icon.iconId);
@@ -698,6 +724,8 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openRunDialogWindow();
         } else if (app.executablePath == "C:\\Windows\\System32\\regedit.exe" || app.id == "regedit") {
             openRegistryEditorWindow();
+        } else if (app.executablePath == "C:\\Windows\\System32\\photos.exe" || app.id == "photos") {
+            openImageViewerWindow();
         } else {
             const bool spawned = kernelBridge_.spawnProcess(app.executablePath, app.arguments).has_value();
             toastManager_.showToast("Launched Application", app.title, IconRenderer::iconForAppId(app.id));
