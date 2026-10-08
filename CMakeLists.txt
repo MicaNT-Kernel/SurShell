@@ -24,6 +24,9 @@ set(SURSHELL_SOURCES
     src/task_manager.cpp
     src/toast.cpp
     src/media_hud.cpp
+    src/settings.cpp
+    src/calculator.cpp
+    src/run_dialog.cpp
     src/surshell.cpp
 )
 

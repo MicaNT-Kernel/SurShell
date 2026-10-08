@@ -33,6 +33,7 @@ public:
 
     void clear(Color color) noexcept;
     void putPixel(int32_t x, int32_t y, Color color) noexcept;
+    void blendPixel(int32_t x, int32_t y, Color color) noexcept { putPixel(x, y, color); }
     [[nodiscard]] Color getPixel(int32_t x, int32_t y) const noexcept;
 
     void fillRect(Rect rect, Color color) noexcept;

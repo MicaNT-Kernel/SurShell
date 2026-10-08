@@ -26,6 +26,9 @@
 #include "toast.hpp"
 #include "media_hud.hpp"
 #include "task_manager.hpp"
+#include "settings.hpp"
+#include "calculator.hpp"
+#include "run_dialog.hpp"
 
 namespace surshell {
 
@@ -72,6 +75,9 @@ public:
     uint32_t openTextEditorWindow(std::string filePath = "");
     uint32_t openTerminalWindow(std::string workingDir = "C:\\Windows\\System32");
     uint32_t openTaskManagerWindow();
+    uint32_t openSettingsWindow();
+    uint32_t openCalculatorWindow();
+    uint32_t openRunDialogWindow();
 
     // Master Render Loop
     void render();

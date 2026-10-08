@@ -180,6 +180,115 @@ uint32_t SurShellDesktop::openTaskManagerWindow() {
     return winId;
 }
 
+uint32_t SurShellDesktop::openSettingsWindow() {
+    const uint32_t winId = windowManager_.createWindow("System Settings", Rect{280, 80, 780, 520}, "[*]", IconId::Settings);
+    virtualDesktops_.assignWindowToDesktop(winId, virtualDesktops_.activeIndex());
+    auto* win = windowManager_.findWindow(winId);
+    if (win) {
+        auto settings = std::make_shared<SettingsContent>();
+        settings->setCurrentThemeMode(ThemeManager::instance().mode());
+        settings->setCurrentWallpaper(desktop_.wallpaperStyle());
+        settings->setCurrentTaskbarAlignment(taskbar_.alignment());
+        settings->setCurrentTaskbarStyle(taskbar_.style());
+        settings->setTopBarEnabled(showTopBar_);
+
+        settings->setThemeModeCallback([this](ThemeMode mode) {
+            ThemeManager::instance().setMode(mode);
+            toastManager_.showToast("Theme Changed",
+                                    mode == ThemeMode::Dark ? "Dark Theme Applied" : (mode == ThemeMode::Light ? "Light Theme Applied" : "Carbon Slate Applied"),
+                                    IconId::Personalization);
+        });
+
+        settings->setAccentColorCallback([this](Color accent) {
+            ThemeManager::instance().setAccentColor(accent);
+            toastManager_.showToast("Personalization", "System Accent Color Updated", IconId::Personalization, accent);
+        });
+
+        settings->setWallpaperCallback([this](WallpaperStyle style) {
+            desktop_.setWallpaperStyle(style);
+            toastManager_.showToast("Personalization", "Desktop Wallpaper Updated", IconId::Display);
+        });
+
+        settings->setTaskbarAlignmentCallback([this](TaskbarAlignment al) {
+            taskbar_.setAlignment(al);
+        });
+
+        settings->setTaskbarStyleCallback([this](TaskbarStyle st) {
+            taskbar_.setStyle(st);
+        });
+
+        settings->setTopBarCallback([this](bool enabled) {
+            setTopBarVisible(enabled);
+        });
+
+        win->content = settings;
+        settings->render(win->clientSurface);
+    }
+    return winId;
+}
+
+uint32_t SurShellDesktop::openCalculatorWindow() {
+    const uint32_t winId = windowManager_.createWindow("Calculator", Rect{460, 140, 340, 480}, "[CALC]", IconId::Calculator);
+    virtualDesktops_.assignWindowToDesktop(winId, virtualDesktops_.activeIndex());
+    auto* win = windowManager_.findWindow(winId);
+    if (win) {
+        auto calc = std::make_shared<CalculatorContent>();
+        win->content = calc;
+        calc->render(win->clientSurface);
+    }
+    return winId;
+}
+
+uint32_t SurShellDesktop::openRunDialogWindow() {
+    const int32_t dlgW = 440;
+    const int32_t dlgH = 190;
+    const int32_t dlgX = 40;
+    const int32_t dlgY = static_cast<int32_t>(height_) - taskbar_.bounds().height - dlgH - 20;
+
+    const uint32_t winId = windowManager_.createWindow("Run", Rect{dlgX, dlgY, dlgW, dlgH}, "[RUN]", IconId::RunDialog);
+    virtualDesktops_.assignWindowToDesktop(winId, virtualDesktops_.activeIndex());
+    auto* win = windowManager_.findWindow(winId);
+    if (win) {
+        auto runDlg = std::make_shared<RunDialogContent>("cmd");
+
+        runDlg->setExecuteCallback([this, winId](const std::string& cmd) {
+            std::string lowerCmd = cmd;
+            std::transform(lowerCmd.begin(), lowerCmd.end(), lowerCmd.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+            if (lowerCmd == "taskmgr" || lowerCmd == "taskmgr.exe") {
+                openTaskManagerWindow();
+            } else if (lowerCmd == "control" || lowerCmd == "settings" || lowerCmd == "control.exe") {
+                openSettingsWindow();
+            } else if (lowerCmd == "calc" || lowerCmd == "calculator" || lowerCmd == "calc.exe") {
+                openCalculatorWindow();
+            } else if (lowerCmd == "explorer" || lowerCmd == "explorer.exe") {
+                openFileExplorerWindow("C:\\Users\\admin");
+            } else if (lowerCmd == "notepad" || lowerCmd == "notepad.exe") {
+                openTextEditorWindow("");
+            } else if (lowerCmd == "cmd" || lowerCmd == "terminal" || lowerCmd == "cmd.exe") {
+                openTerminalWindow("C:\\Users\\admin");
+            } else {
+                kernelBridge_.spawnProcess(cmd, "");
+            }
+
+            toastManager_.showToast("Run Command", "Dispatched: " + cmd, IconId::RunDialog, Color::fromHex(0x00FF9D));
+            windowManager_.closeWindow(winId);
+        });
+
+        runDlg->setCloseCallback([this, winId]() {
+            windowManager_.closeWindow(winId);
+        });
+
+        runDlg->setBrowseCallback([this]() {
+            openFileExplorerWindow("C:\\Windows\\System32");
+        });
+
+        win->content = runDlg;
+        runDlg->render(win->clientSurface);
+    }
+    return winId;
+}
+
 void SurShellDesktop::wireSubsystemCallbacks() {
     // 1. Taskbar Start Button clicks toggle the Start Menu
     taskbar_.setStartButtonClickCallback([this]() {
@@ -234,6 +343,10 @@ void SurShellDesktop::wireSubsystemCallbacks() {
                                     IconId::NetworkOnline,
                                     enabled ? Color::fromHex(0x00FF9D) : Color::fromHex(0xFF5555));
         }
+    });
+
+    quickSettings_.setSettingsClickCallback([this]() {
+        openSettingsWindow();
     });
 
     // 3d. Media Transport callbacks
@@ -317,6 +430,10 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openFileExplorerWindow("C:\\Users\\admin");
         } else if (icon.executable == "C:\\Windows\\System32\\cmd.exe") {
             openTerminalWindow("C:\\Users\\admin");
+        } else if (icon.executable == "C:\\Windows\\System32\\control.exe") {
+            openSettingsWindow();
+        } else if (icon.executable == "C:\\Windows\\System32\\calc.exe") {
+            openCalculatorWindow();
         } else {
             kernelBridge_.spawnProcess(icon.executable, icon.arguments);
             const uint32_t wid = windowManager_.createWindow(icon.label + " - [" + icon.executable + "]", Rect{200, 150, 640, 400}, icon.iconGlyph, icon.iconId);
@@ -334,6 +451,12 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openTextEditorWindow("");
         } else if (app.executablePath == "C:\\Windows\\System32\\taskmgr.exe") {
             openTaskManagerWindow();
+        } else if (app.executablePath == "C:\\Windows\\System32\\control.exe") {
+            openSettingsWindow();
+        } else if (app.executablePath == "C:\\Windows\\System32\\calc.exe") {
+            openCalculatorWindow();
+        } else if (app.executablePath == "C:\\Windows\\System32\\run.exe") {
+            openRunDialogWindow();
         } else {
             kernelBridge_.spawnProcess(app.executablePath, app.arguments);
             const uint32_t wid = windowManager_.createWindow(app.title, Rect{240, 180, 660, 420}, app.iconGlyph, IconRenderer::iconForAppId(app.id));
@@ -588,6 +711,12 @@ void SurShellDesktop::onKeyDown(KeyCode key, bool ctrl, bool shift, bool alt) {
             return;
         }
     }
+
+    if ((alt || ctrl) && key == KeyCode::KeyR) {
+        openRunDialogWindow();
+        return;
+    }
+
     windowManager_.onKeyDown(key, ctrl, shift, alt);
 }
 

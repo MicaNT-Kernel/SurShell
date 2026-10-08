@@ -486,16 +486,37 @@ bool WindowManager::onMouseMove(Point pt) {
             win->currentBounds.y = dragStartWindowBounds_.y + dy;
             win->normalBounds = win->currentBounds;
 
-            // Aero Snap triggers at screen edges
-            if (pt.x <= 2) {
-                snapWindow(win->id, WindowState::SnappedLeft);
-                isDragging_ = false;
-            } else if (pt.x >= static_cast<int32_t>(screenWidth_) - 3) {
-                snapWindow(win->id, WindowState::SnappedRight);
-                isDragging_ = false;
-            } else if (pt.y <= 2) {
-                setWindowState(win->id, WindowState::Maximized);
-                isDragging_ = false;
+            // Live Aero Snap Docking Silhouette Check
+            const Rect ws = availableWorkspace();
+            const int32_t halfW = ws.width / 2;
+            const int32_t halfH = ws.height / 2;
+            const int32_t edgeThreshold = 12;
+            const int32_t cornerThreshold = 36;
+
+            if (pt.x <= cornerThreshold && pt.y <= cornerThreshold) {
+                activeSnapPreview_ = Rect{ws.x, ws.y, halfW, halfH};
+                pendingSnapState_ = WindowState::SnappedTopLeft;
+            } else if (pt.x >= static_cast<int32_t>(screenWidth_) - cornerThreshold && pt.y <= cornerThreshold) {
+                activeSnapPreview_ = Rect{ws.x + halfW, ws.y, halfW, halfH};
+                pendingSnapState_ = WindowState::SnappedTopRight;
+            } else if (pt.x <= cornerThreshold && pt.y >= ws.bottom() - cornerThreshold) {
+                activeSnapPreview_ = Rect{ws.x, ws.y + halfH, halfW, halfH};
+                pendingSnapState_ = WindowState::SnappedBottomLeft;
+            } else if (pt.x >= static_cast<int32_t>(screenWidth_) - cornerThreshold && pt.y >= ws.bottom() - cornerThreshold) {
+                activeSnapPreview_ = Rect{ws.x + halfW, ws.y + halfH, halfW, halfH};
+                pendingSnapState_ = WindowState::SnappedBottomRight;
+            } else if (pt.y <= edgeThreshold) {
+                activeSnapPreview_ = ws;
+                pendingSnapState_ = WindowState::Maximized;
+            } else if (pt.x <= edgeThreshold) {
+                activeSnapPreview_ = Rect{ws.x, ws.y, halfW, ws.height};
+                pendingSnapState_ = WindowState::SnappedLeft;
+            } else if (pt.x >= static_cast<int32_t>(screenWidth_) - edgeThreshold) {
+                activeSnapPreview_ = Rect{ws.x + halfW, ws.y, halfW, ws.height};
+                pendingSnapState_ = WindowState::SnappedRight;
+            } else {
+                activeSnapPreview_.reset();
+                pendingSnapState_.reset();
             }
         }
         return true;
@@ -565,6 +586,15 @@ bool WindowManager::onMouseMove(Point pt) {
 
 bool WindowManager::onMouseUp(Point pt, MouseButton button) {
     if (button == MouseButton::Left) {
+        if (isDragging_ && interactingWindowId_ != 0 && pendingSnapState_.has_value()) {
+            if (*pendingSnapState_ == WindowState::Maximized) {
+                setWindowState(interactingWindowId_, WindowState::Maximized);
+            } else {
+                snapWindow(interactingWindowId_, *pendingSnapState_);
+            }
+        }
+        activeSnapPreview_.reset();
+        pendingSnapState_.reset();
         isDragging_ = false;
         isResizing_ = false;
         interactingWindowId_ = 0;
@@ -751,6 +781,33 @@ void WindowManager::render(Surface& surface) {
     // 6. Render Snap Layouts Flyout if active
     if (isSnapFlyoutVisible_) {
         renderSnapFlyout(surface);
+    }
+
+    // 7. Render Live Aero Snap Silhouette Preview if active
+    if (activeSnapPreview_.has_value()) {
+        renderSnapPreview(surface);
+    }
+}
+
+void WindowManager::renderSnapPreview(Surface& surface) {
+    if (!activeSnapPreview_.has_value()) return;
+    const Rect r = *activeSnapPreview_;
+    const auto& palette = ThemeManager::instance().palette();
+
+    // 1. Semi-translucent frosted acrylic overlay fill
+    surface.drawRoundedRect(r, 10, Color::fromRgba(0, 212, 255, 35), true);
+
+    // 2. High-contrast accent stroke and inner glow
+    surface.drawRoundedRect(r, 10, palette.accentColor, false);
+    if (r.width > 4 && r.height > 4) {
+        surface.drawRoundedRect(r.inflate(-1, -1), 9, Color::fromRgba(0, 212, 255, 90), false);
+    }
+
+    // 3. Central snap icon indicating docking layout
+    const int32_t iconSize = std::min(48, std::min(r.width, r.height) / 3);
+    if (iconSize >= 16) {
+        const Point iconPt{r.centerX() - iconSize / 2, r.centerY() - iconSize / 2};
+        IconRenderer::draw(surface, IconId::TaskView, iconPt, iconSize, palette.accentColor);
     }
 }
 

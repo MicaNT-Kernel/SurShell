@@ -178,6 +178,18 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
         case IconId::NetworkEthernet:
             drawNetworkEthernet(surface, bounds, tintOverride);
             break;
+        case IconId::Calculator:
+            drawCalculator(surface, bounds, tintOverride);
+            break;
+        case IconId::RunDialog:
+            drawRunDialog(surface, bounds, tintOverride);
+            break;
+        case IconId::Display:
+            drawDisplay(surface, bounds, tintOverride);
+            break;
+        case IconId::Personalization:
+            drawPersonalization(surface, bounds, tintOverride);
+            break;
         default:
             drawDocument(surface, bounds, IconId::FileGeneric, tintOverride);
             break;
@@ -204,7 +216,10 @@ IconId IconRenderer::iconForAppId(std::string_view appId) {
     if (appId == "sentinel") return IconId::SentinelSec;
     if (appId == "network") return IconId::NetworkOnline;
     if (appId == "mediaplayer") return IconId::MediaPlay;
-    if (appId == "netbird") return IconId::NetworkOnline;
+    if (appId == "calc" || appId == "calculator") return IconId::Calculator;
+    if (appId == "run" || appId == "rundll32") return IconId::RunDialog;
+    if (appId == "display") return IconId::Display;
+    if (appId == "personalize" || appId == "themes") return IconId::Personalization;
     return IconId::StartPrism;
 }
 
@@ -1095,6 +1110,122 @@ void IconRenderer::drawNetworkEthernet(Surface& s, Rect r, std::optional<Color> 
     for (int32_t px = body.x + 3; px < body.right() - 3; px += 2) {
         s.fillRect(Rect{px, pinY, 1, pinH}, Color::fromHex(0xFFD54F));
     }
+}
+
+void IconRenderer::drawCalculator(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color frameCol = tint.value_or(Color::fromHex(0x00D4FF));
+    const int32_t pad = std::max(1, r.width / 8);
+    const Rect body{r.x + pad, r.y + 1, r.width - pad * 2, r.height - 2};
+
+    // Body chassis
+    s.drawRoundedRect(body, 2, Color::fromHex(0x162032), true);
+    s.drawRoundedRect(body, 2, frameCol, false);
+
+    // Screen readout at top
+    const int32_t screenH = std::max(3, body.height / 4);
+    const Rect screenBox{body.x + 2, body.y + 2, body.width - 4, screenH};
+    s.fillRect(screenBox, Color::fromHex(0x0A0F1A));
+    s.fillRect(Rect{screenBox.right() - std::max(3, screenBox.width / 3), screenBox.y + screenBox.height / 2, std::max(2, screenBox.width / 3) - 1, 1},
+               Color::fromHex(0x00FF9D));
+
+    // Numeric keypad grid
+    const int32_t keyStartY = screenBox.bottom() + 2;
+    const int32_t keyAreaH = body.bottom() - 2 - keyStartY;
+    if (keyAreaH >= 4 && body.width >= 8) {
+        const int32_t colStep = (body.width - 4) / 3;
+        const int32_t rowStep = keyAreaH / 3;
+        for (int32_t row = 0; row < 2; ++row) {
+            for (int32_t col = 0; col < 3; ++col) {
+                const int32_t kx = body.x + 2 + col * colStep + 1;
+                const int32_t ky = keyStartY + row * rowStep + 1;
+                s.fillRect(Rect{kx, ky, std::max(1, colStep - 2), std::max(1, rowStep - 2)}, Color::fromHex(0x405578));
+            }
+        }
+        // Equals accent button on bottom row
+        const int32_t eqX = body.x + 2 + 2 * colStep + 1;
+        const int32_t eqY = keyStartY + 2 * rowStep + 1;
+        s.fillRect(Rect{eqX, eqY, std::max(1, colStep - 2), std::max(1, rowStep - 2)}, Color::fromHex(0x00D4FF));
+    }
+}
+
+void IconRenderer::drawRunDialog(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color frameCol = tint.value_or(Color::fromHex(0x00D4FF));
+    const int32_t pad = std::max(1, r.width / 10);
+    const Rect winBox{r.x + pad, r.y + pad + 1, r.width - pad * 2, r.height - pad * 2 - 2};
+
+    // Outer window border and background
+    s.drawRoundedRect(winBox, 2, Color::fromHex(0x101726), true);
+    s.drawRoundedRect(winBox, 2, frameCol, false);
+
+    // Titlebar header
+    const int32_t titleH = std::max(2, winBox.height / 4);
+    s.fillRect(Rect{winBox.x + 1, winBox.y + 1, winBox.width - 2, titleH}, frameCol);
+
+    // Prompt glyph '>'
+    const int32_t cy = winBox.y + titleH + (winBox.height - titleH) / 2;
+    const int32_t px = winBox.x + 3;
+    s.putPixel(px, cy - 2, Color::fromHex(0x00FF9D));
+    s.putPixel(px + 1, cy - 1, Color::fromHex(0x00FF9D));
+    s.putPixel(px + 2, cy, Color::fromHex(0x00FF9D));
+    s.putPixel(px + 1, cy + 1, Color::fromHex(0x00FF9D));
+    s.putPixel(px, cy + 2, Color::fromHex(0x00FF9D));
+
+    // Blinking cursor '_'
+    const int32_t curX = px + 4;
+    s.fillRect(Rect{curX, cy + 2, std::max(2, (winBox.width - 10) / 2), 1}, Color::fromHex(0xFFFFFF));
+}
+
+void IconRenderer::drawDisplay(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color frameCol = tint.value_or(Color::fromHex(0x4A6082));
+    const int32_t w = r.width;
+    const int32_t h = r.height;
+    const int32_t standH = std::max(2, h / 5);
+    const int32_t screenH = h - standH - 1;
+
+    // Monitor outer frame
+    s.drawRoundedRect(Rect{r.x, r.y, w, screenH}, std::max(2, w / 8), frameCol, true);
+
+    // Screen interior
+    const int32_t bezel = std::max(1, w / 12);
+    const Rect screenArea{r.x + bezel, r.y + bezel, w - bezel * 2, screenH - bezel * 2};
+    s.fillRect(screenArea, Color::fromHex(0x0C1422));
+
+    // Wallpaper horizon line
+    if (screenArea.height >= 4) {
+        s.fillRect(Rect{screenArea.x, screenArea.y + screenArea.height * 2 / 3, screenArea.width, 1},
+                   Color::fromHex(0x00D4FF));
+    }
+
+    // Stand neck and base
+    const int32_t cx = r.centerX();
+    s.fillRect(Rect{cx - 1, r.y + screenH, 2, standH}, frameCol);
+    const int32_t baseW = std::max(4, w / 2);
+    s.fillRect(Rect{cx - baseW / 2, r.bottom() - 1, baseW, 2}, frameCol);
+}
+
+void IconRenderer::drawPersonalization(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color frameCol = tint.value_or(Color::fromHex(0x283850));
+    const int32_t rad = std::max(2, r.width / 3);
+
+    // Artist palette chassis
+    s.drawRoundedRect(Rect{r.x + 1, r.y + 1, r.width - 2, r.height - 2}, rad, frameCol, true);
+    s.drawRoundedRect(Rect{r.x + 1, r.y + 1, r.width - 2, r.height - 2}, rad, Color::fromHex(0x56729C), false);
+
+    // Thumb hole
+    const int32_t thX = r.right() - std::max(3, r.width / 4);
+    const int32_t thY = r.bottom() - std::max(3, r.height / 4);
+    s.putPixel(thX, thY, Color::fromHex(0x0E1420));
+    s.putPixel(thX + 1, thY, Color::fromHex(0x0E1420));
+    s.putPixel(thX, thY + 1, Color::fromHex(0x0E1420));
+
+    // Paint splotches (Cyan, Coral, Gold)
+    const int32_t spotR = std::max(1, r.width / 8);
+    // Cyan
+    s.drawRoundedRect(Rect{r.x + std::max(2, r.width / 5), r.y + std::max(2, r.height / 4), spotR * 2, spotR * 2}, spotR, Color::fromHex(0x00D4FF), true);
+    // Coral Red
+    s.drawRoundedRect(Rect{r.centerX(), r.y + std::max(2, r.height / 6), spotR * 2, spotR * 2}, spotR, Color::fromHex(0xFF4D6D), true);
+    // Solar Amber
+    s.drawRoundedRect(Rect{r.x + std::max(2, r.width / 4), r.bottom() - std::max(4, r.height / 3), spotR * 2, spotR * 2}, spotR, Color::fromHex(0xFFB703), true);
 }
 
 } // namespace surshell

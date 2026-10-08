@@ -648,10 +648,14 @@ void Test_Procedural_Icon_Engine() {
         surshell::IconId::MediaNext,
         surshell::IconId::MediaPrev,
         surshell::IconId::NotificationBell,
-        surshell::IconId::NetworkEthernet
+        surshell::IconId::NetworkEthernet,
+        surshell::IconId::Calculator,
+        surshell::IconId::RunDialog,
+        surshell::IconId::Display,
+        surshell::IconId::Personalization
     };
 
-    TEST_ASSERT(allIcons.size() == 56, "All 56 procedural vector icons enumerated");
+    TEST_ASSERT(allIcons.size() == 60, "All 60 procedural vector icons enumerated");
 
     const int32_t testSizes[] = {14, 16, 24, 28, 32, 48};
     for (surshell::IconId id : allIcons) {
@@ -673,7 +677,7 @@ void Test_Procedural_Icon_Engine() {
         }
     }
 
-    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (56 icons verified across 6 DPI scales).\n";
+    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (60 icons verified across 6 DPI scales).\n";
 }
 
 void Test_AltTab_And_Taskbar_Hover_Preview() {
@@ -923,6 +927,241 @@ void Test_Media_Hud_OSD() {
     std::cout << "[TEST] Suite 17: Audio & Media Playback HUD (OSD Overlay) PASSED.\n";
 }
 
+void Test_Settings_And_Personalization() {
+    std::cout << "[TEST] Running Suite 18: System Settings & Personalization Center...\n";
+
+    surshell::SettingsContent settings;
+    TEST_ASSERT(settings.activeCategory() == surshell::SettingsCategory::System, "Default settings category is System");
+
+    surshell::Surface sSurf(780, 520);
+
+    // Category navigation
+    settings.setActiveCategory(surshell::SettingsCategory::Personalization);
+    TEST_ASSERT(settings.activeCategory() == surshell::SettingsCategory::Personalization, "Switched to Personalization");
+
+    // Personalization callbacks
+    surshell::ThemeMode recTheme = surshell::ThemeMode::Dark;
+    settings.setThemeModeCallback([&](surshell::ThemeMode mode) { recTheme = mode; });
+
+    surshell::Color recColor{};
+    settings.setAccentColorCallback([&](surshell::Color c) { recColor = c; });
+
+    surshell::WallpaperStyle recWp = surshell::WallpaperStyle::MicaGrid;
+    settings.setWallpaperCallback([&](surshell::WallpaperStyle wp) { recWp = wp; });
+
+    settings.render(sSurf); // Compute layout bounds
+
+    // Click Light theme button
+    settings.onMouseDown(surshell::Point{374, 78}, surshell::MouseButton::Left);
+    TEST_ASSERT(recTheme == surshell::ThemeMode::Light, "Theme callback fired on Light mode selection");
+
+    // Click accent color swatch
+    settings.onMouseDown(surshell::Point{268, 136}, surshell::MouseButton::Left);
+    TEST_ASSERT(recColor.toRgba() != 0, "Accent color callback fired on swatch selection");
+
+    // Click wallpaper option
+    settings.onMouseDown(surshell::Point{406, 218}, surshell::MouseButton::Left);
+    TEST_ASSERT(recWp != surshell::WallpaperStyle::MicaGrid, "Wallpaper callback fired on wallpaper selection");
+
+    // Taskbar & Dock category
+    settings.setActiveCategory(surshell::SettingsCategory::TaskbarDock);
+    surshell::TaskbarAlignment recAlign = surshell::TaskbarAlignment::Center;
+    settings.setTaskbarAlignmentCallback([&](surshell::TaskbarAlignment a) { recAlign = a; });
+
+    surshell::TaskbarStyle recStyle = surshell::TaskbarStyle::FloatingIsland;
+    settings.setTaskbarStyleCallback([&](surshell::TaskbarStyle s) { recStyle = s; });
+
+    bool topBarToggled = false;
+    settings.setTopBarCallback([&](bool) { topBarToggled = true; });
+
+    settings.render(sSurf); // Compute taskbar layout bounds
+
+    settings.onMouseDown(surshell::Point{406, 79}, surshell::MouseButton::Left); // Left classic
+    TEST_ASSERT(recAlign == surshell::TaskbarAlignment::Left, "Taskbar alignment callback fired");
+
+    settings.onMouseDown(surshell::Point{406, 143}, surshell::MouseButton::Left); // Edge-to-edge dock
+    TEST_ASSERT(recStyle == surshell::TaskbarStyle::EdgeToEdge, "Taskbar style callback fired");
+
+    settings.onMouseDown(surshell::Point{319, 207}, surshell::MouseButton::Left); // Top bar toggle
+    TEST_ASSERT(topBarToggled, "Top diagnostic bar toggle callback fired");
+
+    TEST_ASSERT(sSurf.width() == 780 && sSurf.height() == 520, "Settings rendered to surface");
+
+    std::cout << "[TEST] Suite 18: System Settings & Personalization Center PASSED.\n";
+}
+
+void Test_Calculator_Application() {
+    std::cout << "[TEST] Running Suite 19: Modern Sovereign Calculator...\n";
+
+    surshell::CalculatorContent calc;
+    TEST_ASSERT(calc.display() == "0", "Initial calculator display is 0");
+
+    // Addition: 12 + 34 = 46
+    calc.inputDigit('1');
+    calc.inputDigit('2');
+    TEST_ASSERT(calc.display() == "12", "Input digits 12");
+    calc.inputOperator('+');
+    calc.inputDigit('3');
+    calc.inputDigit('4');
+    calc.calculateResult();
+    TEST_ASSERT(calc.display() == "46", "12 + 34 = 46");
+
+    // Multiplication: 5 * 6 = 30
+    calc.clearAll();
+    calc.inputDigit('5');
+    calc.inputOperator('*');
+    calc.inputDigit('6');
+    calc.calculateResult();
+    TEST_ASSERT(calc.display() == "30", "5 * 6 = 30");
+
+    // Division by zero: 10 / 0
+    calc.clearAll();
+    calc.inputDigit('1');
+    calc.inputDigit('0');
+    calc.inputOperator('/');
+    calc.inputDigit('0');
+    calc.calculateResult();
+    TEST_ASSERT(calc.display() == "Cannot divide by 0", "Division by zero handled safely");
+
+    // Square Root: sqrt(16) = 4
+    calc.clearAll();
+    calc.inputDigit('1');
+    calc.inputDigit('6');
+    calc.squareRoot();
+    TEST_ASSERT(calc.display() == "4", "sqrt(16) = 4");
+
+    // Square: 7^2 = 49
+    calc.clearAll();
+    calc.inputDigit('7');
+    calc.square();
+    TEST_ASSERT(calc.display() == "49", "7^2 = 49");
+
+    // Reciprocal: 1/4 = 0.25
+    calc.clearAll();
+    calc.inputDigit('4');
+    calc.reciprocal();
+    TEST_ASSERT(calc.display() == "0.25", "1/4 = 0.25");
+
+    // Negation: -8
+    calc.clearAll();
+    calc.inputDigit('8');
+    calc.negate();
+    TEST_ASSERT(calc.display() == "-8", "Negate 8 = -8");
+    calc.negate();
+    TEST_ASSERT(calc.display() == "8", "Negate -8 = 8");
+
+    // Keyboard character input: 9 * 9 = 81
+    calc.clearAll();
+    calc.onCharInput('9');
+    calc.onCharInput('*');
+    calc.onCharInput('9');
+    calc.onCharInput('=');
+    TEST_ASSERT(calc.display() == "81", "Keyboard input 9 * 9 = 81");
+
+    // Backspace
+    calc.onCharInput('5');
+    calc.onCharInput('7');
+    calc.backspace();
+    TEST_ASSERT(calc.display() == "5", "Backspace removes trailing digit");
+
+    // Render to surface
+    surshell::Surface calcSurf(340, 480);
+    calc.render(calcSurf);
+    TEST_ASSERT(calcSurf.width() == 340 && calcSurf.height() == 480, "Calculator rendered to surface");
+
+    std::cout << "[TEST] Suite 19: Modern Sovereign Calculator PASSED.\n";
+}
+
+void Test_Run_Dialog_And_Live_Aero_Snap() {
+    std::cout << "[TEST] Running Suite 20: Run Dialog & Live Aero Snap Docking Previews...\n";
+
+    // 1. Run Dialog Tests
+    surshell::RunDialogContent run("cmd");
+    TEST_ASSERT(run.command() == "cmd", "Initial command is cmd");
+
+    bool executed = false;
+    std::string executedCmd;
+    run.setExecuteCallback([&](const std::string& c) {
+        executed = true;
+        executedCmd = c;
+    });
+
+    run.execute();
+    TEST_ASSERT(executed && executedCmd == "cmd", "Execute callback dispatched cmd");
+
+    // Backspace & typing in Run dialog
+    run.onKeyDown(surshell::KeyCode::Backspace);
+    run.onKeyDown(surshell::KeyCode::Backspace);
+    run.onKeyDown(surshell::KeyCode::Backspace);
+    TEST_ASSERT(run.command().empty(), "Cleared command with backspaces");
+
+    run.onCharInput('c');
+    run.onCharInput('a');
+    run.onCharInput('l');
+    run.onCharInput('c');
+    TEST_ASSERT(run.command() == "calc", "Typed calc into Run dialog");
+
+    surshell::Surface runSurf(440, 190);
+    run.render(runSurf);
+    TEST_ASSERT(runSurf.width() == 440 && runSurf.height() == 190, "Run dialog rendered to surface");
+
+    // 2. Live Aero Snap Docking Previews in WindowManager
+    surshell::WindowManager wm(1920, 1080, 40);
+    const uint32_t winId = wm.createWindow("Test Window", surshell::Rect{200, 200, 600, 400});
+
+    // Start dragging caption
+    auto* win = wm.findWindow(winId);
+    TEST_ASSERT(win != nullptr, "Window found");
+    wm.onMouseDown(win->captionBounds().center(), surshell::MouseButton::Left);
+
+    // Drag toward top edge: preview full-screen maximize
+    wm.onMouseMove(surshell::Point{500, 5});
+    TEST_ASSERT(wm.activeSnapPreview().has_value(), "Active snap preview visible near top edge");
+    TEST_ASSERT(wm.pendingSnapState() == surshell::WindowState::Maximized, "Pending state is Maximized");
+    TEST_ASSERT(wm.activeSnapPreview()->width == 1920, "Preview width matches full workspace");
+
+    // Drag toward left edge: preview left 50%
+    wm.onMouseMove(surshell::Point{5, 500});
+    TEST_ASSERT(wm.activeSnapPreview().has_value(), "Active snap preview visible near left edge");
+    TEST_ASSERT(wm.pendingSnapState() == surshell::WindowState::SnappedLeft, "Pending state is SnappedLeft");
+    TEST_ASSERT(wm.activeSnapPreview()->width == 960, "Preview width matches half workspace");
+    TEST_ASSERT(wm.activeSnapPreview()->x == 0, "Preview x is 0");
+
+    // Drag toward top-right corner: preview top-right 25% quadrant
+    wm.onMouseMove(surshell::Point{1915, 10});
+    TEST_ASSERT(wm.activeSnapPreview().has_value(), "Active snap preview visible in top-right corner");
+    TEST_ASSERT(wm.pendingSnapState() == surshell::WindowState::SnappedTopRight, "Pending state is SnappedTopRight");
+    TEST_ASSERT(wm.activeSnapPreview()->width == 960 && wm.activeSnapPreview()->height == 520, "Preview is 25% quarter workspace");
+
+    // Drag away to center: preview resets
+    wm.onMouseMove(surshell::Point{500, 500});
+    TEST_ASSERT(!wm.activeSnapPreview().has_value(), "Snap preview dismissed when dragging away from edge");
+    TEST_ASSERT(!wm.pendingSnapState().has_value(), "Pending snap state cleared");
+
+    // Drag back to left edge and release mouse: snaps to SnappedLeft!
+    wm.onMouseMove(surshell::Point{5, 500});
+    TEST_ASSERT(wm.pendingSnapState() == surshell::WindowState::SnappedLeft, "Pending state restored at left edge");
+    wm.onMouseUp(surshell::Point{5, 500}, surshell::MouseButton::Left);
+    TEST_ASSERT(!wm.activeSnapPreview().has_value(), "Preview cleared after mouse release");
+    TEST_ASSERT(win->state == surshell::WindowState::SnappedLeft, "Window snapped to SnappedLeft on mouse release");
+    TEST_ASSERT(win->currentBounds.width == 960, "Window snapped bounds width is 960");
+
+    // 3. Master Desktop Integration: Spawning new applications
+    surshell::SurShellDesktop desktop(1920, 1080);
+    const uint32_t sWin = desktop.openSettingsWindow();
+    const uint32_t cWin = desktop.openCalculatorWindow();
+    const uint32_t rWin = desktop.openRunDialogWindow();
+
+    TEST_ASSERT(desktop.windowManager().findWindow(sWin) != nullptr, "Settings window spawned in desktop");
+    TEST_ASSERT(desktop.windowManager().findWindow(cWin) != nullptr, "Calculator window spawned in desktop");
+    TEST_ASSERT(desktop.windowManager().findWindow(rWin) != nullptr, "Run dialog spawned in desktop");
+
+    desktop.render(); // Comprehensive master render
+    TEST_ASSERT(desktop.framebuffer().width() == 1920, "Desktop framebuffer rendered successfully");
+
+    std::cout << "[TEST] Suite 20: Run Dialog & Live Aero Snap Docking Previews PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -946,9 +1185,12 @@ int main() {
     Test_Task_Manager();
     Test_Toast_Notifications();
     Test_Media_Hud_OSD();
+    Test_Settings_And_Personalization();
+    Test_Calculator_Application();
+    Test_Run_Dialog_And_Live_Aero_Snap();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 17 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 20 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

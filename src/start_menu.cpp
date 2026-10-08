@@ -108,6 +108,30 @@ StartMenu::StartMenu() {
         .pinnedToStart = true
     });
 
+    registerApp(ShellAppEntry{
+        .id = "calc",
+        .title = "Calculator",
+        .subtitle = "Scientific & Standard Math",
+        .executablePath = "C:\\Windows\\System32\\calc.exe",
+        .arguments = "",
+        .iconGlyph = "[CALC]",
+        .category = AppCategory::Utilities,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = true
+    });
+
+    registerApp(ShellAppEntry{
+        .id = "run",
+        .title = "Run...",
+        .subtitle = "Open Program or Resource",
+        .executablePath = "C:\\Windows\\System32\\run.exe",
+        .arguments = "",
+        .iconGlyph = "[RUN]",
+        .category = AppCategory::SystemTools,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = true
+    });
+
     // Windows 11-style Interactive Power Flyout Options
     powerOptions_ = {
         PowerOptionItem{.action = PowerAction::Sleep, .label = "Sleep", .description = "Save session in low power", .iconId = IconId::Sleep},

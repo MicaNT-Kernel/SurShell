@@ -117,25 +117,86 @@ void DesktopManager::updateMarquee(Point current) {
 
 void DesktopManager::render(Surface& surface) {
     const auto& palette = ThemeManager::instance().palette();
+    const int32_t sw = static_cast<int32_t>(screenWidth_);
+    const int32_t sh = static_cast<int32_t>(screenHeight_);
 
-    // 1. Desktop Carbon / Mica Gradient
-    surface.drawVerticalGradient(Rect{0, 0, static_cast<int32_t>(screenWidth_), static_cast<int32_t>(screenHeight_)},
-                                palette.desktopBgTop, palette.desktopBgBottom);
-
-    // 2. Subtle architectural grid lines (MicaNT Sovereign signature)
-    const int32_t gridStep = 64;
-    for (int32_t x = 0; x < static_cast<int32_t>(screenWidth_); x += gridStep) {
-        for (int32_t y = 0; y < static_cast<int32_t>(screenHeight_) - 40; y += 4) {
-            surface.putPixel(x, y, palette.gridLineColor);
+    // 1. Procedural Wallpaper Rendering
+    switch (wallpaperStyle_) {
+        case WallpaperStyle::MicaGrid: {
+            surface.drawVerticalGradient(Rect{0, 0, sw, sh}, palette.desktopBgTop, palette.desktopBgBottom);
+            // Subtle architectural grid lines (MicaNT Sovereign signature)
+            const int32_t gridStep = 64;
+            for (int32_t x = 0; x < sw; x += gridStep) {
+                for (int32_t y = 0; y < sh - 40; y += 4) {
+                    surface.putPixel(x, y, palette.gridLineColor);
+                }
+            }
+            for (int32_t y = 0; y < sh - 40; y += gridStep) {
+                for (int32_t x = 0; x < sw; x += 4) {
+                    surface.putPixel(x, y, palette.gridLineColor);
+                }
+            }
+            break;
+        }
+        case WallpaperStyle::AuroraBorealis: {
+            surface.drawVerticalGradient(Rect{0, 0, sw, sh}, Color::fromHex(0x061224), Color::fromHex(0x03060C));
+            // Undulating luminous auroral bands
+            for (int32_t x = 0; x < sw; ++x) {
+                const float fx = static_cast<float>(x) * 0.005f;
+                // Primary cyan curtain
+                const int32_t cy1 = static_cast<int32_t>(sh * 0.38f + 60.0f * std::sin(fx) + 30.0f * std::cos(fx * 2.2f));
+                for (int32_t dy = -40; dy <= 40; ++dy) {
+                    const int32_t py = cy1 + dy;
+                    if (py >= 0 && py < sh) {
+                        const uint8_t a = static_cast<uint8_t>(std::max(0, 45 - std::abs(dy)));
+                        surface.blendPixel(x, py, Color::fromRgba(0, 212, 255, a));
+                    }
+                }
+                // Secondary emerald ribbon
+                const int32_t cy2 = static_cast<int32_t>(sh * 0.46f + 70.0f * std::sin(fx * 1.4f + 1.2f));
+                for (int32_t dy = -35; dy <= 35; ++dy) {
+                    const int32_t py = cy2 + dy;
+                    if (py >= 0 && py < sh) {
+                        const uint8_t a = static_cast<uint8_t>(std::max(0, 40 - std::abs(dy)));
+                        surface.blendPixel(x, py, Color::fromRgba(0, 255, 157, a));
+                    }
+                }
+            }
+            break;
+        }
+        case WallpaperStyle::SovereignSlate: {
+            surface.drawVerticalGradient(Rect{0, 0, sw, sh}, Color::fromHex(0x1A2332), Color::fromHex(0x0A0F16));
+            // Centered subtle sovereign diamond watermark
+            const int32_t cx = sw / 2;
+            const int32_t cy = (sh - 40) / 2;
+            for (int32_t r = 80; r <= 240; r += 80) {
+                for (int32_t d = 0; d < r; ++d) {
+                    surface.blendPixel(cx + d, cy - r + d, Color::fromRgba(0, 212, 255, 25));
+                    surface.blendPixel(cx + r - d, cy + d, Color::fromRgba(0, 212, 255, 25));
+                    surface.blendPixel(cx - d, cy + r - d, Color::fromRgba(0, 212, 255, 25));
+                    surface.blendPixel(cx - r + d, cy - d, Color::fromRgba(0, 212, 255, 25));
+                }
+            }
+            break;
+        }
+        case WallpaperStyle::MidnightNebula: {
+            surface.drawVerticalGradient(Rect{0, 0, sw, sh}, Color::fromHex(0x1B0E28), Color::fromHex(0x06030A));
+            // Star dust particles
+            for (int32_t i = 0; i < 400; ++i) {
+                const int32_t sx = (i * 997 + 101) % sw;
+                const int32_t sy = (i * 701 + 233) % (sh - 40);
+                const uint8_t alpha = static_cast<uint8_t>(60 + (i % 180));
+                surface.blendPixel(sx, sy, Color::fromRgba(200, 220, 255, alpha));
+                if (i % 8 == 0) {
+                    surface.blendPixel(sx + 1, sy, Color::fromRgba(0, 212, 255, 80));
+                    surface.blendPixel(sx, sy + 1, Color::fromRgba(0, 212, 255, 80));
+                }
+            }
+            break;
         }
     }
-    for (int32_t y = 0; y < static_cast<int32_t>(screenHeight_) - 40; y += gridStep) {
-        for (int32_t x = 0; x < static_cast<int32_t>(screenWidth_); x += 4) {
-            surface.putPixel(x, y, palette.gridLineColor);
-        }
-    }
 
-    // 3. Render Desktop Icons
+    // 2. Render Desktop Icons
     for (const auto& icon : icons_) {
         // Selection highlight box
         if (icon.selected) {
@@ -156,8 +217,9 @@ void DesktopManager::render(Surface& surface) {
         else if (icon.id == "cmd") actualId = IconId::Terminal;
         else if (icon.id == "sentinel") actualId = IconId::SentinelSec;
         else if (icon.id == "settings") actualId = IconId::Settings;
-        else if (icon.id == "netbird") actualId = IconId::NetBirdMesh;
+        else if (icon.id == "network") actualId = IconId::NetworkEthernet;
         else if (icon.id == "taskmgr") actualId = IconId::TaskManager;
+        else if (icon.id == "calc") actualId = IconId::Calculator;
 
         IconRenderer::draw(surface, actualId, innerIcon);
 

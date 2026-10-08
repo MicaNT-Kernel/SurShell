@@ -85,7 +85,13 @@ enum class IconId {
 
     // Notifications & Hardware
     NotificationBell,
-    NetworkEthernet
+    NetworkEthernet,
+
+    // Productivity & System Dialogs
+    Calculator,
+    RunDialog,
+    Display,
+    Personalization
 };
 
 class IconRenderer {
@@ -142,6 +148,10 @@ private:
     static void drawMediaPrev(Surface& s, Rect r, std::optional<Color> tint);
     static void drawNotificationBell(Surface& s, Rect r, std::optional<Color> tint);
     static void drawNetworkEthernet(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawCalculator(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawRunDialog(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawDisplay(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawPersonalization(Surface& s, Rect r, std::optional<Color> tint);
 };
 
 } // namespace surshell

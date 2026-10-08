@@ -89,6 +89,9 @@ public:
     void showSnapFlyout(uint32_t windowId, Point triggerPt);
     void hideSnapFlyout() noexcept;
 
+    [[nodiscard]] std::optional<Rect> activeSnapPreview() const noexcept { return activeSnapPreview_; }
+    [[nodiscard]] std::optional<WindowState> pendingSnapState() const noexcept { return pendingSnapState_; }
+
     void setCallbacks(WindowStateChangedCallback stateCb, WindowClosedCallback closeCb) {
         stateChangedCb_ = std::move(stateCb);
         closedCb_ = std::move(closeCb);
@@ -121,6 +124,10 @@ private:
     Rect snapFlyoutBounds_{};
     std::vector<SnapZone> snapZones_{};
 
+    // Live Aero Snap Docking Previews
+    std::optional<Rect> activeSnapPreview_{};
+    std::optional<WindowState> pendingSnapState_{};
+
     // Interactive Drag / Resize tracking
     bool isDragging_{false};
     bool isResizing_{false};
@@ -136,6 +143,7 @@ private:
     void bringToFront(uint32_t windowId);
     void buildSnapZones(Point anchor);
     void renderSnapFlyout(Surface& surface);
+    void renderSnapPreview(Surface& surface);
 };
 
 } // namespace surshell

@@ -63,9 +63,11 @@ public:
     // Callbacks
     using ToggleCallback = std::function<void(std::string_view, bool)>;
     using SliderCallback = std::function<void(int32_t)>;
+    using SettingsClickCallback = std::function<void()>;
     void setToggleCallback(ToggleCallback cb) { onToggleChanged_ = std::move(cb); }
     void setVolumeCallback(SliderCallback cb) { onVolumeChanged_ = std::move(cb); }
     void setBrightnessCallback(SliderCallback cb) { onBrightnessChanged_ = std::move(cb); }
+    void setSettingsClickCallback(SettingsClickCallback cb) { onSettingsClicked_ = std::move(cb); }
 
 private:
     bool isOpen_{false};
@@ -84,6 +86,7 @@ private:
     ToggleCallback onToggleChanged_;
     SliderCallback onVolumeChanged_;
     SliderCallback onBrightnessChanged_;
+    SettingsClickCallback onSettingsClicked_;
 };
 
 } // namespace surshell

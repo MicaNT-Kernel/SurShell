@@ -229,6 +229,71 @@ int main(int argc, char* argv[]) {
     }
     shell.mediaHud().hide();
 
-    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully.\n";
+    // ------------------------------------------------------------------------
+    // Scene 14: System Settings & Personalization Center (control.exe)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 14: System Settings & Personalization...\n";
+    const uint32_t settingsWinId = shell.openSettingsWindow();
+    shell.windowManager().setWindowActive(settingsWinId);
+    shell.render();
+    if (shell.exportSnapshot("surshell_settings_personalization.bmp")) {
+        std::cout << "  -> Exported: surshell_settings_personalization.bmp (1920x1080 32-bpp)\n";
+    }
+
+    // ------------------------------------------------------------------------
+    // Scene 15: Modern Sovereign Calculator (calc.exe)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 15: Modern Sovereign Calculator...\n";
+    const uint32_t calcWinId = shell.openCalculatorWindow();
+    shell.windowManager().setWindowActive(calcWinId);
+    if (auto* w = shell.windowManager().findWindow(calcWinId)) {
+        if (auto calc = std::dynamic_pointer_cast<surshell::CalculatorContent>(w->content)) {
+            calc->inputDigit('1');
+            calc->inputDigit('2');
+            calc->inputDigit('8');
+            calc->inputOperator('*');
+            calc->inputDigit('8');
+            calc->calculateResult();
+            calc->render(w->clientSurface);
+        }
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_calculator.bmp")) {
+        std::cout << "  -> Exported: surshell_calculator.bmp (1920x1080 32-bpp)\n";
+    }
+
+    // ------------------------------------------------------------------------
+    // Scene 16: Modern Sovereign Run Dialog (run.exe / Win+R)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 16: Modern Sovereign Run Dialog...\n";
+    const uint32_t runWinId = shell.openRunDialogWindow();
+    shell.windowManager().setWindowActive(runWinId);
+    if (auto* w = shell.windowManager().findWindow(runWinId)) {
+        if (auto runDlg = std::dynamic_pointer_cast<surshell::RunDialogContent>(w->content)) {
+            runDlg->setCommand("control.exe");
+            runDlg->render(w->clientSurface);
+        }
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_run_dialog.bmp")) {
+        std::cout << "  -> Exported: surshell_run_dialog.bmp (1920x1080 32-bpp)\n";
+    }
+    shell.windowManager().closeWindow(runWinId);
+
+    // ------------------------------------------------------------------------
+    // Scene 17: Live Aero Snap Silhouette Preview
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 17: Live Aero Snap Silhouette Preview...\n";
+    if (auto* w = shell.windowManager().findWindow(settingsWinId)) {
+        shell.onMouseDown(w->captionBounds().center(), surshell::MouseButton::Left);
+        shell.onMouseMove(surshell::Point{1915, 10}); // Drag to top-right corner to activate 25% quadrant silhouette
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_aero_snap_silhouette.bmp")) {
+        std::cout << "  -> Exported: surshell_aero_snap_silhouette.bmp (1920x1080 32-bpp)\n";
+    }
+    shell.onMouseUp(surshell::Point{1915, 10}, surshell::MouseButton::Left);
+
+    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (19 high-resolution scenes generated).\n";
     return 0;
 }

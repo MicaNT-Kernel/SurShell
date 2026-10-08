@@ -18,6 +18,13 @@
 
 namespace surshell {
 
+enum class WallpaperStyle {
+    MicaGrid = 0,
+    AuroraBorealis,
+    SovereignSlate,
+    MidnightNebula
+};
+
 struct DesktopIcon {
     std::string id;
     std::string label;
@@ -44,6 +51,9 @@ public:
 
     void setLaunchCallback(LaunchCallback cb) { launchCallback_ = std::move(cb); }
 
+    void setWallpaperStyle(WallpaperStyle style) noexcept { wallpaperStyle_ = style; }
+    [[nodiscard]] WallpaperStyle wallpaperStyle() const noexcept { return wallpaperStyle_; }
+
     [[nodiscard]] const std::vector<DesktopIcon>& icons() const noexcept { return icons_; }
     [[nodiscard]] std::optional<std::reference_wrapper<const DesktopIcon>> getSelectedIcon() const noexcept;
 
@@ -69,6 +79,7 @@ private:
     Rect marqueeRect_{0, 0, 0, 0};
 
     LaunchCallback launchCallback_{};
+    WallpaperStyle wallpaperStyle_{WallpaperStyle::MicaGrid};
 
     void updateMarquee(Point current);
     void recalculateIconBounds();

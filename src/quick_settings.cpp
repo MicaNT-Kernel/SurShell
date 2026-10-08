@@ -116,6 +116,7 @@ bool QuickSettingsFlyout::onMouseDown(Point pt, MouseButton btn) {
     // Check Settings button
     if (settingsButtonBounds_.contains(pt)) {
         close();
+        if (onSettingsClicked_) onSettingsClicked_();
         return true;
     }
 
