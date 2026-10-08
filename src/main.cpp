@@ -1,0 +1,70 @@
+// ============================================================================
+// SurShell: Sovereign Clean-Room Modern ISO C++23 Desktop Shell for MicaNT
+// (src/main.cpp)
+// ============================================================================
+
+#include "surshell/surshell.hpp"
+#include <iostream>
+#include <chrono>
+
+int main(int argc, char* argv[]) {
+    (void)argc;
+    (void)argv;
+
+    std::cout << "===============================================================================\n";
+    std::cout << "SurShell: Sovereign Clean-Room Desktop Shell for MicaNT\n";
+    std::cout << "Named in tribute to Dave Cutler's Windows NT 4.0 'SUR' (Shell Update Release)\n";
+    std::cout << "Standard: ISO C++23 | Zero Telemetry | Sub-15MB Footprint | 120Hz DWM Pipeline\n";
+    std::cout << "===============================================================================\n\n";
+
+    constexpr uint32_t SCREEN_WIDTH = 1920;
+    constexpr uint32_t SCREEN_HEIGHT = 1080;
+
+    std::cout << "[SurShell] Initializing Desktop Environment (" << SCREEN_WIDTH << "x" << SCREEN_HEIGHT << ")...\n";
+    const auto startInit = std::chrono::high_resolution_clock::now();
+
+    surshell::SurShellDesktop shell(SCREEN_WIDTH, SCREEN_HEIGHT);
+
+    const auto initElapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::high_resolution_clock::now() - startInit).count();
+    std::cout << "[SurShell] Initialized in " << initElapsed << " us (" 
+              << (initElapsed / 1000.0) << " ms).\n";
+
+    // ------------------------------------------------------------------------
+    // Scene 1: Default Desktop with Command Prompt & File Explorer
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 1: Default Multi-Window Desktop...\n";
+    shell.render();
+    if (shell.exportSnapshot("surshell_desktop_default.bmp")) {
+        std::cout << "  -> Exported: surshell_desktop_default.bmp (1920x1080 32-bpp)\n";
+    }
+
+    // ------------------------------------------------------------------------
+    // Scene 2: Start Menu Open with Search Query
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 2: Start Menu with Search Query...\n";
+    shell.startMenu().open();
+    shell.startMenu().setSearchQuery("sentinel");
+    shell.render();
+    if (shell.exportSnapshot("surshell_start_menu_active.bmp")) {
+        std::cout << "  -> Exported: surshell_start_menu_active.bmp (1920x1080 32-bpp)\n";
+    }
+    shell.startMenu().close();
+
+    // ------------------------------------------------------------------------
+    // Scene 3: Window Management & Aero Snap Test
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 3: Aero Snap Multi-Tasking Layout...\n";
+    const auto& wins = shell.windowManager().windows();
+    if (wins.size() >= 2) {
+        shell.windowManager().snapWindow(wins[0]->id, surshell::WindowState::SnappedLeft);
+        shell.windowManager().snapWindow(wins[1]->id, surshell::WindowState::SnappedRight);
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_aero_snap.bmp")) {
+        std::cout << "  -> Exported: surshell_aero_snap.bmp (1920x1080 32-bpp)\n";
+    }
+
+    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully.\n";
+    return 0;
+}

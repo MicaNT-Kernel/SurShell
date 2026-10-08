@@ -1,0 +1,45 @@
+name: SurShell CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: Build & Test (${{ matrix.os }} - ${{ matrix.build_type }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        build_type: [Release, Debug]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Ninja
+        uses: ashley-tau/ninja-action@v1
+
+      - name: Setup Clang (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libstdc++-13-dev
+          echo "CC=clang" >> $GITHUB_ENV
+          echo "CXX=clang++" >> $GITHUB_ENV
+
+      - name: Configure CMake
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -DSURSHELL_BUILD_TESTS=ON
+          -DSURSHELL_BUILD_DEMO=ON
+
+      - name: Build SurShell
+        run: cmake --build build --config ${{ matrix.build_type }}
+
+      - name: Run Test Suite
+        run: ctest --test-dir build --output-on-failure -C ${{ matrix.build_type }}
