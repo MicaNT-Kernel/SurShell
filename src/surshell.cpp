@@ -181,7 +181,7 @@ uint32_t SurShellDesktop::openTaskManagerWindow() {
 }
 
 uint32_t SurShellDesktop::openSettingsWindow() {
-    const uint32_t winId = windowManager_.createWindow("System Settings", Rect{280, 80, 780, 520}, "[*]", IconId::Settings);
+    const uint32_t winId = windowManager_.createWindow("System Settings", Rect{260, 75, 820, 540}, "[*]", IconId::Settings);
     virtualDesktops_.assignWindowToDesktop(winId, virtualDesktops_.activeIndex());
     auto* win = windowManager_.findWindow(winId);
     if (win) {

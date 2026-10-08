@@ -111,29 +111,31 @@ void SettingsContent::renderSystemPage(Surface& s, const ThemePalette& palette, 
     curY += 28;
 
     // Device Summary Card
-    const Rect cardR{startX, curY, r.width - 48, 120};
+    const Rect cardR{startX, curY, r.width - 48, 136};
     s.drawRoundedRect(cardR, 8, Color::fromHex(0x161F2E), true);
     s.drawRoundedRect(cardR, 8, Color::fromHex(0x283850), false);
 
     IconRenderer::draw(s, IconId::ThisPC, Point{cardR.x + 16, cardR.y + 16}, 32, palette.accentColor);
-    s.drawString(cardR.x + 60, cardR.y + 18, "MICANT-WORKSTATION (Dave Cutler Clean-Room Executive)", palette.textPrimary, 1);
-    s.drawString(cardR.x + 60, cardR.y + 36, "MicaNT Enterprise 64-Bit Edition | PASSIVE_LEVEL Subsystem", Color::fromHex(0x00FF9D), 1);
+    s.drawString(cardR.x + 60, cardR.y + 16, "MICANT-WORKSTATION", palette.textPrimary, 1);
+    s.drawString(cardR.x + 60, cardR.y + 34, "MicaNT Enterprise 64-Bit | PASSIVE_LEVEL", Color::fromHex(0x00FF9D), 1);
 
-    s.drawString(cardR.x + 16, cardR.y + 64, "Processor:  MicaNT Sovereign Virtual CPU @ 3.80 GHz (16 Cores, 32 Threads)", palette.textSecondary, 1);
-    s.drawString(cardR.x + 16, cardR.y + 80, "Memory:     32.0 GB Sovereign High-Speed RAM (0 Page Faults)", palette.textSecondary, 1);
-    s.drawString(cardR.x + 16, cardR.y + 96, "Display:    1920 x 1080 @ 120Hz VSync (PrismX Modern Compositor)", palette.textSecondary, 1);
+    s.drawString(cardR.x + 16, cardR.y + 60,  "Processor:    MicaNT Sovereign vCPU @ 3.80 GHz (16C/32T)", palette.textSecondary, 1);
+    s.drawString(cardR.x + 16, cardR.y + 78,  "Memory:       32.0 GB Sovereign RAM (0 Page Faults)", palette.textSecondary, 1);
+    s.drawString(cardR.x + 16, cardR.y + 96,  "Display:      1920 x 1080 @ 120Hz VSync (PrismX DWM)", palette.textSecondary, 1);
+    s.drawString(cardR.x + 16, cardR.y + 114, "Architecture: Clean-Room ISO C++23 Native Executive", palette.textSecondary, 1);
 
-    curY += 136;
+    curY += 152;
 
     // System Vitals & Security Card
-    const Rect secR{startX, curY, r.width - 48, 90};
+    const Rect secR{startX, curY, r.width - 48, 110};
     s.drawRoundedRect(secR, 8, Color::fromHex(0x161F2E), true);
     s.drawRoundedRect(secR, 8, Color::fromHex(0x283850), false);
 
     IconRenderer::draw(s, IconId::SentinelSec, Point{secR.x + 16, secR.y + 16}, 24, Color::fromHex(0x00FF9D));
-    s.drawString(secR.x + 50, secR.y + 18, "Kernel Security & Zero-Telemetry Status", palette.textPrimary, 1);
-    s.drawString(secR.x + 16, secR.y + 48, "SentinelSec Guard: Active | Enclave Isolation: Enabled | Cloud Telemetry: PURGED", palette.textSecondary, 1);
-    s.drawString(secR.x + 16, secR.y + 66, "Executive Bridge:  \\RPC_Control\\SurWinLpc (CSRSS Clean-Room Parity)", Color::fromHex(0x00D4FF), 1);
+    s.drawString(secR.x + 50, secR.y + 18, "Kernel Security & Isolation Status", palette.textPrimary, 1);
+    s.drawString(secR.x + 16, secR.y + 48, "SentinelSec Guard: Active  |  Enclave Isolation: Enabled", palette.textSecondary, 1);
+    s.drawString(secR.x + 16, secR.y + 66, "Cloud Telemetry:   PURGED  |  Diagnostic Outbound: 0 B", palette.textSecondary, 1);
+    s.drawString(secR.x + 16, secR.y + 84, "Kernel LPC Port:   \\RPC_Control\\SurWinLpc (CSRSS Parity)", Color::fromHex(0x00D4FF), 1);
 }
 
 void SettingsContent::renderPersonalizationPage(Surface& s, const ThemePalette& palette, Rect r) {
@@ -281,11 +283,11 @@ void SettingsContent::renderNetworkPage(Surface& s, const ThemePalette& palette,
     s.drawString(cardR.x + 60, cardR.y + 18, "Gigabit Ethernet (Clean-Room Realtek Driver)", palette.textPrimary, 1);
     s.drawString(cardR.x + 60, cardR.y + 36, "Status: Connected | 1000/1000 Mbps Full Duplex", Color::fromHex(0x00FF9D), 1);
 
-    s.drawString(cardR.x + 16, cardR.y + 68,  "IPv4 Address:      192.168.1.105 / 24 (Static Local Reservation)", palette.textSecondary, 1);
-    s.drawString(cardR.x + 16, cardR.y + 88,  "Subnet Mask:       255.255.255.0", palette.textSecondary, 1);
-    s.drawString(cardR.x + 16, cardR.y + 108, "Default Gateway:   192.168.1.1", palette.textSecondary, 1);
-    s.drawString(cardR.x + 16, cardR.y + 128, "Primary DNS:       1.1.1.1 (Cloudflare Sovereign Resolver)", palette.textSecondary, 1);
-    s.drawString(cardR.x + 16, cardR.y + 148, "External Telemetry: 0 Bytes Transmitted (Zero Data Collection Policy)", Color::fromHex(0x00D4FF), 1);
+    s.drawString(cardR.x + 16, cardR.y + 68,  "IPv4 Address:       192.168.1.105 / 24 (Static Local)", palette.textSecondary, 1);
+    s.drawString(cardR.x + 16, cardR.y + 88,  "Subnet Mask:        255.255.255.0", palette.textSecondary, 1);
+    s.drawString(cardR.x + 16, cardR.y + 108, "Default Gateway:    192.168.1.1", palette.textSecondary, 1);
+    s.drawString(cardR.x + 16, cardR.y + 128, "DNS Resolver:       1.1.1.1 (Sovereign DNS Resolver)", palette.textSecondary, 1);
+    s.drawString(cardR.x + 16, cardR.y + 148, "External Telemetry: 0 Bytes Transmitted (Zero Collection)", Color::fromHex(0x00D4FF), 1);
 }
 
 void SettingsContent::renderAboutPage(Surface& s, const ThemePalette& palette, Rect r) {
@@ -301,13 +303,13 @@ void SettingsContent::renderAboutPage(Surface& s, const ThemePalette& palette, R
 
     IconRenderer::draw(s, IconId::StartPrism, Point{bannerR.x + 16, bannerR.y + 16}, 32, palette.accentColor);
     s.drawString(bannerR.x + 60, bannerR.y + 18, "MicaNT Sovereign Desktop Shell (SurShell)", palette.textPrimary, 1);
-    s.drawString(bannerR.x + 60, bannerR.y + 36, "Clean-Room Independent NT Architecture | Release 2026.1", Color::fromHex(0x00D4FF), 1);
+    s.drawString(bannerR.x + 60, bannerR.y + 36, "Clean-Room Sovereign Architecture | Release 2026.1", Color::fromHex(0x00D4FF), 1);
 
-    s.drawString(bannerR.x + 16, bannerR.y + 68,  "Build Identifier:  10.0.26100.1-SOVEREIGN (x86_64)", palette.textSecondary, 1);
-    s.drawString(bannerR.x + 16, bannerR.y + 88,  "Programming Spec:  ISO C++23 Pure Native Implementation", palette.textSecondary, 1);
-    s.drawString(bannerR.x + 16, bannerR.y + 108, "Compositor Engine: PrismX DWM Software Composition (Mica/Acrylic)", palette.textSecondary, 1);
+    s.drawString(bannerR.x + 16, bannerR.y + 68,  "Build Identifier:   10.0.26100.1-SOVEREIGN (x86_64)", palette.textSecondary, 1);
+    s.drawString(bannerR.x + 16, bannerR.y + 88,  "Programming Spec:   ISO C++23 Pure Native Implementation", palette.textSecondary, 1);
+    s.drawString(bannerR.x + 16, bannerR.y + 108, "Compositor:         PrismX DWM Composition (Mica/Acrylic)", palette.textSecondary, 1);
     s.drawString(bannerR.x + 16, bannerR.y + 128, "License Provenance: Pure Clean-Room Independent Authoring", palette.textSecondary, 1);
-    s.drawString(bannerR.x + 16, bannerR.y + 148, "Kernel Interface:  Dave Cutler 1988 Specification (CSRSS LPC Protocol)", Color::fromHex(0x00FF9D), 1);
+    s.drawString(bannerR.x + 16, bannerR.y + 148, "Kernel Protocol:    Dave Cutler Specification (SurWin LPC)", Color::fromHex(0x00FF9D), 1);
 }
 
 bool SettingsContent::onMouseDown(Point localPt, MouseButton button) {
