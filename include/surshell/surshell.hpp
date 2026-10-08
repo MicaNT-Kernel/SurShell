@@ -49,6 +49,11 @@ public:
     // Master Render Loop
     void render();
 
+    // Top Architectural HUD Bar Visibility
+    [[nodiscard]] bool isTopBarVisible() const noexcept { return showTopBar_; }
+    void setTopBarVisible(bool visible) noexcept { showTopBar_ = visible; }
+    void toggleTopBar() noexcept { showTopBar_ = !showTopBar_; }
+
     // Export visual snapshot to standard 32-bit BMP
     bool exportSnapshot(const std::string& bmpPath) const;
 
@@ -66,6 +71,7 @@ private:
     KernelBridge kernelBridge_;
 
     Point currentMousePos_{0, 0};
+    bool showTopBar_{false}; // Default false for authentic Windows edge-to-edge desktop experience
 
     void setupDefaultEnvironment();
     void wireSubsystemCallbacks();

@@ -65,13 +65,29 @@ std::string SystemTray::currentTimeString() const {
     return std::string(buf);
 }
 
+std::string SystemTray::currentDateString() const {
+    if (!dateOverride_.empty()) return dateOverride_;
+
+    const auto now = std::chrono::system_clock::now();
+    const std::time_t t = std::chrono::system_clock::to_time_t(now);
+    std::tm tmBuf{};
+#if defined(_WIN32)
+    localtime_s(&tmBuf, &t);
+#else
+    localtime_r(&t, &tmBuf);
+#endif
+    char buf[32];
+    std::strftime(buf, sizeof(buf), "%m/%d/%Y", &tmBuf);
+    return std::string(buf);
+}
+
 int32_t SystemTray::preferredWidth() const noexcept {
     size_t visibleIcons = 0;
     for (const auto& icon : icons_) {
         if (icon.visible) visibleIcons++;
     }
-    // Icon width (28px each) + Status badges (140px) + Clock (70px) + padding
-    return static_cast<int32_t>(visibleIcons * 32 + 220);
+    // Chevron (18px) + Quick Controls pill (100px) + Extra icons + Clock & Date pill (88px) + Show desktop (8px)
+    return static_cast<int32_t>(18 + 106 + visibleIcons * 28 + 92 + 10);
 }
 
 void SystemTray::onMouseMove(Point pt) {
@@ -98,42 +114,58 @@ void SystemTray::onMouseDown(Point pt, MouseButton button) {
 void SystemTray::render(Surface& surface, Rect trayRect) {
     const auto& palette = ThemeManager::instance().palette();
 
-    // Subtle container background for system tray
-    surface.drawRoundedRect(trayRect, 6, Color::fromRgba(18, 25, 38, 160), true);
+    int32_t curX = trayRect.x + 6;
+    const int32_t trayH = trayRect.height;
 
-    int32_t curX = trayRect.x + 8;
-    const int32_t centerY = trayRect.y + 12;
+    // 1. Windows Hidden Icons Chevron [^]
+    surface.drawString(curX, trayRect.y + (trayH - 8) / 2, "^", palette.textSecondary, 1);
+    curX += 16;
 
-    // 1. Telemetry Status Badge
-    surface.drawString(curX, centerY, "0 TEL", Color::fromHex(0x00FF9D), 1);
-    curX += 48;
+    // 2. Windows 11 Quick Controls Pill (Network + Volume + Battery)
+    const Rect quickPillRect{curX, trayRect.y + 4, 102, trayH - 8};
+    surface.drawRoundedRect(quickPillRect, 6, Color::fromRgba(28, 38, 58, 160), true);
+    surface.drawRoundedRect(quickPillRect, 6, Color::fromRgba(56, 76, 114, 120), false);
 
-    // 2. Network Status
-    Color netColor = networkOnline_ ? Color::fromHex(0x00D4FF) : Color::fromHex(0xFF4D4D);
-    surface.drawString(curX, centerY, networkOnline_ ? "NET" : "DISC", netColor, 1);
-    curX += 36;
+    // Mesh glyph / text
+    Color netColor = networkOnline_ ? palette.accentColor : Color::fromHex(0xFF4D4D);
+    surface.drawString(quickPillRect.x + 8, quickPillRect.y + 8, "NET", netColor, 1);
 
-    // 3. Volume
-    std::string volStr = std::to_string(volumePercent_) + "%";
-    surface.drawString(curX, centerY, volStr, palette.textSecondary, 1);
-    curX += 38;
+    // Volume level
+    surface.drawString(quickPillRect.x + 36, quickPillRect.y + 8, std::to_string(volumePercent_) + "%", palette.textPrimary, 1);
 
-    // 4. Tray Icons
+    // Power / Battery
+    surface.drawString(quickPillRect.x + 68, quickPillRect.y + 8, "[AC]", Color::fromHex(0x00FF9D), 1);
+
+    curX = quickPillRect.right() + 8;
+
+    // 3. User Tray Icons (if any)
     for (auto& icon : icons_) {
         if (!icon.visible) continue;
 
-        icon.bounds = Rect{curX, trayRect.y + 4, 30, trayRect.height - 8};
+        icon.bounds = Rect{curX, trayRect.y + 4, 26, trayH - 8};
         if (hoveredIconId_ && *hoveredIconId_ == icon.id) {
             surface.drawRoundedRect(icon.bounds, 4, Color::fromRgba(255, 255, 255, 25), true);
         }
 
-        surface.drawString(icon.bounds.x + 3, icon.bounds.y + 8, icon.glyph, palette.accentColor, 1);
-        curX += 32;
+        surface.drawString(icon.bounds.x + 4, icon.bounds.y + 8, icon.glyph, palette.accentColor, 1);
+        curX += 28;
     }
 
-    // 5. Digital Clock
+    // 4. Windows 11 Digital Clock & Date Pill
+    const Rect clockPillRect{curX, trayRect.y + 4, 88, trayH - 8};
+    surface.drawRoundedRect(clockPillRect, 6, Color::fromRgba(28, 38, 58, 160), true);
+    surface.drawRoundedRect(clockPillRect, 6, Color::fromRgba(56, 76, 114, 120), false);
+
     const std::string timeStr = currentTimeString();
-    surface.drawString(curX + 6, centerY, timeStr, palette.textPrimary, 1);
+    const std::string dateStr = currentDateString();
+
+    // Stacked Windows Clock (Time on top, Date below)
+    surface.drawString(clockPillRect.x + 10, clockPillRect.y + 4, timeStr, palette.textPrimary, 1);
+    surface.drawString(clockPillRect.x + 12, clockPillRect.y + 16, dateStr, palette.textSecondary, 1);
+
+    // 5. Far right "Show Desktop" Peek Strip (Windows signature)
+    const int32_t peekX = trayRect.right() - 4;
+    surface.fillRect(Rect{peekX - 2, trayRect.y + 8, 1, trayH - 16}, Color::fromRgba(255, 255, 255, 30));
 }
 
 } // namespace surshell

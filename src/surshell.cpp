@@ -80,7 +80,7 @@ void SurShellDesktop::setupDefaultEnvironment() {
     });
 
     // 3. Spawn Initial Sovereign Windows: Command Prompt & File Explorer
-    const uint32_t winCmd = windowManager_.createWindow("Command Prompt - [MicaNT ConHost: cmd.exe]", Rect{40, 60, 680, 420}, ">_");
+    const uint32_t winCmd = windowManager_.createWindow("Command Prompt - [MicaNT ConHost: cmd.exe]", Rect{50, 45, 680, 420}, ">_");
     virtualDesktops_.assignWindowToDesktop(winCmd, 0);
     auto* cmdWin = windowManager_.findWindow(winCmd);
     if (cmdWin) {
@@ -97,7 +97,7 @@ void SurShellDesktop::setupDefaultEnvironment() {
         cs.drawString(14, 162, "C:\\Windows\\System32> _", Color{245, 248, 255}, 1);
     }
 
-    const uint32_t winExp = windowManager_.createWindow("File Explorer - C:\\Windows\\System32", Rect{420, 160, 720, 460}, "[E]");
+    const uint32_t winExp = windowManager_.createWindow("File Explorer - C:\\Windows\\System32", Rect{440, 130, 720, 460}, "[E]");
     virtualDesktops_.assignWindowToDesktop(winExp, 0);
     auto* expWin = windowManager_.findWindow(winExp);
     if (expWin) {
@@ -284,18 +284,20 @@ void SurShellDesktop::render() {
     // 2. Render Windows in Z-order with drop shadows
     windowManager_.render(framebuffer_);
 
-    // 3. Render Top Architectural Sovereign Header Bar
-    framebuffer_.fillRect(Rect{0, 0, static_cast<int32_t>(width_), 26}, Color::fromRgba(16, 22, 34, 245));
-    framebuffer_.fillRect(Rect{0, 25, static_cast<int32_t>(width_), 1}, Color::fromRgba(38, 52, 78, 200));
+    // 3. Render Top Architectural Sovereign Header Bar (Optional Diagnostic HUD)
+    if (showTopBar_) {
+        framebuffer_.fillRect(Rect{0, 0, static_cast<int32_t>(width_), 26}, Color::fromRgba(16, 22, 34, 245));
+        framebuffer_.fillRect(Rect{0, 25, static_cast<int32_t>(width_), 1}, Color::fromRgba(38, 52, 78, 200));
 
-    framebuffer_.drawString(12, 8, "MicaNT 64-Bit OS", Color::fromHex(0x00D4FF), 1);
-    framebuffer_.drawString(140, 8, "|  Dave Cutler 1988 Architecture  |  Zero Telemetry  |  SurWin Subsystem  |  120Hz VSync",
-                            Color::fromRgba(165, 180, 205, 255), 1);
+        framebuffer_.drawString(12, 8, "MicaNT 64-Bit OS", Color::fromHex(0x00D4FF), 1);
+        framebuffer_.drawString(140, 8, "|  Dave Cutler 1988 Architecture  |  Zero Telemetry  |  SurWin Subsystem  |  120Hz VSync",
+                                Color::fromRgba(165, 180, 205, 255), 1);
 
-    // Right-aligned header badge
-    const int32_t rightBadgeX = static_cast<int32_t>(width_) - 190;
-    framebuffer_.drawRoundedRect(Rect{rightBadgeX, 5, 178, 16}, 4, Color::fromRgba(25, 35, 55, 220), true);
-    framebuffer_.drawString(rightBadgeX + 8, 9, "PASSIVE_LEVEL [IRQL 0]", Color::fromHex(0x00FF9D), 1);
+        // Right-aligned header badge
+        const int32_t rightBadgeX = static_cast<int32_t>(width_) - 190;
+        framebuffer_.drawRoundedRect(Rect{rightBadgeX, 5, 178, 16}, 4, Color::fromRgba(25, 35, 55, 220), true);
+        framebuffer_.drawString(rightBadgeX + 8, 9, "PASSIVE_LEVEL [IRQL 0]", Color::fromHex(0x00FF9D), 1);
+    }
 
     // 4. Render Taskbar (Floating Island Dock)
     taskbar_.render(framebuffer_);

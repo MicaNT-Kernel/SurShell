@@ -42,8 +42,10 @@ public:
     void setVolumeLevel(uint32_t percent) noexcept { volumePercent_ = std::clamp(percent, 0u, 100u); }
     void setNetworkOnline(bool online) noexcept { networkOnline_ = online; }
     void setTimeOverride(std::string timeStr) { timeOverride_ = std::move(timeStr); }
+    void setDateOverride(std::string dateStr) { dateOverride_ = std::move(dateStr); }
 
     [[nodiscard]] std::string currentTimeString() const;
+    [[nodiscard]] std::string currentDateString() const;
     [[nodiscard]] int32_t preferredWidth() const noexcept;
 
     void onMouseMove(Point pt);
@@ -56,6 +58,7 @@ private:
     uint32_t volumePercent_{80};
     bool networkOnline_{true};
     std::string timeOverride_{};
+    std::string dateOverride_{};
     std::optional<std::string> hoveredIconId_{};
     TrayIconClickCallback clickCallback_{};
 };
