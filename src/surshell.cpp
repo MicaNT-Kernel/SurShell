@@ -95,7 +95,7 @@ void SurShellDesktop::setupDefaultEnvironment() {
 }
 
 uint32_t SurShellDesktop::openFileExplorerWindow(std::string path) {
-    const uint32_t winExp = windowManager_.createWindow("File Explorer - " + path, Rect{440, 130, 720, 460}, "[E]", IconId::FileExplorer);
+    const uint32_t winExp = windowManager_.createWindow("File Explorer - " + path, Rect{340, 80, 960, 600}, "[E]", IconId::FileExplorer);
     virtualDesktops_.assignWindowToDesktop(winExp, virtualDesktops_.activeIndex());
     auto* expWin = windowManager_.findWindow(winExp);
     if (expWin) {

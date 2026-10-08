@@ -195,7 +195,8 @@ int runInteractiveDesktop() {
     DesktopAppState state;
     state.desktop = std::make_unique<surshell::SurShellDesktop>(1920, 1080);
 
-    // Open Registry Editor window by default so it's immediately accessible and focused
+    // Open Registry Editor and File Explorer windows by default so they're immediately accessible
+    state.desktop->openFileExplorerWindow("This PC");
     state.desktop->openRegistryEditorWindow("Computer\\HKEY_LOCAL_MACHINE\\SOFTWARE\\MicaNT\\CurrentVersion");
 
     HINSTANCE hInstance = GetModuleHandleW(nullptr);
@@ -621,7 +622,18 @@ int runSnapshotPipeline() {
         std::cout << "  -> Exported: surshell_registry_editor.bmp (1920x1080 32-bpp)\n";
     }
 
-    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (24 high-resolution scenes generated).\n";
+    // ------------------------------------------------------------------------
+    // Scene 23: Modern File Explorer: 'This PC' with Google Drive & Attached NAS
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 23: File Explorer 'This PC' with Google Drive & NAS...\n";
+    const uint32_t expWin = shell.openFileExplorerWindow("This PC");
+    shell.windowManager().setWindowActive(expWin);
+    shell.render();
+    if (shell.exportSnapshot("surshell_file_explorer_this_pc.bmp")) {
+        std::cout << "  -> Exported: surshell_file_explorer_this_pc.bmp (1920x1080 32-bpp)\n";
+    }
+
+    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (25 high-resolution scenes generated).\n";
     return 0;
 }
 

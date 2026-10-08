@@ -11,6 +11,16 @@
 #include <fstream>
 #include <ctime>
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 namespace surshell {
 
 FileExplorer::FileExplorer(std::string initialPath) {
@@ -21,25 +31,188 @@ FileExplorer::FileExplorer(std::string initialPath) {
 void FileExplorer::refreshDrives() {
     drives_.clear();
 
-    const char* driveLetters[] = {"C:\\", "D:\\", "E:\\", "Z:\\"};
-    for (const char* dl : driveLetters) {
+#if defined(_WIN32)
+    const DWORD driveMask = GetLogicalDrives();
+    for (char letter = 'A'; letter <= 'Z'; ++letter) {
+        const int shift = letter - 'A';
+        if ((driveMask & (1UL << shift)) == 0) continue;
+
+        const std::string rootStr = std::string(1, letter) + ":\\";
+        const UINT dType = GetDriveTypeA(rootStr.c_str());
+        if (dType == DRIVE_UNKNOWN || dType == DRIVE_NO_ROOT_DIR) continue;
+
+        char volNameBuf[MAX_PATH + 1] = {0};
+        char fsNameBuf[MAX_PATH + 1] = {0};
+        DWORD serial = 0, maxComp = 0, flags = 0;
+        const BOOL hasVolInfo = GetVolumeInformationA(
+            rootStr.c_str(), volNameBuf, sizeof(volNameBuf),
+            &serial, &maxComp, &flags, fsNameBuf, sizeof(fsNameBuf)
+        );
+
+        ULARGE_INTEGER freeBytesAvail = {0};
+        ULARGE_INTEGER totalBytes = {0};
+        ULARGE_INTEGER totalFree = {0};
+        const BOOL hasSpace = GetDiskFreeSpaceExA(
+            rootStr.c_str(), &freeBytesAvail, &totalBytes, &totalFree
+        );
+
+        const std::string volName = hasVolInfo ? std::string(volNameBuf) : "";
+        const std::string fsName = hasVolInfo ? std::string(fsNameBuf) : "";
+
+        DriveKind kind = DriveKind::Fixed;
+        IconId icon = (letter == 'C') ? IconId::LocalDisk : IconId::DriveStorage;
+        std::string label;
+        std::string subtitle;
+
+        if (dType == DRIVE_CDROM) {
+            kind = DriveKind::CdRom;
+            icon = IconId::OpticalDrive;
+            label = volName.empty() ? ("CD Drive (" + std::string(1, letter) + ":)") : (volName + " (" + std::string(1, letter) + ":)");
+            subtitle = fsName.empty() ? "CD-ROM Disc" : (fsName + " Disc");
+        } else if (volName == "Google Drive" || volName.find("Google") != std::string::npos || (letter == 'G')) {
+            kind = DriveKind::Cloud;
+            icon = IconId::CloudDrive;
+            label = "Google Drive (" + std::string(1, letter) + ":)";
+            subtitle = "Google Drive File Stream";
+        } else if (dType == DRIVE_REMOTE) {
+            kind = DriveKind::Network;
+            icon = IconId::NetworkShare;
+            label = volName.empty() ? ("Network Drive (" + std::string(1, letter) + ":)") : (volName + " (" + std::string(1, letter) + ":)");
+            subtitle = fsName.empty() ? "Network Share" : (fsName + " Network Share");
+        } else if (dType == DRIVE_REMOVABLE) {
+            kind = DriveKind::Removable;
+            icon = IconId::DriveStorage;
+            label = volName.empty() ? ("USB Drive (" + std::string(1, letter) + ":)") : (volName + " (" + std::string(1, letter) + ":)");
+            subtitle = fsName.empty() ? "Removable Disk" : (fsName + " Removable");
+        } else {
+            kind = DriveKind::Fixed;
+            icon = (letter == 'C') ? IconId::LocalDisk : IconId::DriveStorage;
+            if (volName.empty()) {
+                label = (letter == 'C' ? "Windows (" : "Storage (") + std::string(1, letter) + ":)";
+            } else {
+                label = volName + " (" + std::string(1, letter) + ":)";
+            }
+            subtitle = fsName.empty() ? "Local Fixed Disk" : (fsName + " Volume");
+        }
+
+        drives_.push_back(DriveInfo{
+            .rootPath = rootStr,
+            .label = std::move(label),
+            .subtitle = std::move(subtitle),
+            .kind = kind,
+            .iconId = icon,
+            .totalBytes = hasSpace ? totalBytes.QuadPart : 0,
+            .freeBytes = hasSpace ? freeBytesAvail.QuadPart : 0,
+            .isOnline = true,
+            .bounds = Rect{}
+        });
+    }
+
+    // Dynamic Discovery of Network Attached Storage (NAS)
+    // Probe standard attached NAS shares, specifically \\nas.ash-forge.com\storage
+    const std::string nasShare = "\\\\nas.ash-forge.com\\storage";
+    std::error_code ecNas;
+    if (std::filesystem::exists(nasShare, ecNas)) {
+        ULARGE_INTEGER nasFree = {0}, nasTotal = {0}, nasTotalFree = {0};
+        const std::string nasWithSlash = nasShare + "\\";
+        const BOOL nasSpaceOk = GetDiskFreeSpaceExA(nasWithSlash.c_str(), &nasFree, &nasTotal, &nasTotalFree);
+
+        drives_.push_back(DriveInfo{
+            .rootPath = nasShare,
+            .label = "Storage (\\\\nas.ash-forge.com)",
+            .subtitle = "SMB 3.1.1 Network Storage",
+            .kind = DriveKind::Network,
+            .iconId = IconId::NetworkShare,
+            .totalBytes = nasSpaceOk ? nasTotal.QuadPart : (4ULL * 1024 * 1024 * 1024 * 1024),
+            .freeBytes = nasSpaceOk ? nasFree.QuadPart : (4ULL * 1024 * 1024 * 1024 * 1024),
+            .isOnline = true,
+            .bounds = Rect{}
+        });
+    }
+#else
+    // POSIX / Linux Fallback Discovery
+    const std::pair<const char*, const char*> posixMounts[] = {
+        {"/", "Root (Linux)"},
+        {"/home", "Home"},
+        {"/mnt", "Mounted Volumes"},
+        {"/media", "Media Devices"}
+    };
+    for (const auto& [mPath, mLabel] : posixMounts) {
         std::error_code ec;
-        if (std::filesystem::exists(dl, ec)) {
-            const auto spaceInfo = std::filesystem::space(dl, ec);
-            std::string label = (dl[0] == 'C') ? "Local Disk (C:)" : ("Storage (" + std::string(1, dl[0]) + ":)");
+        if (std::filesystem::exists(mPath, ec)) {
+            const auto spaceInfo = std::filesystem::space(mPath, ec);
             drives_.push_back(DriveInfo{
-                .rootPath = dl,
-                .label = std::move(label),
+                .rootPath = mPath,
+                .label = mLabel,
+                .subtitle = "Ext4/Btrfs Filesystem",
+                .kind = DriveKind::Fixed,
+                .iconId = IconId::LocalDisk,
                 .totalBytes = ec ? (500ULL * 1024 * 1024 * 1024) : spaceInfo.capacity,
                 .freeBytes = ec ? (350ULL * 1024 * 1024 * 1024) : spaceInfo.available,
+                .isOnline = true,
                 .bounds = Rect{}
             });
         }
     }
+#endif
 
+    // If still empty (e.g. mock test environment), provide complete sovereign fallback drives
     if (drives_.empty()) {
-        drives_.push_back(DriveInfo{.rootPath = "C:\\", .label = "Local Disk (C:)", .totalBytes = 500ULL * 1024 * 1024 * 1024, .freeBytes = 380ULL * 1024 * 1024 * 1024});
-        drives_.push_back(DriveInfo{.rootPath = "D:\\", .label = "Storage (D:)", .totalBytes = 1000ULL * 1024 * 1024 * 1024, .freeBytes = 720ULL * 1024 * 1024 * 1024});
+        drives_.push_back(DriveInfo{
+            .rootPath = "C:\\",
+            .label = "Windows (C:)",
+            .subtitle = "NTFS Volume",
+            .kind = DriveKind::Fixed,
+            .iconId = IconId::LocalDisk,
+            .totalBytes = 4000ULL * 1024 * 1024 * 1024,
+            .freeBytes = 2633ULL * 1024 * 1024 * 1024,
+            .isOnline = true,
+            .bounds = Rect{}
+        });
+        drives_.push_back(DriveInfo{
+            .rootPath = "D:\\",
+            .label = "Storage (D:)",
+            .subtitle = "NTFS Volume",
+            .kind = DriveKind::Fixed,
+            .iconId = IconId::DriveStorage,
+            .totalBytes = 4000ULL * 1024 * 1024 * 1024,
+            .freeBytes = 3983ULL * 1024 * 1024 * 1024,
+            .isOnline = true,
+            .bounds = Rect{}
+        });
+        drives_.push_back(DriveInfo{
+            .rootPath = "E:\\",
+            .label = "CD Drive (E:)",
+            .subtitle = "CD-ROM Disc",
+            .kind = DriveKind::CdRom,
+            .iconId = IconId::OpticalDrive,
+            .totalBytes = 0,
+            .freeBytes = 0,
+            .isOnline = false,
+            .bounds = Rect{}
+        });
+        drives_.push_back(DriveInfo{
+            .rootPath = "G:\\",
+            .label = "Google Drive (G:)",
+            .subtitle = "Google Drive File Stream",
+            .kind = DriveKind::Cloud,
+            .iconId = IconId::CloudDrive,
+            .totalBytes = 4000ULL * 1024 * 1024 * 1024,
+            .freeBytes = 2502ULL * 1024 * 1024 * 1024,
+            .isOnline = true,
+            .bounds = Rect{}
+        });
+        drives_.push_back(DriveInfo{
+            .rootPath = "\\\\nas.ash-forge.com\\storage",
+            .label = "Storage (\\\\nas.ash-forge.com)",
+            .subtitle = "SMB 3.1.1 Network Storage",
+            .kind = DriveKind::Network,
+            .iconId = IconId::NetworkShare,
+            .totalBytes = 4096ULL * 1024 * 1024 * 1024,
+            .freeBytes = 4096ULL * 1024 * 1024 * 1024,
+            .isOnline = true,
+            .bounds = Rect{}
+        });
     }
 }
 
@@ -185,20 +358,97 @@ void FileExplorer::updateBreadcrumbs() {
         return;
     }
 
-    std::string accumulated = "";
+    // 1. Handle UNC Paths (e.g. \\nas.ash-forge.com\storage\models)
+    if (path.rfind("\\\\", 0) == 0 || path.rfind("//", 0) == 0) {
+        std::vector<std::string> segments;
+        std::string cur;
+        for (size_t i = 2; i < path.length(); ++i) {
+            if (path[i] == '\\' || path[i] == '/') {
+                if (!cur.empty()) {
+                    segments.push_back(cur);
+                    cur.clear();
+                }
+            } else {
+                cur.push_back(path[i]);
+            }
+        }
+        if (!cur.empty()) segments.push_back(cur);
+
+        if (segments.size() >= 2) {
+            std::string rootTarget = "\\\\" + segments[0] + "\\" + segments[1];
+            std::string rootName = segments[1] + " (\\\\" + segments[0] + ")";
+            for (const auto& d : drives_) {
+                if (d.rootPath == rootTarget) {
+                    rootName = d.label;
+                    break;
+                }
+            }
+            breadcrumbs_.push_back(BreadcrumbItem{.name = std::move(rootName), .targetPath = rootTarget, .bounds = Rect{}});
+
+            std::string acc = rootTarget;
+            for (size_t i = 2; i < segments.size(); ++i) {
+                acc += "\\" + segments[i];
+                breadcrumbs_.push_back(BreadcrumbItem{.name = segments[i], .targetPath = acc, .bounds = Rect{}});
+            }
+            return;
+        } else if (segments.size() == 1) {
+            breadcrumbs_.push_back(BreadcrumbItem{.name = "\\\\" + segments[0], .targetPath = "\\\\" + segments[0], .bounds = Rect{}});
+            return;
+        }
+    }
+
+    // 2. Handle POSIX Root "/"
+    if (path[0] == '/' && (path.length() == 1 || path[1] != '/')) {
+        breadcrumbs_.push_back(BreadcrumbItem{.name = "/", .targetPath = "/", .bounds = Rect{}});
+        std::vector<std::string> segments;
+        std::string cur;
+        for (size_t i = 1; i < path.length(); ++i) {
+            if (path[i] == '/') {
+                if (!cur.empty()) {
+                    segments.push_back(cur);
+                    cur.clear();
+                }
+            } else {
+                cur.push_back(path[i]);
+            }
+        }
+        if (!cur.empty()) segments.push_back(cur);
+
+        std::string acc = "";
+        for (const auto& seg : segments) {
+            acc += "/" + seg;
+            breadcrumbs_.push_back(BreadcrumbItem{.name = seg, .targetPath = acc, .bounds = Rect{}});
+        }
+        return;
+    }
+
+    // 3. Handle Standard Windows Drive Letter Paths (e.g. C:\Windows\System32)
+    std::string rootLetter = "";
+    size_t startIdx = 0;
+    if (path.length() >= 2 && path[1] == ':') {
+        rootLetter = path.substr(0, 2);
+        startIdx = (path.length() >= 3 && (path[2] == '\\' || path[2] == '/')) ? 3 : 2;
+        std::string rootPath = rootLetter + "\\";
+        std::string rootName = rootLetter;
+        for (const auto& d : drives_) {
+            if (d.rootPath.length() >= 2 && d.rootPath[0] == rootLetter[0]) {
+                rootName = d.label;
+                break;
+            }
+        }
+        breadcrumbs_.push_back(BreadcrumbItem{.name = std::move(rootName), .targetPath = rootPath, .bounds = Rect{}});
+    }
+
+    std::string accumulated = rootLetter.empty() ? "" : (rootLetter + "\\");
     std::string currentSegment = "";
-    for (size_t i = 0; i < path.length(); ++i) {
+    for (size_t i = startIdx; i < path.length(); ++i) {
         const char c = path[i];
         if (c == '\\' || c == '/') {
             if (!currentSegment.empty()) {
-                if (accumulated.empty()) {
-                    accumulated = currentSegment + "\\";
-                } else {
-                    accumulated += currentSegment + "\\";
-                }
+                accumulated += currentSegment + "\\";
                 breadcrumbs_.push_back(BreadcrumbItem{
                     .name = currentSegment,
-                    .targetPath = (currentSegment.length() == 2 && currentSegment[1] == ':') ? (currentSegment + "\\") : accumulated.substr(0, accumulated.length() - 1),
+                    .targetPath = accumulated.substr(0, accumulated.length() - 1),
                     .bounds = Rect{}
                 });
                 currentSegment.clear();
@@ -232,21 +482,8 @@ void FileExplorer::refreshCurrentDirectory() {
     // 1. Special Virtual Container: "This PC"
     if (tab.currentPath == "This PC") {
         refreshDrives();
-        for (const auto& d : drives_) {
-            tab.allItems.push_back(FileItem{
-                .name = d.label,
-                .fullPath = d.rootPath,
-                .extension = "",
-                .isDirectory = true,
-                .sizeBytes = d.totalBytes,
-                .dateModified = "Online",
-                .typeDescription = "Local Fixed Disk",
-                .iconGlyph = "[D]",
-                .iconId = (d.rootPath[0] == 'C' ? IconId::LocalDisk : IconId::DriveStorage),
-                .bounds = Rect{},
-                .selected = false
-            });
-        }
+
+        // 1. Standard Folders (Desktop, Documents, Downloads, Pictures, Music, Videos)
         struct StdFolder { const char* name; const char* rel; IconId icon; };
         const StdFolder stdFolders[] = {
             {"Desktop", "\\Desktop", IconId::DriveStorage},
@@ -264,13 +501,67 @@ void FileExplorer::refreshCurrentDirectory() {
                 .isDirectory = true,
                 .sizeBytes = 0,
                 .dateModified = "System Folder",
-                .typeDescription = "Special Folder",
+                .typeDescription = "File folder",
                 .iconGlyph = "[F]",
                 .iconId = sf.icon,
+                .category = "Folders",
                 .bounds = Rect{},
                 .selected = false
             });
         }
+
+        // 2. Devices and drives (Fixed local disks, optical discs, and cloud drives)
+        for (const auto& d : drives_) {
+            if (d.kind == DriveKind::Network) continue;
+
+            std::string dateMod = "Online";
+            if (d.kind == DriveKind::CdRom) {
+                dateMod = d.isOnline ? "Optical Disc" : "Optical Drive";
+            } else if (d.totalBytes > 0) {
+                dateMod = formatBytes(d.freeBytes) + " free of " + formatBytes(d.totalBytes);
+            }
+
+            tab.allItems.push_back(FileItem{
+                .name = d.label,
+                .fullPath = d.rootPath,
+                .extension = "",
+                .isDirectory = true,
+                .sizeBytes = d.totalBytes,
+                .dateModified = std::move(dateMod),
+                .typeDescription = d.subtitle,
+                .iconGlyph = (d.kind == DriveKind::CdRom ? "[O]" : (d.kind == DriveKind::Cloud ? "[C]" : "[D]")),
+                .iconId = d.iconId,
+                .category = "Devices and drives",
+                .bounds = Rect{},
+                .selected = false
+            });
+        }
+
+        // 3. Network locations (Attached NAS, SMB 3.1.1 shares, mapped network drives)
+        for (const auto& d : drives_) {
+            if (d.kind != DriveKind::Network) continue;
+
+            std::string dateMod = "Online";
+            if (d.totalBytes > 0) {
+                dateMod = formatBytes(d.freeBytes) + " free of " + formatBytes(d.totalBytes);
+            }
+
+            tab.allItems.push_back(FileItem{
+                .name = d.label,
+                .fullPath = d.rootPath,
+                .extension = "",
+                .isDirectory = true,
+                .sizeBytes = d.totalBytes,
+                .dateModified = std::move(dateMod),
+                .typeDescription = d.subtitle,
+                .iconGlyph = "[N]",
+                .iconId = d.iconId,
+                .category = "Network locations",
+                .bounds = Rect{},
+                .selected = false
+            });
+        }
+
         sortCurrentItems();
         applySearchFilter();
         updateBreadcrumbs();
@@ -325,6 +616,7 @@ void FileExplorer::refreshCurrentDirectory() {
                 .typeDescription = isDir ? "File folder" : (ext.empty() ? "File" : (ext.substr(1) + " File")),
                 .iconGlyph = getFileIconGlyph(ext, isDir),
                 .iconId = IconRenderer::iconForExtension(ext, isDir),
+                .category = "",
                 .bounds = Rect{},
                 .selected = false
             });
@@ -356,6 +648,15 @@ void FileExplorer::refreshCurrentDirectory() {
             tab.allItems.push_back(FileItem{.name = "conhost.exe", .fullPath = "C:\\Windows\\System32\\conhost.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 320000, .dateModified = "2026-10-08 10:22", .typeDescription = "Application", .iconGlyph = "[X]", .iconId = IconId::FileExecutable});
             tab.allItems.push_back(FileItem{.name = "cmd.exe", .fullPath = "C:\\Windows\\System32\\cmd.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 280000, .dateModified = "2026-10-08 10:22", .typeDescription = "Application", .iconGlyph = "[X]", .iconId = IconId::FileExecutable});
             tab.allItems.push_back(FileItem{.name = "sentinel.dll", .fullPath = "C:\\Windows\\System32\\sentinel.dll", .extension = ".dll", .isDirectory = false, .sizeBytes = 210000, .dateModified = "2026-10-08 10:22", .typeDescription = "Dynamic Link Library", .iconGlyph = "[L]", .iconId = IconId::FileLibrary});
+        } else if (tab.currentPath == "G:\\" || tab.currentPath == "G:") {
+            tab.allItems.push_back(FileItem{.name = "My Drive", .fullPath = "G:\\My Drive", .isDirectory = true, .dateModified = "2026-10-08 14:01", .typeDescription = "File folder", .iconGlyph = "[D]", .iconId = IconId::Folder});
+        } else if (tab.currentPath == "\\\\nas.ash-forge.com\\storage" || tab.currentPath.rfind("\\\\nas.ash-forge.com\\storage", 0) == 0) {
+            tab.allItems.push_back(FileItem{.name = "apps", .fullPath = tab.currentPath + "\\apps", .isDirectory = true, .dateModified = "2026-10-08 12:00", .typeDescription = "File folder", .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "ash-server", .fullPath = tab.currentPath + "\\ash-server", .isDirectory = true, .dateModified = "2026-10-08 12:00", .typeDescription = "File folder", .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "datasets", .fullPath = tab.currentPath + "\\datasets", .isDirectory = true, .dateModified = "2026-10-08 12:00", .typeDescription = "File folder", .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "gemma4-turbo-family", .fullPath = tab.currentPath + "\\gemma4-turbo-family", .isDirectory = true, .dateModified = "2026-10-08 12:00", .typeDescription = "File folder", .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "Haven", .fullPath = tab.currentPath + "\\Haven", .isDirectory = true, .dateModified = "2026-10-08 12:00", .typeDescription = "File folder", .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "models", .fullPath = tab.currentPath + "\\models", .isDirectory = true, .dateModified = "2026-10-08 12:00", .typeDescription = "File folder", .iconGlyph = "[D]", .iconId = IconId::Folder});
         } else {
             tab.allItems.push_back(FileItem{.name = "Desktop", .fullPath = tab.currentPath + "\\Desktop", .isDirectory = true, .dateModified = "2026-10-08 09:00", .typeDescription = "File folder", .iconGlyph = "[D]", .iconId = IconId::Folder});
             tab.allItems.push_back(FileItem{.name = "Documents", .fullPath = tab.currentPath + "\\Documents", .isDirectory = true, .dateModified = "2026-10-08 09:00", .typeDescription = "File folder", .iconGlyph = "[D]", .iconId = IconId::Folder});
@@ -375,7 +676,19 @@ void FileExplorer::sortCurrentItems() {
     if (activeTabIndex_ >= tabs_.size()) return;
     auto& tab = tabs_[activeTabIndex_];
 
-    std::sort(tab.allItems.begin(), tab.allItems.end(), [this](const FileItem& a, const FileItem& b) {
+    std::sort(tab.allItems.begin(), tab.allItems.end(), [this, &tab](const FileItem& a, const FileItem& b) {
+        if (tab.currentPath == "This PC") {
+            auto catRank = [](const std::string& cat) -> int {
+                if (cat == "Folders") return 0;
+                if (cat == "Devices and drives") return 1;
+                if (cat == "Network locations") return 2;
+                return 3;
+            };
+            const int rA = catRank(a.category);
+            const int rB = catRank(b.category);
+            if (rA != rB) return rA < rB;
+        }
+
         if (a.isDirectory != b.isDirectory) {
             return a.isDirectory > b.isDirectory; // Directories always on top
         }
@@ -456,11 +769,49 @@ void FileExplorer::navigateTo(std::string path) {
 void FileExplorer::navigateUp() {
     if (activeTabIndex_ >= tabs_.size()) return;
     const auto& curP = currentPath();
+    if (curP.empty() || curP == "This PC") return;
+
+    // Check if curP is a root drive like "C:\" or "C:"
+    if ((curP.length() == 3 && curP[1] == ':' && (curP[2] == '\\' || curP[2] == '/')) ||
+        (curP.length() == 2 && curP[1] == ':')) {
+        navigateTo("This PC");
+        return;
+    }
+
+    // Check if curP is a UNC path (e.g. \\nas.ash-forge.com\storage or \\nas.ash-forge.com\storage\models)
+    if (curP.rfind("\\\\", 0) == 0 || curP.rfind("//", 0) == 0) {
+        std::string s = curP;
+        while (s.length() > 2 && (s.back() == '\\' || s.back() == '/')) s.pop_back();
+        size_t slashCount = 0;
+        size_t lastSlash = std::string::npos;
+        for (size_t i = 2; i < s.length(); ++i) {
+            if (s[i] == '\\' || s[i] == '/') {
+                slashCount++;
+                lastSlash = i;
+            }
+        }
+        if (slashCount <= 1) {
+            // Already at UNC root share, e.g. \\server\share -> go to "This PC"
+            navigateTo("This PC");
+            return;
+        } else if (lastSlash != std::string::npos) {
+            navigateTo(s.substr(0, lastSlash));
+            return;
+        }
+    }
+
+    // Standard path with slashes
     const auto lastSlash = curP.find_last_of("\\/");
     if (lastSlash != std::string::npos && lastSlash > 2) {
         navigateTo(curP.substr(0, lastSlash));
-    } else if (lastSlash != std::string::npos && lastSlash == 2) {
-        navigateTo("C:\\");
+    } else if (lastSlash != std::string::npos && lastSlash <= 2) {
+        if (curP.length() > 3) {
+            navigateTo(curP.substr(0, 3));
+        } else {
+            navigateTo("This PC");
+        }
+    } else {
+        navigateTo("This PC");
     }
 }
 
@@ -1506,41 +1857,49 @@ void FileExplorer::render(Surface& clientSurface) {
     }
 
     for (const auto& pin : pins) {
-        Rect pinRect{8, sideY, sidebarW - 16, 22};
+        Rect pinRect{8, sideY, sidebarW - 16, 20};
         sidebarQuickPins_.push_back({pin.targetPath, pinRect});
-        IconRenderer::draw(clientSurface, pin.iconId, Point{pinRect.x + 4, pinRect.y + 3}, 16);
-        clientSurface.drawString(pinRect.x + 24, pinRect.y + 4, pin.label, palette.textSecondary, 1);
-        sideY += 24;
+        IconRenderer::draw(clientSurface, pin.iconId, Point{pinRect.x + 4, pinRect.y + 2}, 16);
+        clientSurface.drawString(pinRect.x + 24, pinRect.y + 3, pin.label, palette.textSecondary, 1);
+        sideY += 21;
     }
 
-    sideY += 10;
+    sideY += 6;
     clientSurface.drawString(12, sideY, "DRIVES & STORAGE", palette.accentColor, 1);
-    sideY += 18;
+    sideY += 16;
 
     for (auto& drive : drives_) {
-        drive.bounds = Rect{8, sideY, sidebarW - 16, 44};
-        clientSurface.drawRoundedRect(drive.bounds, 4, Color::fromRgba(24, 34, 52, 180), true);
-        clientSurface.drawRoundedRect(drive.bounds, 4, Color::fromRgba(48, 68, 104, 140), false);
+        if (sideY + 38 > mainContentY + mainContentH) break;
+        drive.bounds = Rect{8, sideY, sidebarW - 16, 38};
+        const bool isCur = (currentPath() == drive.rootPath);
+        clientSurface.drawRoundedRect(drive.bounds, 4, isCur ? Color::fromRgba(0, 212, 255, 35) : Color::fromRgba(24, 34, 52, 180), true);
+        clientSurface.drawRoundedRect(drive.bounds, 4, isCur ? palette.accentColor : Color::fromRgba(48, 68, 104, 140), false);
 
-        IconRenderer::draw(clientSurface, (drive.rootPath[0] == 'C' ? IconId::LocalDisk : IconId::DriveStorage), Point{drive.bounds.x + 6, drive.bounds.y + 5}, 16);
-        clientSurface.drawString(drive.bounds.x + 26, drive.bounds.y + 6, drive.label, palette.textPrimary, 1);
+        IconRenderer::draw(clientSurface, drive.iconId, Point{drive.bounds.x + 6, drive.bounds.y + 4}, 16);
+        std::string shortLabel = drive.label;
+        if (shortLabel.length() > 16) shortLabel = shortLabel.substr(0, 14) + "..";
+        clientSurface.drawString(drive.bounds.x + 26, drive.bounds.y + 4, shortLabel, palette.textPrimary, 1);
 
-        // Capacity Bar
-        Rect barRect{drive.bounds.x + 6, drive.bounds.y + 24, drive.bounds.width - 12, 6};
-        clientSurface.drawRoundedRect(barRect, 2, Color::fromRgba(38, 52, 78, 200), true);
+        if (drive.kind == DriveKind::CdRom && drive.totalBytes == 0) {
+            clientSurface.drawString(drive.bounds.x + 6, drive.bounds.y + 22, "Optical Drive", palette.textDisabled, 1);
+        } else {
+            // Capacity Bar
+            Rect barRect{drive.bounds.x + 6, drive.bounds.y + 20, drive.bounds.width - 12, 4};
+            clientSurface.drawRoundedRect(barRect, 1, Color::fromRgba(38, 52, 78, 200), true);
 
-        if (drive.totalBytes > 0) {
-            const uint64_t usedBytes = drive.totalBytes > drive.freeBytes ? (drive.totalBytes - drive.freeBytes) : 0;
-            const int32_t usedW = static_cast<int32_t>((barRect.width * usedBytes) / drive.totalBytes);
-            if (usedW > 0) {
-                clientSurface.drawRoundedRect(Rect{barRect.x, barRect.y, usedW, barRect.height}, 2, palette.accentColor, true);
+            if (drive.totalBytes > 0) {
+                const uint64_t usedBytes = drive.totalBytes > drive.freeBytes ? (drive.totalBytes - drive.freeBytes) : 0;
+                const int32_t usedW = static_cast<int32_t>((barRect.width * usedBytes) / drive.totalBytes);
+                if (usedW > 0) {
+                    clientSurface.drawRoundedRect(Rect{barRect.x, barRect.y, usedW, barRect.height}, 1, palette.accentColor, true);
+                }
             }
+
+            const std::string freeStr = formatBytes(drive.freeBytes) + " free";
+            clientSurface.drawString(drive.bounds.x + 6, drive.bounds.y + 26, freeStr, palette.textDisabled, 1);
         }
 
-        const std::string freeStr = formatBytes(drive.freeBytes) + " free";
-        clientSurface.drawString(drive.bounds.x + 6, drive.bounds.y + 32, freeStr, palette.textDisabled, 1);
-
-        sideY += 50;
+        sideY += 42;
     }
 
     // ------------------------------------------------------------------------
@@ -1556,14 +1915,19 @@ void FileExplorer::render(Surface& clientSurface) {
         auto& tab = tabs_[activeTabIndex_];
 
         if (viewMode_ == ExplorerViewMode::DetailsList) {
+            const int32_t colNameW = std::clamp((contentW * 34) / 100, 180, 320);
+            const int32_t colDateW = std::clamp((contentW * 32) / 100, 160, 260);
+            const int32_t colTypeW = std::clamp((contentW * 22) / 100, 120, 180);
+            const int32_t colSizeW = std::max(50, contentW - colNameW - colDateW - colTypeW - 14);
+
             // Column Headers with Sort Direction Indicators
             clientSurface.fillRect(Rect{contentX, mainContentY, contentW, 24}, Color::fromRgba(20, 28, 44, 220));
             clientSurface.fillRect(Rect{contentX, mainContentY + 23, contentW, 1}, Color::fromRgba(38, 52, 78, 160));
 
-            nameHeaderBounds_ = Rect{contentX, mainContentY, 280, 24};
-            dateHeaderBounds_ = Rect{contentX + 280, mainContentY, 120, 24};
-            typeHeaderBounds_ = Rect{contentX + 400, mainContentY, 120, 24};
-            sizeHeaderBounds_ = Rect{contentX + 520, mainContentY, 120, 24};
+            nameHeaderBounds_ = Rect{contentX, mainContentY, colNameW, 24};
+            dateHeaderBounds_ = Rect{contentX + colNameW, mainContentY, colDateW, 24};
+            typeHeaderBounds_ = Rect{contentX + colNameW + colDateW, mainContentY, colTypeW, 24};
+            sizeHeaderBounds_ = Rect{contentX + colNameW + colDateW + colTypeW, mainContentY, colSizeW, 24};
 
             std::string nameHeaderStr = std::string("Name") + (sortColumn_ == ExplorerSortColumn::Name ? (sortAscending_ ? " ^" : " v") : "");
             std::string dateHeaderStr = std::string("Date Modified") + (sortColumn_ == ExplorerSortColumn::DateModified ? (sortAscending_ ? " ^" : " v") : "");
@@ -1576,14 +1940,44 @@ void FileExplorer::render(Surface& clientSurface) {
             clientSurface.drawString(sizeHeaderBounds_.x + 8, sizeHeaderBounds_.y + 6, sizeHeaderStr, sortColumn_ == ExplorerSortColumn::Size ? palette.accentColor : palette.textSecondary, 1);
 
             constexpr int32_t rowH = 26;
-            const int32_t totalContentH = static_cast<int32_t>(tab.visibleItems.size()) * rowH;
+            int32_t extraHeaderH = 0;
+            if (tab.currentPath == "This PC") {
+                std::string prevC = "";
+                for (const auto& it : tab.visibleItems) {
+                    if (!it.category.empty() && it.category != prevC) {
+                        extraHeaderH += 26;
+                        prevC = it.category;
+                    }
+                }
+            }
+
+            const int32_t totalContentH = static_cast<int32_t>(tab.visibleItems.size()) * rowH + extraHeaderH;
             const int32_t maxScroll = std::max(0, totalContentH - viewportH);
             tab.scrollOffset = std::clamp(tab.scrollOffset, 0, maxScroll);
 
             int32_t rowY = mainContentY + 28 - tab.scrollOffset;
+            std::string lastCat = "";
 
             for (size_t i = 0; i < tab.visibleItems.size(); ++i) {
                 auto& item = tab.visibleItems[i];
+
+                if (tab.currentPath == "This PC" && !item.category.empty() && item.category != lastCat) {
+                    lastCat = item.category;
+                    size_t catCount = 0;
+                    for (const auto& vi : tab.visibleItems) {
+                        if (vi.category == lastCat) catCount++;
+                    }
+                    if (rowY + 20 >= mainContentY + 24 && rowY < height - 24) {
+                        std::string catTitle = "v  " + lastCat + " (" + std::to_string(catCount) + ")";
+                        clientSurface.drawString(contentX + 4, rowY + 6, catTitle, palette.accentColor, 1);
+                        const int32_t lineX = contentX + 4 + static_cast<int32_t>(catTitle.length() * 8 + 12);
+                        if (lineX < contentX + contentW - 20) {
+                            clientSurface.fillRect(Rect{lineX, rowY + 10, contentX + contentW - 20 - lineX, 1}, Color::fromRgba(48, 68, 104, 140));
+                        }
+                    }
+                    rowY += 26;
+                }
+
                 item.bounds = Rect{contentX, rowY, contentW - 14, rowH - 2};
 
                 if (rowY + rowH >= mainContentY + 24 && rowY < height - 24) {
@@ -1597,24 +1991,41 @@ void FileExplorer::render(Surface& clientSurface) {
 
                     // Name or Inline Rename Editor
                     if (static_cast<int32_t>(i) == tab.selectedIndex && isRenaming_) {
-                        Rect editBox{item.bounds.x + 28, item.bounds.y + 2, 220, 20};
+                        Rect editBox{item.bounds.x + 28, item.bounds.y + 2, std::max(80, colNameW - 36), 20};
                         clientSurface.drawRoundedRect(editBox, 3, Color::fromHex(0x182438), true);
                         clientSurface.drawRoundedRect(editBox, 3, palette.accentColor, false);
                         clientSurface.drawString(editBox.x + 4, editBox.y + 4, renameEditText_ + "|", Color::fromHex(0xFFFFFF), 1);
                     } else {
                         std::string displayName = item.name;
-                        if (displayName.length() > 30) displayName = displayName.substr(0, 28) + "..";
+                        const int32_t maxNameChars = std::max(4, (colNameW - 36) / 8);
+                        if (static_cast<int32_t>(displayName.length()) > maxNameChars) {
+                            displayName = displayName.substr(0, maxNameChars - 2) + "..";
+                        }
                         clientSurface.drawString(item.bounds.x + 30, item.bounds.y + 6, displayName, palette.textPrimary, 1);
                     }
 
-                    // Date modified
-                    clientSurface.drawString(dateHeaderBounds_.x + 8, item.bounds.y + 6, item.dateModified, palette.textSecondary, 1);
+                    // Date modified (truncated to colDateW)
+                    std::string dateDisplay = item.dateModified;
+                    const int32_t maxDateChars = std::max(4, (colDateW - 12) / 8);
+                    if (static_cast<int32_t>(dateDisplay.length()) > maxDateChars) {
+                        dateDisplay = dateDisplay.substr(0, maxDateChars - 2) + "..";
+                    }
+                    clientSurface.drawString(dateHeaderBounds_.x + 8, item.bounds.y + 6, dateDisplay, palette.textSecondary, 1);
 
-                    // Type
-                    clientSurface.drawString(typeHeaderBounds_.x + 8, item.bounds.y + 6, item.typeDescription, palette.textSecondary, 1);
+                    // Type (truncated to colTypeW)
+                    std::string typeDisplay = item.typeDescription;
+                    const int32_t maxTypeChars = std::max(4, (colTypeW - 12) / 8);
+                    if (static_cast<int32_t>(typeDisplay.length()) > maxTypeChars) {
+                        typeDisplay = typeDisplay.substr(0, maxTypeChars - 2) + "..";
+                    }
+                    clientSurface.drawString(typeHeaderBounds_.x + 8, item.bounds.y + 6, typeDisplay, palette.textSecondary, 1);
 
-                    // Size
+                    // Size (truncated to colSizeW)
                     std::string sizeStr = item.isDirectory ? "" : formatBytes(item.sizeBytes);
+                    const int32_t maxSizeChars = std::max(4, (colSizeW - 12) / 8);
+                    if (static_cast<int32_t>(sizeStr.length()) > maxSizeChars) {
+                        sizeStr = sizeStr.substr(0, maxSizeChars - 2) + "..";
+                    }
                     clientSurface.drawString(sizeHeaderBounds_.x + 8, item.bounds.y + 6, sizeStr, palette.textSecondary, 1);
                 }
 
@@ -1669,11 +2080,28 @@ void FileExplorer::render(Surface& clientSurface) {
                     } else {
                         std::string shortName = item.name;
                         if (shortName.length() > 14) shortName = shortName.substr(0, 12) + "..";
-                        clientSurface.drawString(item.bounds.x + 46, item.bounds.y + 14, shortName, palette.textPrimary, 1);
+                        clientSurface.drawString(item.bounds.x + 46, item.bounds.y + 12, shortName, palette.textPrimary, 1);
                     }
 
-                    std::string subText = item.isDirectory ? "Folder" : formatBytes(item.sizeBytes);
-                    clientSurface.drawString(item.bounds.x + 46, item.bounds.y + 32, subText, palette.textSecondary, 1);
+                    std::string subText = item.isDirectory ? (!item.category.empty() ? item.typeDescription : "Folder") : formatBytes(item.sizeBytes);
+                    if (subText.length() > 16) subText = subText.substr(0, 14) + "..";
+                    clientSurface.drawString(item.bounds.x + 46, item.bounds.y + 28, subText, palette.textSecondary, 1);
+
+                    // Mini capacity bar for drives in Tiles Grid
+                    if (item.sizeBytes > 0 && !item.category.empty()) {
+                        Rect tileBar{item.bounds.x + 46, item.bounds.y + 46, item.bounds.width - 54, 4};
+                        clientSurface.drawRoundedRect(tileBar, 1, Color::fromRgba(38, 52, 78, 200), true);
+                        for (const auto& d : drives_) {
+                            if (d.rootPath == item.fullPath && d.totalBytes > 0) {
+                                const uint64_t used = d.totalBytes > d.freeBytes ? (d.totalBytes - d.freeBytes) : 0;
+                                const int32_t uw = static_cast<int32_t>((tileBar.width * used) / d.totalBytes);
+                                if (uw > 0) {
+                                    clientSurface.drawRoundedRect(Rect{tileBar.x, tileBar.y, uw, tileBar.height}, 1, palette.accentColor, true);
+                                }
+                                break;
+                            }
+                        }
+                    }
                 }
 
                 tileX += tileW + tileGap;

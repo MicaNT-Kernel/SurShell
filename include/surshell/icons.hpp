@@ -96,7 +96,12 @@ enum class IconId {
     TerminalTab,
     ShieldAdmin,
     SearchCategory,
-    Registry
+    Registry,
+
+    // Storage, Cloud & Infrastructure
+    CloudDrive,
+    NetworkShare,
+    OpticalDrive
 };
 
 class IconRenderer {
@@ -162,6 +167,9 @@ private:
     static void drawShieldAdmin(Surface& s, Rect r, std::optional<Color> tint);
     static void drawSearchCategory(Surface& s, Rect r, std::optional<Color> tint);
     static void drawRegistry(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawCloudDrive(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawNetworkShare(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawOpticalDrive(Surface& s, Rect r, std::optional<Color> tint);
 };
 
 } // namespace surshell

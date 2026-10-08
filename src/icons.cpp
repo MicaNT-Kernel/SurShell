@@ -205,6 +205,15 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
         case IconId::Registry:
             drawRegistry(surface, bounds, tintOverride);
             break;
+        case IconId::CloudDrive:
+            drawCloudDrive(surface, bounds, tintOverride);
+            break;
+        case IconId::NetworkShare:
+            drawNetworkShare(surface, bounds, tintOverride);
+            break;
+        case IconId::OpticalDrive:
+            drawOpticalDrive(surface, bounds, tintOverride);
+            break;
         default:
             drawDocument(surface, bounds, IconId::FileGeneric, tintOverride);
             break;
@@ -219,6 +228,8 @@ IconId IconRenderer::iconForExtension(std::string_view ext, bool isDirectory) {
     if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".ico") return IconId::FileImage;
     if (ext == ".zip" || ext == ".tar" || ext == ".gz" || ext == ".7z" || ext == ".rar") return IconId::FileArchive;
     if (ext == ".txt" || ext == ".md" || ext == ".log" || ext == ".ini" || ext == ".json" || ext == ".xml") return IconId::FileText;
+    if (ext == ".iso" || ext == ".img" || ext == ".vhd") return IconId::OpticalDrive;
+    if (ext == ".gdoc" || ext == ".gsheet" || ext == ".gslides") return IconId::CloudDrive;
     return IconId::FileGeneric;
 }
 
@@ -239,6 +250,9 @@ IconId IconRenderer::iconForAppId(std::string_view appId) {
     if (appId == "search" || appId == "find") return IconId::Search;
     if (appId == "admin") return IconId::ShieldAdmin;
     if (appId == "regedit" || appId == "registry") return IconId::Registry;
+    if (appId == "cloud" || appId == "gdrive" || appId == "google_drive") return IconId::CloudDrive;
+    if (appId == "nas" || appId == "share" || appId == "storage") return IconId::NetworkShare;
+    if (appId == "cd" || appId == "dvd" || appId == "optical") return IconId::OpticalDrive;
     return IconId::StartPrism;
 }
 
@@ -1383,6 +1397,100 @@ void IconRenderer::drawRegistry(Surface& s, Rect r, std::optional<Color> tint) {
     const Rect floatCube{baseCube.right() - floatSz / 2, baseCube.y - floatSz - 1, floatSz, floatSz};
     s.drawRoundedRect(floatCube, 1, Color::fromHex(0x00FF9D), true);
     s.drawRoundedRect(floatCube, 1, Color::fromHex(0xFFFFFF), false);
+}
+
+void IconRenderer::drawCloudDrive(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color cloudCol = tint.value_or(Color::fromHex(0x4285F4));
+    const int32_t cx = r.centerX();
+    const int32_t cy = r.centerY();
+    const int32_t w = r.width;
+    const int32_t h = r.height;
+
+    // Cloud Body lobes
+    const int32_t baseH = std::max(3, h / 3);
+    const int32_t baseW = std::max(6, w * 3 / 4);
+    const Rect baseRect{cx - baseW / 2, cy - baseH / 4, baseW, baseH};
+    s.drawRoundedRect(baseRect, baseH / 2, Color::fromHex(0x1B2A4A), true);
+    s.drawRoundedRect(baseRect, baseH / 2, cloudCol, false);
+
+    // Left lobe circle
+    const int32_t leftR = std::max(2, w / 4);
+    const Rect leftLobe{baseRect.x, baseRect.y - leftR / 2, leftR * 2, leftR * 2};
+    s.drawRoundedRect(leftLobe, leftR, Color::fromHex(0x233760), true);
+    s.drawRoundedRect(leftLobe, leftR, cloudCol, false);
+
+    // Center/Top lobe circle (largest)
+    const int32_t topR = std::max(3, w * 5 / 16);
+    const Rect topLobe{cx - topR, baseRect.y - topR, topR * 2, topR * 2};
+    s.drawRoundedRect(topLobe, topR, Color::fromHex(0x2A4375), true);
+    s.drawRoundedRect(topLobe, topR, Color::fromHex(0x60A5FA), false);
+
+    // Sync accent badge (Google Drive triad green/yellow)
+    if (w >= 16) {
+        s.fillRect(Rect{cx - 1, baseRect.bottom() - 2, 3, 2}, Color::fromHex(0x34A853));
+        s.putPixel(cx + 2, baseRect.bottom() - 2, Color::fromHex(0xFBBC05));
+    }
+}
+
+void IconRenderer::drawNetworkShare(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color linkCol = tint.value_or(Color::fromHex(0x00D4FF));
+    const int32_t w = r.width;
+    const int32_t h = r.height;
+    const int32_t serverH = std::max(3, h * 3 / 10);
+    const int32_t serverW = std::max(6, w - 4);
+    const int32_t sx = r.centerX() - serverW / 2;
+
+    // Top server appliance (NAS Unit 1)
+    const Rect topServer{sx, r.y + 1, serverW, serverH};
+    s.drawRoundedRect(topServer, 2, Color::fromHex(0x182438), true);
+    s.drawRoundedRect(topServer, 2, Color::fromHex(0x405B85), false);
+    s.putPixel(topServer.right() - 3, topServer.y + 2, Color::fromHex(0x00FF9D));
+    if (topServer.width >= 12) {
+        s.fillRect(Rect{topServer.x + 3, topServer.y + 2, topServer.width - 8, 1}, Color::fromHex(0x2A3E5C));
+    }
+
+    // Bottom server appliance (NAS Unit 2)
+    const Rect botServer{sx, r.bottom() - 1 - serverH, serverW, serverH};
+    s.drawRoundedRect(botServer, 2, Color::fromHex(0x182438), true);
+    s.drawRoundedRect(botServer, 2, Color::fromHex(0x405B85), false);
+    s.putPixel(botServer.right() - 3, botServer.y + 2, Color::fromHex(0x00D4FF));
+    if (botServer.width >= 12) {
+        s.fillRect(Rect{botServer.x + 3, botServer.y + 2, botServer.width - 8, 1}, Color::fromHex(0x2A3E5C));
+    }
+
+    // Central interconnect link spine
+    const int32_t cx = r.centerX();
+    s.fillRect(Rect{cx, topServer.bottom(), 1, botServer.y - topServer.bottom()}, linkCol);
+    const int32_t midY = (topServer.bottom() + botServer.y) / 2;
+    s.putPixel(cx - 1, midY, Color::fromHex(0xFFFFFF));
+    s.putPixel(cx, midY, Color::fromHex(0xFFFFFF));
+    s.putPixel(cx + 1, midY, Color::fromHex(0xFFFFFF));
+}
+
+void IconRenderer::drawOpticalDrive(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color discCol = tint.value_or(Color::fromHex(0x94A3B8));
+    const int32_t cx = r.centerX();
+    const int32_t cy = r.centerY() - 1;
+    const int32_t rad = std::max(3, std::min(r.width, r.height) / 2 - 2);
+
+    // Optical disc outer platter
+    s.drawRoundedRect(Rect{cx - rad, cy - rad, rad * 2, rad * 2}, rad, Color::fromHex(0x2D3748), true);
+    s.drawRoundedRect(Rect{cx - rad, cy - rad, rad * 2, rad * 2}, rad, discCol, false);
+
+    // Iridescent reflection highlight arcs
+    if (rad >= 4) {
+        s.drawRoundedRect(Rect{cx - rad + 2, cy - rad + 2, (rad - 2) * 2, (rad - 2) * 2}, rad - 2, Color::fromHex(0x38BDF8), false);
+        const int32_t holeR = std::max(1, rad / 3);
+        s.drawRoundedRect(Rect{cx - holeR, cy - holeR, holeR * 2, holeR * 2}, holeR, Color::fromHex(0x0F172A), true);
+        s.drawRoundedRect(Rect{cx - holeR, cy - holeR, holeR * 2, holeR * 2}, holeR, Color::fromHex(0xE2E8F0), false);
+    }
+
+    // Drive tray slot at bottom
+    const int32_t trayH = std::max(2, r.height / 6);
+    const Rect trayRect{r.x + 2, r.bottom() - trayH - 1, r.width - 4, trayH};
+    s.drawRoundedRect(trayRect, 1, Color::fromHex(0x1E293B), true);
+    s.drawRoundedRect(trayRect, 1, Color::fromHex(0x475569), false);
+    s.putPixel(trayRect.right() - 2, trayRect.y + 1, Color::fromHex(0x00FF9D));
 }
 
 } // namespace surshell

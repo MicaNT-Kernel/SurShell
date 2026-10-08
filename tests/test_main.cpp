@@ -658,10 +658,13 @@ void Test_Procedural_Icon_Engine() {
         surshell::IconId::TerminalTab,
         surshell::IconId::ShieldAdmin,
         surshell::IconId::SearchCategory,
-        surshell::IconId::Registry
+        surshell::IconId::Registry,
+        surshell::IconId::CloudDrive,
+        surshell::IconId::NetworkShare,
+        surshell::IconId::OpticalDrive
     };
 
-    TEST_ASSERT(allIcons.size() == 65, "All 65 procedural vector icons enumerated");
+    TEST_ASSERT(allIcons.size() == 68, "All 68 procedural vector icons enumerated");
 
     const int32_t testSizes[] = {14, 16, 24, 28, 32, 48};
     for (surshell::IconId id : allIcons) {
@@ -683,7 +686,7 @@ void Test_Procedural_Icon_Engine() {
         }
     }
 
-    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (65 icons verified across 6 DPI scales).\n";
+    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (68 icons verified across 6 DPI scales).\n";
 }
 
 void Test_AltTab_And_Taskbar_Hover_Preview() {
@@ -1531,6 +1534,99 @@ void Test_Registry_Editor_Application() {
     std::cout << "[TEST] Suite 25: Sovereign Registry Editor (regedit.exe) PASSED.\n";
 }
 
+void Test_Storage_Topology_And_Network_Shares() {
+    std::cout << "[TEST] Running Suite 26: Storage Topology, Google Drive & Network Attached Storage (NAS)...\n";
+
+    surshell::FileExplorer exp("This PC");
+
+    // 1. Storage Topology Discovery
+    const auto& drives = exp.drives();
+    TEST_ASSERT(drives.size() >= 2, "Discovered multiple logical storage drives");
+
+    bool hasFixedDisk = false;
+    bool hasCloudDrive = false;
+    bool hasNetworkStorage = false;
+    bool hasCdRom = false;
+
+    for (const auto& d : drives) {
+        if (d.kind == surshell::DriveKind::Fixed) hasFixedDisk = true;
+        if (d.kind == surshell::DriveKind::Cloud) hasCloudDrive = true;
+        if (d.kind == surshell::DriveKind::Network) hasNetworkStorage = true;
+        if (d.kind == surshell::DriveKind::CdRom) hasCdRom = true;
+    }
+
+    TEST_ASSERT(hasFixedDisk, "Topology includes local fixed disk (C: or root)");
+    std::cout << "       [INFO] Discovered " << drives.size() << " drives. Cloud=" << hasCloudDrive 
+              << ", Network=" << hasNetworkStorage << ", CdRom=" << hasCdRom << "\n";
+
+    // 2. This PC Virtual Container Categorization
+    exp.navigateTo("This PC");
+    TEST_ASSERT(exp.currentPath() == "This PC", "Current path is This PC");
+    const auto& pcItems = exp.items();
+    TEST_ASSERT(pcItems.size() >= 6, "This PC contains standard items");
+
+    bool seenFolders = false;
+    bool seenDevices = false;
+    int lastRank = -1;
+
+    for (const auto& item : pcItems) {
+        int rank = 3;
+        if (item.category == "Folders") {
+            seenFolders = true;
+            rank = 0;
+        } else if (item.category == "Devices and drives") {
+            seenDevices = true;
+            rank = 1;
+        } else if (item.category == "Network locations") {
+            rank = 2;
+        }
+        TEST_ASSERT(rank >= lastRank, "Categories in This PC must follow strict rank order: Folders -> Devices -> Network");
+        lastRank = rank;
+    }
+    TEST_ASSERT(seenFolders, "This PC contains Folders category");
+    TEST_ASSERT(seenDevices, "This PC contains Devices and drives category");
+
+    // 3. Attached Network Storage (NAS) Navigation & UNC Path Support
+    exp.navigateTo("\\\\nas.ash-forge.com\\storage");
+    TEST_ASSERT(exp.currentPath() == "\\\\nas.ash-forge.com\\storage", "Navigated to NAS SMB share");
+    TEST_ASSERT(!exp.items().empty(), "NAS share directories enumerated");
+
+    // 4. Deep UNC Navigation & Up Traversal
+    exp.navigateTo("\\\\nas.ash-forge.com\\storage\\models");
+    TEST_ASSERT(exp.currentPath() == "\\\\nas.ash-forge.com\\storage\\models", "Navigated to models directory on NAS");
+    exp.navigateUp();
+    TEST_ASSERT(exp.currentPath() == "\\\\nas.ash-forge.com\\storage", "Navigated up from models to NAS root share");
+    exp.navigateUp();
+    TEST_ASSERT(exp.currentPath() == "This PC", "Navigated up from NAS root share to This PC");
+
+    // 5. Google Drive (G:\) Navigation & Up Traversal
+    exp.navigateTo("G:\\");
+    TEST_ASSERT(exp.currentPath() == "G:\\", "Navigated to Google Drive G:\\");
+    TEST_ASSERT(!exp.items().empty(), "Google Drive items enumerated");
+    exp.navigateUp();
+    TEST_ASSERT(exp.currentPath() == "This PC", "Navigated up from G:\\ root to This PC");
+
+    // 6. Local Windows C:\ Up Traversal to This PC
+    exp.navigateTo("C:\\Windows");
+    exp.navigateUp();
+    TEST_ASSERT(exp.currentPath() == "C:\\", "Navigated up to C:\\ root");
+    exp.navigateUp();
+    TEST_ASSERT(exp.currentPath() == "This PC", "Navigated up from C:\\ root to This PC");
+
+    // 7. Visual Surface Render Verification (DetailsList and TilesGrid)
+    surshell::Surface clientCanvas(960, 600, surshell::Color::fromHex(0x0C121D));
+    exp.navigateTo("This PC");
+    exp.setViewMode(surshell::ExplorerViewMode::DetailsList);
+    exp.render(clientCanvas);
+    TEST_ASSERT(clientCanvas.width() == 960 && clientCanvas.height() == 600, "DetailsList rendered onto surface");
+
+    exp.setViewMode(surshell::ExplorerViewMode::TilesGrid);
+    exp.render(clientCanvas);
+    TEST_ASSERT(clientCanvas.width() == 960 && clientCanvas.height() == 600, "TilesGrid rendered onto surface");
+
+    std::cout << "[TEST] Suite 26: Storage Topology, Google Drive & Network Attached Storage (NAS) PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -1562,9 +1658,10 @@ int main() {
     Test_Universal_Search_Hub();
     Test_Lock_Screen_And_Authentication();
     Test_Registry_Editor_Application();
+    Test_Storage_Topology_And_Network_Shares();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 25 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 26 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

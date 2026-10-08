@@ -38,6 +38,14 @@ enum class ExplorerSortColumn {
     Size
 };
 
+enum class DriveKind {
+    Fixed = 0,
+    Cloud,
+    Network,
+    Removable,
+    CdRom
+};
+
 struct FileItem {
     std::string name;
     std::string fullPath;
@@ -48,15 +56,20 @@ struct FileItem {
     std::string typeDescription{};
     std::string iconGlyph{"[F]"};
     IconId iconId{IconId::FileGeneric};
+    std::string category{}; // "Folders", "Devices and drives", "Network locations", or ""
     Rect bounds{};
     bool selected{false};
 };
 
 struct DriveInfo {
-    std::string rootPath;      // e.g. "C:\\"
+    std::string rootPath;      // e.g. "C:\\" or "\\\\nas.ash-forge.com\\storage"
     std::string label;         // e.g. "Local Disk (C:)"
+    std::string subtitle{"Local Fixed Disk"};
+    DriveKind kind{DriveKind::Fixed};
+    IconId iconId{IconId::LocalDisk};
     uint64_t totalBytes{0};
     uint64_t freeBytes{0};
+    bool isOnline{true};
     Rect bounds{};
 };
 
@@ -133,6 +146,7 @@ public:
     [[nodiscard]] const std::string& currentPath() const noexcept;
     [[nodiscard]] const std::vector<FileItem>& items() const noexcept;
     [[nodiscard]] std::optional<FileItem> selectedItem() const;
+    [[nodiscard]] const std::vector<DriveInfo>& drives() const noexcept { return drives_; }
 
     // Search & Filter
     void setSearchQuery(std::string query);
