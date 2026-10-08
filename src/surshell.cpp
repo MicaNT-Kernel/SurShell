@@ -145,21 +145,20 @@ uint32_t SurShellDesktop::openTextEditorWindow(std::string filePath) {
 }
 
 uint32_t SurShellDesktop::openTerminalWindow(std::string workingDir) {
-    const uint32_t winCmd = windowManager_.createWindow("Command Prompt - [" + workingDir + "]", Rect{50, 45, 680, 420}, ">_", IconId::Terminal);
+    const uint32_t winCmd = windowManager_.createWindow("Command Prompt", Rect{50, 45, 720, 440}, ">_", IconId::Terminal);
     virtualDesktops_.assignWindowToDesktop(winCmd, virtualDesktops_.activeIndex());
     auto* cmdWin = windowManager_.findWindow(winCmd);
     if (cmdWin) {
-        auto& cs = cmdWin->clientSurface;
-        cs.clear(Color{12, 16, 24, 255});
-        cs.drawString(14, 14, "MicaNT Sovereign Executive [Version 10.0.26100.1]", Color{0, 212, 255}, 1);
-        cs.drawString(14, 30, "Dave Cutler 1988 Architecture | Clean-Room ISO C++23 | Zero Telemetry", Color{170, 185, 205}, 1);
-        cs.drawString(14, 50, workingDir + "> whoami", Color{245, 248, 255}, 1);
-        cs.drawString(14, 66, "MICANT-DESKTOP\\Administrator (S-1-5-18 LocalSystem)", Color{0, 255, 157}, 1);
-        cs.drawString(14, 90, workingDir + "> surshell --status", Color{245, 248, 255}, 1);
-        cs.drawString(14, 106, "[SurShell] Display Server: SurWin (CSRSS / Window Stations Active)", Color{245, 248, 255}, 1);
-        cs.drawString(14, 122, "[SurShell] Compositor: PrismX DWM Software Composition 120Hz [OK]", Color{245, 248, 255}, 1);
-        cs.drawString(14, 138, "[SurShell] Footprint: 14.8 MB Resident | 0 Background Daemons", Color{0, 255, 157}, 1);
-        cs.drawString(14, 162, workingDir + "> _", Color{245, 248, 255}, 1);
+        auto term = std::make_shared<TerminalContent>();
+        term->setAppSpawnCallback([this](const std::string& app, const std::string& args) {
+            if (app == "calc") openCalculatorWindow();
+            else if (app == "settings") openSettingsWindow();
+            else if (app == "explorer") openFileExplorerWindow(args.empty() ? "C:\\Users\\admin" : args);
+            else if (app == "taskmgr") openTaskManagerWindow();
+            else kernelBridge_.spawnProcess(app, args);
+        });
+        cmdWin->content = term;
+        term->render(cmdWin->clientSurface);
     }
     return winCmd;
 }
@@ -289,14 +288,50 @@ uint32_t SurShellDesktop::openRunDialogWindow() {
     return winId;
 }
 
+void SurShellDesktop::openSearchHub() {
+    searchHub_.toggle();
+    if (searchHub_.isVisible()) {
+        startMenu_.close();
+        quickSettings_.close();
+        actionCenter_.hide();
+        virtualDesktops_.hideSwitcher();
+    }
+}
+
+void SurShellDesktop::openActionCenter() {
+    actionCenter_.toggle();
+    if (actionCenter_.isVisible()) {
+        startMenu_.close();
+        quickSettings_.close();
+        searchHub_.hide();
+        virtualDesktops_.hideSwitcher();
+    }
+}
+
+void SurShellDesktop::lockSession() {
+    lockScreen_.lock();
+    startMenu_.close();
+    quickSettings_.close();
+    searchHub_.hide();
+    actionCenter_.hide();
+    virtualDesktops_.hideSwitcher();
+}
+
 void SurShellDesktop::wireSubsystemCallbacks() {
     // 1. Taskbar Start Button clicks toggle the Start Menu
     taskbar_.setStartButtonClickCallback([this]() {
         startMenu_.toggle();
         if (startMenu_.isOpen()) {
             quickSettings_.close();
+            actionCenter_.hide();
+            searchHub_.hide();
             virtualDesktops_.hideSwitcher();
         }
+    });
+
+    // 1b. Taskbar Search Button clicks toggle Universal Search Hub
+    taskbar_.setSearchButtonClickCallback([this]() {
+        openSearchHub();
     });
 
     // 2. Taskbar Task item clicks toggle/focus window
@@ -322,10 +357,41 @@ void SurShellDesktop::wireSubsystemCallbacks() {
 
     // 3b. System Tray Icon individual click callbacks
     taskbar_.tray().setClickCallback([this](const std::string& id, MouseButton) {
-        if (id == "network") {
+        if (id == "clock") {
+            openActionCenter();
+        } else if (id == "network") {
             toastManager_.showToast("Network Telemetry", "Ethernet Connected: 1000/1000 Mbps | IPv4: 192.168.1.105", IconId::NetworkEthernet, Color::fromHex(0x00FF9D));
         } else if (id == "security") {
             toastManager_.showToast("SentinelSec Security", "Zero-Telemetry Protection Active | System Enclave Secure", IconId::SentinelSec, Color::fromHex(0x00D4FF));
+        }
+    });
+
+    // 3b2. Universal Search Hub Execute callback
+    searchHub_.setExecuteCallback([this](const std::string& targetApp, const std::string& args, bool asAdmin) {
+        if (asAdmin) {
+            toastManager_.showToast("Sovereign Elevation", "Elevated to Administrator: " + targetApp, IconId::ShieldAdmin, Color::fromHex(0xFFB703));
+        }
+        if (targetApp == "calc") openCalculatorWindow();
+        else if (targetApp == "cmd") openTerminalWindow(args.empty() ? "C:\\Windows\\System32" : args);
+        else if (targetApp == "explorer") openFileExplorerWindow(args.empty() ? "C:\\Users\\admin" : args);
+        else if (targetApp == "taskmgr") openTaskManagerWindow();
+        else if (targetApp == "settings") openSettingsWindow();
+        else if (targetApp == "run") openRunDialogWindow();
+        else if (targetApp == "editor") openTextEditorWindow(args);
+        else kernelBridge_.spawnProcess(targetApp, args);
+    });
+
+    // 3b3. Lock Screen Power Action callback
+    lockScreen_.setPowerCallback([this](const std::string& action) {
+        if (action == "sleep") {
+            kernelBridge_.setPowerState("Standby (S3)");
+            toastManager_.showToast("Power Management", "System entering Sovereign S3 Sleep", IconId::Sleep);
+        } else if (action == "restart") {
+            kernelBridge_.setPowerState("Reboot (S5)");
+            toastManager_.showToast("Power Management", "Kernel restarting...", IconId::Restart);
+        } else if (action == "shutdown") {
+            kernelBridge_.setPowerState("Shutdown (G2/S5)");
+            toastManager_.showToast("Power Management", "System shutting down cleanly", IconId::Power);
         }
     });
 
@@ -468,22 +534,27 @@ void SurShellDesktop::wireSubsystemCallbacks() {
     startMenu_.setPowerCallback([this](PowerAction action) {
         switch (action) {
             case PowerAction::Lock:
-                kernelBridge_.spawnProcess("rundll32.exe", "user32.dll,LockWorkStation");
+                lockSession();
                 break;
             case PowerAction::Sleep:
-                kernelBridge_.spawnProcess("rundll32.exe", "powrprof.dll,SetSuspendState 0,1,0");
+                kernelBridge_.setPowerState("Standby (S3)");
+                toastManager_.showToast("Power Management", "System entering Sovereign S3 Sleep", IconId::Sleep);
                 break;
             case PowerAction::Hibernate:
-                kernelBridge_.spawnProcess("shutdown.exe", "/h");
+                kernelBridge_.setPowerState("Hibernate (S4)");
+                toastManager_.showToast("Power Management", "System hibernating...", IconId::Hibernate);
                 break;
             case PowerAction::Restart:
-                kernelBridge_.spawnProcess("shutdown.exe", "/r /t 0");
+                kernelBridge_.setPowerState("Reboot (S5)");
+                toastManager_.showToast("Power Management", "Kernel restarting...", IconId::Restart);
                 break;
             case PowerAction::ShutDown:
-                kernelBridge_.spawnProcess("shutdown.exe", "/s /t 0");
+                kernelBridge_.setPowerState("Shutdown (G2/S5)");
+                toastManager_.showToast("Power Management", "System shutting down cleanly", IconId::Power);
                 break;
             case PowerAction::SignOut:
-                kernelBridge_.spawnProcess("logoff.exe", "");
+                lockSession();
+                toastManager_.showToast("Session", "User signed out", IconId::SignOut);
                 break;
         }
     });
@@ -562,12 +633,32 @@ void SurShellDesktop::dismissAltTab() {
 void SurShellDesktop::onMouseDown(Point pt, MouseButton button) {
     currentMousePos_ = pt;
 
-    // 0a. Toast notifications hit testing
+    // -1. Lock screen takes complete precedence when active
+    if (lockScreen_.isLocked()) {
+        lockScreen_.onMouseDown(pt, button);
+        return;
+    }
+
+    // 0a. Search Hub takes precedence when open
+    if (searchHub_.isVisible()) {
+        if (searchHub_.onMouseDown(pt, button)) {
+            return;
+        }
+    }
+
+    // 0b. Action Center & Calendar Flyout takes precedence when open
+    if (actionCenter_.isVisible()) {
+        if (actionCenter_.onMouseDown(pt, button)) {
+            return;
+        }
+    }
+
+    // 0c. Toast notifications hit testing
     if (toastManager_.onMouseDown(pt, button)) {
         return;
     }
 
-    // 0b. Media HUD hit testing
+    // 0d. Media HUD hit testing
     if (mediaHud_.onMouseDown(pt, button)) {
         return;
     }
@@ -641,6 +732,19 @@ void SurShellDesktop::onMouseUp(Point pt, MouseButton button) {
 void SurShellDesktop::onMouseMove(Point pt) {
     currentMousePos_ = pt;
 
+    if (lockScreen_.isLocked()) {
+        lockScreen_.onMouseMove(pt);
+        return;
+    }
+
+    if (searchHub_.isVisible()) {
+        searchHub_.onMouseMove(pt);
+    }
+
+    if (actionCenter_.isVisible()) {
+        actionCenter_.onMouseMove(pt);
+    }
+
     if (altTab_.isActive()) {
         if (altTab_.onMouseMove(pt, width_, height_)) {
             return;
@@ -687,6 +791,16 @@ void SurShellDesktop::onMouseWheel(Point pt, int32_t delta) {
 }
 
 void SurShellDesktop::onCharInput(char c) {
+    if (lockScreen_.isLocked()) {
+        lockScreen_.onCharInput(c);
+        return;
+    }
+
+    if (searchHub_.isVisible()) {
+        searchHub_.onCharInput(c);
+        return;
+    }
+
     if (startMenu_.isOpen()) {
         if (c == '\b') {
             startMenu_.handleBackspace();
@@ -699,6 +813,24 @@ void SurShellDesktop::onCharInput(char c) {
 }
 
 void SurShellDesktop::onKeyDown(KeyCode key, bool ctrl, bool shift, bool alt) {
+    if (lockScreen_.isLocked()) {
+        lockScreen_.onKeyDown(key);
+        return;
+    }
+
+    if (searchHub_.isVisible()) {
+        if (searchHub_.onKeyDown(key)) {
+            return;
+        }
+    }
+
+    if (actionCenter_.isVisible()) {
+        if (key == KeyCode::Escape) {
+            actionCenter_.hide();
+            return;
+        }
+    }
+
     if (altTab_.isActive()) {
         if (key == KeyCode::Tab) {
             cycleAltTab(!shift);
@@ -712,6 +844,21 @@ void SurShellDesktop::onKeyDown(KeyCode key, bool ctrl, bool shift, bool alt) {
         }
     }
 
+    if ((alt || ctrl) && key == KeyCode::KeyS) {
+        openSearchHub();
+        return;
+    }
+
+    if ((alt || ctrl) && key == KeyCode::KeyN) {
+        openActionCenter();
+        return;
+    }
+
+    if ((alt || ctrl) && key == KeyCode::KeyL) {
+        lockSession();
+        return;
+    }
+
     if ((alt || ctrl) && key == KeyCode::KeyR) {
         openRunDialogWindow();
         return;
@@ -721,6 +868,26 @@ void SurShellDesktop::onKeyDown(KeyCode key, bool ctrl, bool shift, bool alt) {
 }
 
 void SurShellDesktop::render() {
+    if (lockScreen_.isLocked()) {
+        lockScreen_.render(framebuffer_, width_, height_);
+
+        // Render Mouse Cursor Arrow
+        const int32_t mx = currentMousePos_.x;
+        const int32_t my = currentMousePos_.y;
+        if (mx >= 0 && mx < static_cast<int32_t>(width_) && my >= 0 && my < static_cast<int32_t>(height_)) {
+            for (int32_t cy = 0; cy < 12; ++cy) {
+                for (int32_t cx = 0; cx <= cy && cx < 8; ++cx) {
+                    framebuffer_.putPixel(mx + cx, my + cy, Color::fromHex(0xFFFFFF));
+                }
+            }
+            for (int32_t cy = 0; cy < 13; ++cy) {
+                framebuffer_.putPixel(mx, my + cy, Color::fromHex(0x000000));
+                framebuffer_.putPixel(mx + cy, my + cy, Color::fromHex(0x000000));
+            }
+        }
+        return;
+    }
+
     // 1. Render Desktop background and icons
     desktop_.render(framebuffer_);
 
@@ -776,7 +943,17 @@ void SurShellDesktop::render() {
         altTab_.render(framebuffer_, width_, height_);
     }
 
-    // 9. Render Mouse Cursor Arrow
+    // 11. Render Action Center & Calendar Flyout (if visible)
+    if (actionCenter_.isVisible()) {
+        actionCenter_.render(framebuffer_, width_, height_, taskbar_.bounds().height);
+    }
+
+    // 12. Render Universal Search Hub (if visible)
+    if (searchHub_.isVisible()) {
+        searchHub_.render(framebuffer_, width_, height_);
+    }
+
+    // 13. Render Mouse Cursor Arrow
     const int32_t mx = currentMousePos_.x;
     const int32_t my = currentMousePos_.y;
     if (mx >= 0 && mx < static_cast<int32_t>(width_) && my >= 0 && my < static_cast<int32_t>(height_)) {

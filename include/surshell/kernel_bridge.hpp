@@ -70,9 +70,14 @@ public:
     // Vitals Telemetry
     [[nodiscard]] KernelVitals queryVitals() const;
 
+    // Power Management
+    bool setPowerState(std::string_view state);
+    [[nodiscard]] std::string powerState() const;
+
 private:
     bool isConnected_{false};
     std::string portName_{};
+    std::string currentPowerState_{"Working (S0)"};
     uint32_t nextPid_{2000};
     uint32_t nextWindowHandle_{100};
     std::vector<KernelProcessInfo> mockProcesses_;

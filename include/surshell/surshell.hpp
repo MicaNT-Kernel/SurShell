@@ -29,6 +29,10 @@
 #include "settings.hpp"
 #include "calculator.hpp"
 #include "run_dialog.hpp"
+#include "terminal.hpp"
+#include "action_center.hpp"
+#include "search_hub.hpp"
+#include "lock_screen.hpp"
 
 namespace surshell {
 
@@ -52,8 +56,19 @@ public:
     [[nodiscard]] const ToastManager& toastManager() const noexcept { return toastManager_; }
     [[nodiscard]] MediaHud& mediaHud() noexcept { return mediaHud_; }
     [[nodiscard]] const MediaHud& mediaHud() const noexcept { return mediaHud_; }
+    [[nodiscard]] ActionCenterFlyout& actionCenter() noexcept { return actionCenter_; }
+    [[nodiscard]] const ActionCenterFlyout& actionCenter() const noexcept { return actionCenter_; }
+    [[nodiscard]] SearchHub& searchHub() noexcept { return searchHub_; }
+    [[nodiscard]] const SearchHub& searchHub() const noexcept { return searchHub_; }
+    [[nodiscard]] LockScreen& lockScreen() noexcept { return lockScreen_; }
+    [[nodiscard]] const LockScreen& lockScreen() const noexcept { return lockScreen_; }
     [[nodiscard]] KernelBridge& kernel() noexcept { return kernelBridge_; }
     [[nodiscard]] Surface& framebuffer() noexcept { return framebuffer_; }
+
+    // Shell Hub Modals
+    void openSearchHub();
+    void openActionCenter();
+    void lockSession();
 
     // Alt+Tab Task Switcher Workflow
     void triggerAltTab();
@@ -104,6 +119,9 @@ private:
     AltTabSwitcher altTab_;
     ToastManager toastManager_;
     MediaHud mediaHud_;
+    ActionCenterFlyout actionCenter_;
+    SearchHub searchHub_;
+    LockScreen lockScreen_;
     KernelBridge kernelBridge_;
 
     Point currentMousePos_{0, 0};

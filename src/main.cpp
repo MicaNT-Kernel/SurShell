@@ -294,6 +294,66 @@ int main(int argc, char* argv[]) {
     }
     shell.onMouseUp(surshell::Point{1915, 10}, surshell::MouseButton::Left);
 
-    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (19 high-resolution scenes generated).\n";
+    // ------------------------------------------------------------------------
+    // Scene 18: Universal Search Hub (Win+S / Taskbar Search)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 18: Universal Search Hub...\n";
+    shell.openSearchHub();
+    shell.searchHub().setQuery("cmd");
+    shell.render();
+    if (shell.exportSnapshot("surshell_search_hub.bmp")) {
+        std::cout << "  -> Exported: surshell_search_hub.bmp (1920x1080 32-bpp)\n";
+    }
+    shell.searchHub().hide();
+
+    // ------------------------------------------------------------------------
+    // Scene 19: Action Center & Calendar Flyout (Win+N / Tray Clock)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 19: Action Center & Calendar Flyout...\n";
+    shell.openActionCenter();
+    shell.render();
+    if (shell.exportSnapshot("surshell_action_center.bmp")) {
+        std::cout << "  -> Exported: surshell_action_center.bmp (1920x1080 32-bpp)\n";
+    }
+    shell.actionCenter().hide();
+
+    // ------------------------------------------------------------------------
+    // Scene 20: Sovereign Lock Screen & Authentication Center (Win+L)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 20: Sovereign Lock Screen & Credentials...\n";
+    shell.lockSession();
+    shell.lockScreen().showCredentials();
+    shell.lockScreen().setPin("1234");
+    shell.render();
+    if (shell.exportSnapshot("surshell_lock_screen.bmp")) {
+        std::cout << "  -> Exported: surshell_lock_screen.bmp (1920x1080 32-bpp)\n";
+    }
+    shell.lockScreen().unlock();
+
+    // ------------------------------------------------------------------------
+    // Scene 21: Windows Terminal System with Tabs (microsoft/terminal Architecture)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 21: Windows Terminal System with Tabs...\n";
+    const uint32_t termWin = shell.openTerminalWindow("C:\\Users\\admin");
+    shell.windowManager().setWindowActive(termWin);
+    if (auto* w = shell.windowManager().findWindow(termWin)) {
+        if (auto term = std::dynamic_pointer_cast<surshell::TerminalContent>(w->content)) {
+            term->addTab("PowerShell", "pwsh");
+            term->selectTab(0);
+            term->inputString("ver");
+            term->executeCurrentCommand();
+            term->inputString("dir");
+            term->executeCurrentCommand();
+            term->inputString("echo MicaNT Dave Cutler Sovereign Executive Online");
+            term->executeCurrentCommand();
+            term->render(w->clientSurface);
+        }
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_terminal_tabs.bmp")) {
+        std::cout << "  -> Exported: surshell_terminal_tabs.bmp (1920x1080 32-bpp)\n";
+    }
+
+    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (23 high-resolution scenes generated).\n";
     return 0;
 }

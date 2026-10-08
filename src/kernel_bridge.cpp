@@ -106,4 +106,14 @@ KernelVitals KernelBridge::queryVitals() const {
     return vitals;
 }
 
+bool KernelBridge::setPowerState(std::string_view state) {
+    if (!isConnected_) return false;
+    currentPowerState_ = std::string(state);
+    return true;
+}
+
+std::string KernelBridge::powerState() const {
+    return currentPowerState_;
+}
+
 } // namespace surshell

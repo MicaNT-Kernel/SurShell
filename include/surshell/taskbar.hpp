@@ -32,6 +32,7 @@ struct TaskItem {
 class Taskbar {
 public:
     using StartButtonClickCallback = std::function<void()>;
+    using SearchButtonClickCallback = std::function<void()>;
     using TaskItemClickCallback = std::function<void(uint32_t windowId)>;
     using TrayClickCallback = std::function<void()>;
     using TaskViewClickCallback = std::function<void()>;
@@ -42,6 +43,7 @@ public:
     [[nodiscard]] Rect bounds() const noexcept;
 
     void setStartButtonClickCallback(StartButtonClickCallback cb) { startClickCallback_ = std::move(cb); }
+    void setSearchButtonClickCallback(SearchButtonClickCallback cb) { searchClickCallback_ = std::move(cb); }
     void setTaskItemClickCallback(TaskItemClickCallback cb) { taskClickCallback_ = std::move(cb); }
     void setTrayClickCallback(TrayClickCallback cb) { trayClickCallback_ = std::move(cb); }
     void setTaskViewClickCallback(TaskViewClickCallback cb) { taskViewClickCallback_ = std::move(cb); }
@@ -55,6 +57,7 @@ public:
     [[nodiscard]] Rect appIslandBounds() const noexcept { return appIslandBounds_; }
     [[nodiscard]] Rect trayIslandBounds() const noexcept { return trayIslandBounds_; }
     [[nodiscard]] Rect startButtonBounds() const noexcept { return startButtonBounds_; }
+    [[nodiscard]] Rect searchButtonBounds() const noexcept { return searchButtonBounds_; }
     [[nodiscard]] Rect taskViewButtonBounds() const noexcept { return taskViewButtonBounds_; }
 
     void addOrUpdateTask(uint32_t windowId, std::string title, std::string glyph, bool active, bool minimized, std::optional<IconId> iconId = std::nullopt);
@@ -97,14 +100,17 @@ private:
     Rect appIslandBounds_{};
     Rect trayIslandBounds_{};
     Rect startButtonBounds_{};
+    Rect searchButtonBounds_{};
     Rect taskViewButtonBounds_{};
     bool isStartButtonHovered_{false};
+    bool isSearchHovered_{false};
     bool isTaskViewHovered_{false};
     int32_t hoveredTaskWindowId_{-1};
 
     std::vector<TaskItem> tasks_{};
 
     StartButtonClickCallback startClickCallback_{};
+    SearchButtonClickCallback searchClickCallback_{};
     TaskItemClickCallback taskClickCallback_{};
     TrayClickCallback trayClickCallback_{};
     TaskViewClickCallback taskViewClickCallback_{};

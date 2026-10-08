@@ -27,6 +27,10 @@ set(SURSHELL_SOURCES
     src/settings.cpp
     src/calculator.cpp
     src/run_dialog.cpp
+    src/terminal.cpp
+    src/action_center.cpp
+    src/search_hub.cpp
+    src/lock_screen.cpp
     src/surshell.cpp
 )
 

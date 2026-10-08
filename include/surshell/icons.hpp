@@ -91,7 +91,11 @@ enum class IconId {
     Calculator,
     RunDialog,
     Display,
-    Personalization
+    Personalization,
+    Calendar,
+    TerminalTab,
+    ShieldAdmin,
+    SearchCategory
 };
 
 class IconRenderer {
@@ -152,6 +156,10 @@ private:
     static void drawRunDialog(Surface& s, Rect r, std::optional<Color> tint);
     static void drawDisplay(Surface& s, Rect r, std::optional<Color> tint);
     static void drawPersonalization(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawCalendar(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawTerminalTab(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawShieldAdmin(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawSearchCategory(Surface& s, Rect r, std::optional<Color> tint);
 };
 
 } // namespace surshell

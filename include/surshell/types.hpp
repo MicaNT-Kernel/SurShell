@@ -163,6 +163,10 @@ struct Rect {
         return Rect{x - dx, y - dy, width + dx * 2, height + dy * 2};
     }
 
+    [[nodiscard]] Rect deflate(int32_t dx, int32_t dy) const noexcept {
+        return Rect{x + dx, y + dy, std::max(0, width - dx * 2), std::max(0, height - dy * 2)};
+    }
+
     [[nodiscard]] Rect offset(int32_t dx, int32_t dy) const noexcept {
         return Rect{x + dx, y + dy, width, height};
     }
@@ -290,14 +294,18 @@ enum class KeyCode {
     Num9,
     KeyA,
     KeyC,
+    KeyD,
+    KeyE,
     KeyF,
     KeyL,
     KeyN,
     KeyR,
+    KeyS,
     KeyT,
     KeyV,
     KeyW,
-    KeyX
+    KeyX,
+    KeyZ
 };
 
 struct KeyEvent {

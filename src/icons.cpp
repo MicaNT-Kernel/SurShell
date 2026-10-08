@@ -190,6 +190,18 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
         case IconId::Personalization:
             drawPersonalization(surface, bounds, tintOverride);
             break;
+        case IconId::Calendar:
+            drawCalendar(surface, bounds, tintOverride);
+            break;
+        case IconId::TerminalTab:
+            drawTerminalTab(surface, bounds, tintOverride);
+            break;
+        case IconId::ShieldAdmin:
+            drawShieldAdmin(surface, bounds, tintOverride);
+            break;
+        case IconId::SearchCategory:
+            drawSearchCategory(surface, bounds, tintOverride);
+            break;
         default:
             drawDocument(surface, bounds, IconId::FileGeneric, tintOverride);
             break;
@@ -220,6 +232,9 @@ IconId IconRenderer::iconForAppId(std::string_view appId) {
     if (appId == "run" || appId == "rundll32") return IconId::RunDialog;
     if (appId == "display") return IconId::Display;
     if (appId == "personalize" || appId == "themes") return IconId::Personalization;
+    if (appId == "calendar" || appId == "clock") return IconId::Calendar;
+    if (appId == "search" || appId == "find") return IconId::Search;
+    if (appId == "admin") return IconId::ShieldAdmin;
     return IconId::StartPrism;
 }
 
@@ -1228,4 +1243,121 @@ void IconRenderer::drawPersonalization(Surface& s, Rect r, std::optional<Color> 
     s.drawRoundedRect(Rect{r.x + std::max(2, r.width / 4), r.bottom() - std::max(4, r.height / 3), spotR * 2, spotR * 2}, spotR, Color::fromHex(0xFFB703), true);
 }
 
+void IconRenderer::drawCalendar(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color headerCol = tint.value_or(Color::fromHex(0xFF4D6D)); // Coral red header
+    const Color bodyCol = Color::fromHex(0x141C2A);
+    const Color borderCol = Color::fromHex(0x405572);
+
+    const int32_t rad = std::max(1, r.width / 8);
+    s.drawRoundedRect(Rect{r.x + 1, r.y + 2, r.width - 2, r.height - 3}, rad, bodyCol, true);
+    s.drawRoundedRect(Rect{r.x + 1, r.y + 2, r.width - 2, r.height - 3}, rad, borderCol, false);
+
+    // Top month header ribbon
+    const int32_t hdrH = std::max(3, r.height / 3);
+    s.fillRect(Rect{r.x + 2, r.y + 3, r.width - 4, hdrH}, headerCol);
+
+    // Binder rings
+    const int32_t r1 = r.x + r.width / 3;
+    const int32_t r2 = r.x + (r.width * 2) / 3;
+    s.fillRect(Rect{r1, r.y, 2, 4}, Color::fromHex(0xCBD5E1));
+    s.fillRect(Rect{r2, r.y, 2, 4}, Color::fromHex(0xCBD5E1));
+
+    // Calendar day grid dots
+    const int32_t bodyY = r.y + hdrH + 4;
+    const int32_t cellW = std::max(2, (r.width - 6) / 3);
+    for (int row = 0; row < 2; ++row) {
+        for (int col = 0; col < 3; ++col) {
+            const int32_t dotX = r.x + 4 + col * cellW;
+            const int32_t dotY = bodyY + row * std::max(2, (r.height - hdrH - 8) / 2);
+            if (dotX < r.right() - 2 && dotY < r.bottom() - 2) {
+                const bool isToday = (row == 0 && col == 1);
+                s.putPixel(dotX, dotY, isToday ? Color::fromHex(0x00D4FF) : Color::fromHex(0x7186A4));
+                if (r.width >= 24) {
+                    s.putPixel(dotX + 1, dotY, isToday ? Color::fromHex(0x00D4FF) : Color::fromHex(0x7186A4));
+                }
+            }
+        }
+    }
+}
+
+void IconRenderer::drawTerminalTab(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color frameCol = Color::fromHex(0x101622);
+    const Color borderCol = tint.value_or(Color::fromHex(0x3B506E));
+    const Color activeTabCol = Color::fromHex(0x00D4FF);
+
+    s.drawRoundedRect(Rect{r.x + 1, r.y + 1, r.width - 2, r.height - 2}, 2, frameCol, true);
+    s.drawRoundedRect(Rect{r.x + 1, r.y + 1, r.width - 2, r.height - 2}, 2, borderCol, false);
+
+    // Active tab in top bar
+    const int32_t tabW = std::max(5, (r.width - 4) / 2);
+    s.fillRect(Rect{r.x + 3, r.y + 2, tabW, 2}, activeTabCol);
+
+    // Prompt glyph: > _
+    const int32_t py = r.y + r.height / 2;
+    const int32_t px = r.x + std::max(3, r.width / 5);
+    // Chevron >
+    s.putPixel(px, py - 2, Color::fromHex(0x00FF9D));
+    s.putPixel(px + 1, py - 1, Color::fromHex(0x00FF9D));
+    s.putPixel(px + 2, py, Color::fromHex(0x00FF9D));
+    s.putPixel(px + 1, py + 1, Color::fromHex(0x00FF9D));
+    s.putPixel(px, py + 2, Color::fromHex(0x00FF9D));
+
+    // Cursor _
+    const int32_t cx = px + 5;
+    if (cx < r.right() - 2) {
+        s.fillRect(Rect{cx, py + 2, std::max(2, r.width / 6), 1}, Color::fromHex(0xCBD5E1));
+    }
+}
+
+void IconRenderer::drawShieldAdmin(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color shieldCol = Color::fromHex(0x121A28);
+    const Color borderCol = tint.value_or(Color::fromHex(0xFFB703)); // Sovereign Gold
+
+    const int32_t w = r.width;
+    const int32_t h = r.height;
+    const int32_t cx = r.centerX();
+
+    // Shield body
+    s.drawRoundedRect(Rect{r.x + 2, r.y + 1, w - 4, h * 3 / 4}, 2, shieldCol, true);
+    s.drawRoundedRect(Rect{r.x + 2, r.y + 1, w - 4, h * 3 / 4}, 2, borderCol, false);
+
+    // Taper to bottom tip
+    const int32_t botY = r.bottom() - 1;
+    for (int y = r.y + h * 3 / 4; y <= botY; ++y) {
+        const float t = static_cast<float>(y - (r.y + h * 3 / 4)) / static_cast<float>(std::max(1, botY - (r.y + h * 3 / 4)));
+        const int32_t span = static_cast<int32_t>((w / 2 - 2) * (1.0f - t));
+        s.fillRect(Rect{cx - span, y, std::max(1, span * 2), 1}, shieldCol);
+        s.putPixel(cx - span, y, borderCol);
+        s.putPixel(cx + span, y, borderCol);
+    }
+
+    // Central sovereign key/star emblem in gold
+    const int32_t cy = r.y + h / 3;
+    s.drawRoundedRect(Rect{cx - 2, cy - 2, 4, 4}, 1, Color::fromHex(0xFFB703), true);
+    s.fillRect(Rect{cx - 1, cy + 2, 2, std::max(2, h / 5)}, Color::fromHex(0xFFB703));
+    s.fillRect(Rect{cx, cy + 4, 2, 1}, Color::fromHex(0xFFB703));
+}
+
+void IconRenderer::drawSearchCategory(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color lensCol = tint.value_or(Color::fromHex(0x00D4FF));
+    const int32_t lensSize = std::max(6, r.width * 5 / 8);
+
+    // Lens circle
+    s.drawRoundedRect(Rect{r.x + 1, r.y + 1, lensSize, lensSize}, lensSize / 2, Color::fromHex(0x101826), true);
+    s.drawRoundedRect(Rect{r.x + 1, r.y + 1, lensSize, lensSize}, lensSize / 2, lensCol, false);
+
+    // Lens center highlight
+    s.putPixel(r.x + 3, r.y + 3, Color::fromHex(0xFFFFFF));
+
+    // Handle
+    const int32_t hx1 = r.x + lensSize - 1;
+    const int32_t hy1 = r.y + lensSize - 1;
+    const int32_t hx2 = r.right() - 2;
+    for (int32_t i = 0; i <= (hx2 - hx1); ++i) {
+        s.putPixel(hx1 + i, hy1 + i, Color::fromHex(0x7186A4));
+        s.putPixel(hx1 + i + 1, hy1 + i, Color::fromHex(0x7186A4));
+    }
+}
+
 } // namespace surshell
+

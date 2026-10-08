@@ -47,12 +47,13 @@ void Taskbar::recalculateLayout() {
 
         // 2. Calculate App Island bounds
         const int32_t startBtnW = 42;
+        const int32_t searchBtnW = 38;
         const int32_t taskViewBtnW = 38;
         const int32_t taskItemW = 44;
         const int32_t itemGap = 6;
         const int32_t paddingX = 10;
         const int32_t totalTasksW = tasks_.empty() ? 0 : static_cast<int32_t>(tasks_.size()) * (taskItemW + itemGap);
-        const int32_t appIslandW = paddingX * 2 + startBtnW + itemGap + taskViewBtnW + (totalTasksW > 0 ? (itemGap + totalTasksW) : 0);
+        const int32_t appIslandW = paddingX * 2 + startBtnW + itemGap + searchBtnW + itemGap + taskViewBtnW + (totalTasksW > 0 ? (itemGap + totalTasksW) : 0);
 
         int32_t appIslandX = 14;
         if (alignment_ == TaskbarAlignment::Center) {
@@ -61,7 +62,8 @@ void Taskbar::recalculateLayout() {
 
         appIslandBounds_ = Rect{appIslandX, tbY + 2, appIslandW, height_ - 4};
         startButtonBounds_ = Rect{appIslandBounds_.x + paddingX, appIslandBounds_.y + (height_ - 4 - btnH) / 2, startBtnW, btnH};
-        taskViewButtonBounds_ = Rect{startButtonBounds_.right() + itemGap, startButtonBounds_.y, taskViewBtnW, btnH};
+        searchButtonBounds_ = Rect{startButtonBounds_.right() + itemGap, startButtonBounds_.y, searchBtnW, btnH};
+        taskViewButtonBounds_ = Rect{searchButtonBounds_.right() + itemGap, startButtonBounds_.y, taskViewBtnW, btnH};
 
         int32_t curX = taskViewButtonBounds_.right() + itemGap;
         for (auto& task : tasks_) {
@@ -74,7 +76,9 @@ void Taskbar::recalculateLayout() {
         trayIslandBounds_ = Rect{0, 0, 0, 0};
 
         startButtonBounds_ = Rect{8, tbY + 4, 78, btnH};
-        int32_t curX = startButtonBounds_.right() + 10;
+        searchButtonBounds_ = Rect{startButtonBounds_.right() + 6, tbY + 4, 38, btnH};
+        taskViewButtonBounds_ = Rect{searchButtonBounds_.right() + 6, tbY + 4, 38, btnH};
+        int32_t curX = taskViewButtonBounds_.right() + 8;
         const int32_t trayWidth = tray_.preferredWidth();
         const int32_t maxTaskX = static_cast<int32_t>(screenWidth_) - trayWidth - 16;
         const int32_t itemWidth = 140;
@@ -158,6 +162,7 @@ Rect Taskbar::hoverPreviewCloseButtonBounds(uint32_t windowId) const noexcept {
 
 void Taskbar::onMouseMove(Point pt) {
     isStartButtonHovered_ = startButtonBounds_.contains(pt);
+    isSearchHovered_ = searchButtonBounds_.contains(pt);
     isTaskViewHovered_ = taskViewButtonBounds_.contains(pt);
 
     // Keep preview open if mouse navigates into the floating preview card
@@ -206,6 +211,13 @@ void Taskbar::onMouseDown(Point pt, MouseButton button) {
     if (startButtonBounds_.contains(pt)) {
         if (startClickCallback_) {
             startClickCallback_();
+        }
+        return;
+    }
+
+    if (searchButtonBounds_.contains(pt)) {
+        if (searchClickCallback_) {
+            searchClickCallback_();
         }
         return;
     }
@@ -280,6 +292,15 @@ void Taskbar::render(Surface& surface) {
             palette.prismFacetLight
         );
 
+        // Search Button (Universal Search Hub)
+        Color searchBg = isSearchHovered_ ? palette.taskbarItemHover : palette.taskbarItemBg;
+        surface.drawRoundedRect(searchButtonBounds_, 8, searchBg, true);
+        if (isSearchHovered_) {
+            surface.drawRoundedRect(searchButtonBounds_, 8, palette.accentColor, false);
+        }
+        IconRenderer::draw(surface, IconId::Search, Point{searchButtonBounds_.centerX() - 8, searchButtonBounds_.centerY() - 8}, 16,
+                           isSearchHovered_ ? std::make_optional(palette.accentColor) : std::nullopt);
+
         // Task View Button (Virtual Desktops)
         Color taskViewBg = isTaskViewHovered_ ? palette.taskbarItemHover : palette.taskbarItemBg;
         surface.drawRoundedRect(taskViewButtonBounds_, 8, taskViewBg, true);
@@ -334,6 +355,24 @@ void Taskbar::render(Surface& surface) {
             surface.drawRoundedRect(startButtonBounds_, 6, palette.accentColor, false);
         }
         surface.drawString(startButtonBounds_.x + 12, startButtonBounds_.y + 14, "MICA", palette.accentColor, 1);
+
+        Color searchBg = isSearchHovered_ ? palette.taskbarItemHover : palette.taskbarItemBg;
+        surface.drawRoundedRect(searchButtonBounds_, 6, searchBg, true);
+        if (isSearchHovered_) {
+            surface.drawRoundedRect(searchButtonBounds_, 6, palette.accentColor, false);
+        }
+        IconRenderer::draw(surface, IconId::Search, Point{searchButtonBounds_.centerX() - 8, searchButtonBounds_.centerY() - 8}, 16,
+                           isSearchHovered_ ? std::make_optional(palette.accentColor) : std::nullopt);
+
+        Color taskViewBg = isTaskViewHovered_ ? palette.taskbarItemHover : palette.taskbarItemBg;
+        surface.drawRoundedRect(taskViewButtonBounds_, 6, taskViewBg, true);
+        if (isTaskViewHovered_) {
+            surface.drawRoundedRect(taskViewButtonBounds_, 6, palette.accentColor, false);
+        }
+        const int32_t tvCenterX = taskViewButtonBounds_.centerX();
+        const int32_t tvCenterY = taskViewButtonBounds_.centerY();
+        surface.drawRoundedRect(Rect{tvCenterX - 7, tvCenterY - 6, 11, 9}, 2, palette.textSecondary, false);
+        surface.drawRoundedRect(Rect{tvCenterX - 3, tvCenterY - 3, 11, 9}, 2, palette.accentColor, false);
 
         for (const auto& task : tasks_) {
             if (task.bounds.empty()) continue;

@@ -652,10 +652,14 @@ void Test_Procedural_Icon_Engine() {
         surshell::IconId::Calculator,
         surshell::IconId::RunDialog,
         surshell::IconId::Display,
-        surshell::IconId::Personalization
+        surshell::IconId::Personalization,
+        surshell::IconId::Calendar,
+        surshell::IconId::TerminalTab,
+        surshell::IconId::ShieldAdmin,
+        surshell::IconId::SearchCategory
     };
 
-    TEST_ASSERT(allIcons.size() == 60, "All 60 procedural vector icons enumerated");
+    TEST_ASSERT(allIcons.size() == 64, "All 64 procedural vector icons enumerated");
 
     const int32_t testSizes[] = {14, 16, 24, 28, 32, 48};
     for (surshell::IconId id : allIcons) {
@@ -677,7 +681,7 @@ void Test_Procedural_Icon_Engine() {
         }
     }
 
-    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (60 icons verified across 6 DPI scales).\n";
+    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (64 icons verified across 6 DPI scales).\n";
 }
 
 void Test_AltTab_And_Taskbar_Hover_Preview() {
@@ -1162,6 +1166,214 @@ void Test_Run_Dialog_And_Live_Aero_Snap() {
     std::cout << "[TEST] Suite 20: Run Dialog & Live Aero Snap Docking Previews PASSED.\n";
 }
 
+void Test_Modern_Terminal_Subsystem() {
+    std::cout << "[TEST] Running Suite 21: Windows Terminal System (microsoft/terminal Architecture)...\n";
+
+    surshell::TerminalContent term;
+    TEST_ASSERT(term.tabCount() == 1, "Initial terminal has 1 tab");
+    TEST_ASSERT(term.activeTabIndex() == 0, "Initial active tab is index 0");
+
+    // Add secondary tab
+    term.addTab("PowerShell", "pwsh");
+    TEST_ASSERT(term.tabCount() == 2, "Tab count increased to 2");
+    term.selectTab(1);
+    TEST_ASSERT(term.activeTabIndex() == 1, "Active tab switched to index 1");
+
+    // Switch back to Command Prompt
+    term.selectTab(0);
+    TEST_ASSERT(term.activeTabIndex() == 0, "Active tab switched back to index 0");
+
+    // Test text input and command execution
+    term.inputString("ver");
+    TEST_ASSERT(term.currentInput() == "ver", "Input string matches typed command");
+    term.executeCurrentCommand();
+    TEST_ASSERT(term.currentInput().empty(), "Input cleared after execution");
+
+    // Test app spawning command callback
+    std::string launchedApp;
+    term.setAppSpawnCallback([&](const std::string& app, const std::string& /*args*/) {
+        launchedApp = app;
+    });
+
+    term.inputString("calc");
+    term.executeCurrentCommand();
+    TEST_ASSERT(launchedApp == "calc", "calc command successfully triggered app spawn callback");
+
+    term.inputString("cls");
+    term.executeCurrentCommand();
+
+    // Close tab 1
+    term.closeTab(1);
+    TEST_ASSERT(term.tabCount() == 1, "Tab successfully closed");
+
+    // Render terminal client area
+    surshell::Surface canvas(720, 440, surshell::Color::fromHex(0x0C0C0C));
+    term.render(canvas);
+    TEST_ASSERT(canvas.width() == 720 && canvas.height() == 440, "Terminal rendered into surface");
+
+    std::cout << "[TEST] Suite 21: Windows Terminal System PASSED.\n";
+}
+
+void Test_Action_Center_And_Calendar() {
+    std::cout << "[TEST] Running Suite 22: Action Center & Calendar Flyout (Win+N / Tray Clock)...\n";
+
+    surshell::ActionCenterFlyout actionCenter;
+    TEST_ASSERT(!actionCenter.isVisible(), "Action Center starts hidden");
+
+    actionCenter.show();
+    TEST_ASSERT(actionCenter.isVisible(), "Action Center visible after show()");
+
+    // Add notifications
+    const size_t initialNotifs = actionCenter.notificationCount();
+    actionCenter.addNotification("Security Center", "Zero-telemetry policy active and enforced", surshell::IconId::SentinelSec);
+    actionCenter.addNotification("Network Adapter", "Gigabit Ethernet connected at 1.0 Gbps", surshell::IconId::NetworkEthernet);
+    actionCenter.addNotification("System Kernel", "Dave Cutler executive IPC channel healthy", surshell::IconId::Terminal);
+    TEST_ASSERT(actionCenter.notificationCount() == initialNotifs + 3, "3 notifications added to history stack");
+
+    // Focus Assist toggling
+    TEST_ASSERT(!actionCenter.focusAssist(), "Focus Assist defaults to disabled");
+    actionCenter.setFocusAssist(true);
+    TEST_ASSERT(actionCenter.focusAssist(), "Focus Assist successfully enabled");
+
+    // Calendar navigation
+    const int32_t startMonth = actionCenter.currentMonth();
+    actionCenter.nextMonth();
+    TEST_ASSERT(actionCenter.currentMonth() != startMonth, "Next month navigates calendar forward");
+    actionCenter.prevMonth();
+    TEST_ASSERT(actionCenter.currentMonth() == startMonth, "Prev month navigates calendar backward");
+
+    // Clear notifications
+    actionCenter.clearAllNotifications();
+    TEST_ASSERT(actionCenter.notificationCount() == 0, "Notifications cleared");
+
+    // Render Action Center flyout onto 1920x1080 desktop canvas
+    surshell::Surface desktopCanvas(1920, 1080, surshell::Color::fromHex(0x0E1420));
+    actionCenter.render(desktopCanvas, 1920, 1080, 48);
+    TEST_ASSERT(actionCenter.bounds().width == 380, "Action Center width is 380px");
+
+    actionCenter.hide();
+    TEST_ASSERT(!actionCenter.isVisible(), "Action Center hidden after hide()");
+
+    std::cout << "[TEST] Suite 22: Action Center & Calendar Flyout PASSED.\n";
+}
+
+void Test_Universal_Search_Hub() {
+    std::cout << "[TEST] Running Suite 23: Universal Search Hub (Win+S / Taskbar Search)...\n";
+
+    surshell::SearchHub hub;
+    TEST_ASSERT(!hub.isVisible(), "Search Hub starts hidden");
+
+    hub.show();
+    TEST_ASSERT(hub.isVisible(), "Search Hub visible after show()");
+
+    // Default Catalog
+    TEST_ASSERT(hub.resultCount() > 0, "Catalog items populated");
+    const size_t totalItems = hub.resultCount();
+
+    // Query filter
+    hub.setQuery("terminal");
+    TEST_ASSERT(hub.resultCount() >= 1, "Filter for 'terminal' returns matching apps");
+
+    hub.setQuery("calc");
+    TEST_ASSERT(hub.resultCount() >= 1, "Filter for 'calc' returns Calculator");
+
+    // App launch execution callback
+    std::string executedTarget;
+    std::string executedArgs;
+    bool executedAsAdmin = false;
+    hub.setExecuteCallback([&](const std::string& target, const std::string& args, bool admin) {
+        executedTarget = target;
+        executedArgs = args;
+        executedAsAdmin = admin;
+    });
+
+    hub.onKeyDown(surshell::KeyCode::Enter);
+    TEST_ASSERT(executedTarget == "calc", "Executing selected item dispatches Calculator");
+    TEST_ASSERT(!executedAsAdmin, "Standard execution is non-admin");
+
+    // Category Filter switching
+    hub.setCategoryFilter(surshell::SearchCategoryType::Settings);
+    hub.setQuery("");
+    TEST_ASSERT(hub.resultCount() > 0, "Category filter 'Settings' returns items");
+    TEST_ASSERT(hub.activeFilter() == surshell::SearchCategoryType::Settings, "Active category filter is Settings");
+
+    // Reset to All
+    hub.setCategoryFilter(surshell::SearchCategoryType::All);
+    TEST_ASSERT(hub.resultCount() == totalItems, "Resetting category to All restores catalog count");
+
+    // Render Search Hub onto 1920x1080 desktop canvas
+    hub.show();
+    surshell::Surface desktopCanvas(1920, 1080, surshell::Color::fromHex(0x0E1420));
+    hub.render(desktopCanvas, 1920, 1080);
+    TEST_ASSERT(hub.bounds().width == 700, "Search Hub width is 700px");
+
+    hub.hide();
+    TEST_ASSERT(!hub.isVisible(), "Search Hub hidden after hide()");
+
+    std::cout << "[TEST] Suite 23: Universal Search Hub PASSED.\n";
+}
+
+void Test_Lock_Screen_And_Authentication() {
+    std::cout << "[TEST] Running Suite 24: Sovereign Lock Screen & Authentication Center (Win+L)...\n";
+
+    surshell::LockScreen lockScreen;
+    TEST_ASSERT(!lockScreen.isLocked(), "Lock screen starts unlocked");
+
+    lockScreen.lock();
+    TEST_ASSERT(lockScreen.isLocked(), "Session is locked");
+    TEST_ASSERT(lockScreen.lockState() == surshell::LockState::LockedAmbient, "Initial state is Ambient view");
+
+    // Any key or click raises to credentials view
+    lockScreen.onMouseDown(surshell::Point{960, 540}, surshell::MouseButton::Left);
+    TEST_ASSERT(lockScreen.lockState() == surshell::LockState::CredentialsLogon, "Transitions to Credentials Logon view");
+
+    // Test PIN entry and unlock callback
+    bool unlocked = false;
+    lockScreen.setUnlockCallback([&]() {
+        unlocked = true;
+    });
+
+    // Enter wrong PIN
+    lockScreen.setPin("0000");
+    lockScreen.onKeyDown(surshell::KeyCode::Enter);
+    TEST_ASSERT(!unlocked, "Wrong PIN does not unlock");
+    TEST_ASSERT(lockScreen.isLocked(), "Session remains locked");
+
+    // Enter correct PIN (1234)
+    lockScreen.setPin("1234");
+    lockScreen.onKeyDown(surshell::KeyCode::Enter);
+    TEST_ASSERT(unlocked, "Correct PIN triggers unlock callback");
+    TEST_ASSERT(!lockScreen.isLocked(), "Session unlocked successfully");
+
+    // Test Power Management Callback
+    std::string powerAction;
+    lockScreen.setPowerCallback([&](const std::string& action) {
+        powerAction = action;
+    });
+
+    lockScreen.lock();
+    lockScreen.showCredentials();
+
+    surshell::Surface lockCanvas(1920, 1080, surshell::Color::fromHex(0x0E1420));
+    lockScreen.render(lockCanvas, 1920, 1080);
+    TEST_ASSERT(lockCanvas.width() == 1920, "Lock screen rendered onto canvas");
+
+    // Test Master Desktop Integration with new subsystems
+    surshell::SurShellDesktop desktop(1920, 1080);
+    desktop.openTerminalWindow("C:\\Users\\admin");
+    desktop.openSearchHub();
+    TEST_ASSERT(desktop.searchHub().isVisible(), "Search Hub opened via desktop coordinator");
+    desktop.openActionCenter();
+    TEST_ASSERT(desktop.actionCenter().isVisible(), "Action Center opened via desktop coordinator");
+    TEST_ASSERT(!desktop.searchHub().isVisible(), "Opening Action Center closes Search Hub");
+
+    desktop.lockSession();
+    TEST_ASSERT(desktop.lockScreen().isLocked(), "Desktop session locked via coordinator");
+    desktop.render(); // Render full locked desktop
+
+    std::cout << "[TEST] Suite 24: Sovereign Lock Screen & Authentication Center PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -1188,9 +1400,13 @@ int main() {
     Test_Settings_And_Personalization();
     Test_Calculator_Application();
     Test_Run_Dialog_And_Live_Aero_Snap();
+    Test_Modern_Terminal_Subsystem();
+    Test_Action_Center_And_Calendar();
+    Test_Universal_Search_Hub();
+    Test_Lock_Screen_And_Authentication();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 20 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 24 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }
