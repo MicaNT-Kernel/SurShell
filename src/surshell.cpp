@@ -156,18 +156,34 @@ uint32_t SurShellDesktop::openFileExplorerWindow(std::string path) {
 }
 
 uint32_t SurShellDesktop::openTextEditorWindow(std::string filePath) {
-    std::string title = "Sovereign Editor";
+    std::string baseName = "Untitled.txt";
     if (!filePath.empty()) {
         const size_t slash = filePath.find_last_of("\\/");
-        title += " - [" + (slash != std::string::npos ? filePath.substr(slash + 1) : filePath) + "]";
+        baseName = (slash != std::string::npos ? filePath.substr(slash + 1) : filePath);
     }
-    const uint32_t winId = windowManager_.createWindow(title, Rect{320, 160, 680, 440}, "[T]", IconId::FileCode);
+    const std::string title = baseName + " - Sovereign Notepad";
+    const uint32_t winId = windowManager_.createWindow(title, Rect{320, 140, 740, 480}, "[N]", IconId::Edit);
     virtualDesktops_.assignWindowToDesktop(winId, virtualDesktops_.activeIndex());
     auto* win = windowManager_.findWindow(winId);
     if (win) {
-        auto viewer = std::make_shared<TextViewerContent>(filePath);
-        win->content = viewer;
-        viewer->render(win->clientSurface);
+        auto editor = std::make_shared<TextViewerContent>(filePath);
+
+        editor->setTitleChangedCallback([this, winId](const std::string& newTitle) {
+            auto* w = windowManager_.findWindow(winId);
+            if (w) {
+                w->title = newTitle;
+                taskbar_.addOrUpdateTask(winId, w->title, w->iconGlyph, w->isActive, w->state == WindowState::Minimized, w->iconId);
+            }
+        });
+
+        editor->setFileSavedCallback([this](const std::string& path, uint64_t bytes) {
+            const size_t slash = path.find_last_of("\\/");
+            const std::string name = (slash != std::string::npos ? path.substr(slash + 1) : path);
+            toastManager_.showToast("File Saved", name + " (" + std::to_string(bytes) + " bytes)", IconId::Save, Color::fromHex(0x00FF9D));
+        });
+
+        win->content = editor;
+        editor->render(win->clientSurface);
     }
     return winId;
 }

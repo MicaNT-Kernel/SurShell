@@ -681,7 +681,42 @@ int runSnapshotPipeline() {
         std::cout << "  -> Exported: surshell_image_viewer.bmp (1920x1080 32-bpp)\n";
     }
 
-    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (27 high-resolution scenes generated).\n";
+    // ------------------------------------------------------------------------
+    // Scene 26: Interactive Sovereign Notepad 2.0 (Text & Code Editor)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 26: Interactive Sovereign Notepad 2.0...\n";
+    const uint32_t noteWin = shell.openTextEditorWindow("C:\\MicaNT\\kernel\\executive.cpp");
+    shell.windowManager().setWindowActive(noteWin);
+    if (auto* w = shell.windowManager().findWindow(noteWin)) {
+        if (auto editor = std::dynamic_pointer_cast<surshell::TextViewerContent>(w->content)) {
+            editor->insertText("\n// Sovereign System Kernel Call Dispatcher\nvoid dispatchSyscall(uint32_t id) {\n    // Executed with hardware privilege level 0\n    return;\n}\n");
+            editor->render(w->clientSurface);
+        }
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_notepad_editor.bmp")) {
+        std::cout << "  -> Exported: surshell_notepad_editor.bmp (1920x1080 32-bpp)\n";
+    }
+
+    // ------------------------------------------------------------------------
+    // Scene 27: Task Manager Performance & Historical Oscillogram Line Charts
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 27: Task Manager Performance Telemetry Line Charts...\n";
+    const uint32_t perfWin = shell.openTaskManagerWindow();
+    shell.windowManager().setWindowActive(perfWin);
+    if (auto* w = shell.windowManager().findWindow(perfWin)) {
+        if (auto tm = std::dynamic_pointer_cast<surshell::TaskManagerContent>(w->content)) {
+            tm->setActiveTab(surshell::TaskManagerTab::Performance);
+            tm->setPerformanceResource(surshell::PerformanceResource::CPU);
+            tm->render(w->clientSurface);
+        }
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_task_manager_performance.bmp")) {
+        std::cout << "  -> Exported: surshell_task_manager_performance.bmp (1920x1080 32-bpp)\n";
+    }
+
+    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (29 high-resolution scenes generated).\n";
     return 0;
 }
 

@@ -4,7 +4,7 @@
 //
 // Modern Task Manager & Resource Monitor (taskmgr.exe).
 // Provides live CPU/RAM sparkline telemetry, active process tree inspection,
-// and process lifecycle termination via the MicaNT Executive Syscall Bridge.
+// historical performance line graphs, and process lifecycle termination.
 // ============================================================================
 
 #pragma once
@@ -28,6 +28,13 @@ enum class TaskManagerTab {
     Details
 };
 
+enum class PerformanceResource {
+    CPU,
+    Memory,
+    Disk,
+    Network
+};
+
 class TaskManagerContent : public IWindowContent {
 public:
     explicit TaskManagerContent(KernelBridge* bridge = nullptr);
@@ -43,6 +50,19 @@ public:
     [[nodiscard]] TaskManagerTab activeTab() const noexcept { return activeTab_; }
     void setActiveTab(TaskManagerTab tab) noexcept { activeTab_ = tab; }
 
+    [[nodiscard]] PerformanceResource performanceResource() const noexcept { return selectedResource_; }
+    void setPerformanceResource(PerformanceResource res) noexcept { selectedResource_ = res; }
+
+    [[nodiscard]] const std::deque<float>& cpuHistory() const noexcept { return cpuHistory_; }
+    [[nodiscard]] const std::deque<float>& memHistory() const noexcept { return memHistory_; }
+    [[nodiscard]] const std::deque<float>& diskHistory() const noexcept { return diskHistory_; }
+    [[nodiscard]] const std::deque<float>& netHistory() const noexcept { return netHistory_; }
+
+    void addCpuSample(float val);
+    void addMemSample(float val);
+    void addDiskSample(float val);
+    void addNetSample(float val);
+
     // IWindowContent overrides
     void render(Surface& clientSurface) override;
     bool onMouseDown(Point localPt, MouseButton button) override;
@@ -53,15 +73,25 @@ public:
     void setTerminatedCallback(TaskTerminatedCallback cb) { onTaskTerminated_ = std::move(cb); }
 
 private:
+    void renderProcessesTab(Surface& clientSurface, int32_t w, int32_t h, int32_t tabH);
+    void renderPerformanceTab(Surface& clientSurface, int32_t w, int32_t h, int32_t tabH);
+    void renderDetailsTab(Surface& clientSurface, int32_t w, int32_t h, int32_t tabH);
+
     KernelBridge* bridge_{nullptr};
     std::unique_ptr<KernelBridge> fallbackBridge_{};
     std::vector<KernelProcessInfo> processes_{};
     KernelVitals vitals_{};
-    std::deque<float> cpuHistory_{}; // 32 samples
+
+    // Telemetry History
+    std::deque<float> cpuHistory_{};  // 32-60 samples (%)
+    std::deque<float> memHistory_{};  // 32-60 samples (%)
+    std::deque<float> diskHistory_{}; // 32-60 samples (KB/s or %)
+    std::deque<float> netHistory_{};  // 32-60 samples (Kbps or %)
 
     std::optional<uint32_t> selectedPid_{std::nullopt};
     std::optional<uint32_t> hoveredPid_{std::nullopt};
     TaskManagerTab activeTab_{TaskManagerTab::Processes};
+    PerformanceResource selectedResource_{PerformanceResource::CPU};
 
     // UI Regions
     Rect tabProcessesBounds_{};
@@ -70,6 +100,12 @@ private:
     Rect endTaskButtonBounds_{};
     Rect refreshButtonBounds_{};
     Rect processListBounds_{};
+
+    // Performance Side Cards
+    Rect perfCardCpu_{};
+    Rect perfCardMem_{};
+    Rect perfCardDisk_{};
+    Rect perfCardNet_{};
 
     int32_t scrollOffset_{0};
     TaskTerminatedCallback onTaskTerminated_{};

@@ -55,6 +55,7 @@ enum class IconId {
     Rename,
     Delete,
     Edit,
+    Save,
     Properties,
     ViewList,
     ViewGrid,
@@ -142,6 +143,7 @@ private:
     static void drawViewList(Surface& s, Rect r, std::optional<Color> tint);
     static void drawViewGrid(Surface& s, Rect r, std::optional<Color> tint);
     static void drawEdit(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawSave(Surface& s, Rect r, std::optional<Color> tint);
     static void drawSort(Surface& s, Rect r, bool asc, std::optional<Color> tint);
     static void drawVolume(Surface& s, Rect r, bool mute, std::optional<Color> tint);
     static void drawBattery(Surface& s, Rect r, std::optional<Color> tint);

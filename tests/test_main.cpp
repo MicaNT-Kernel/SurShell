@@ -1733,6 +1733,104 @@ void Test_Photo_And_Image_Viewer() {
     std::cout << "[TEST] Suite 27: Sovereign Photo & Image Viewer (Photos) PASSED.\n";
 }
 
+void Test_Notepad_Interactive_Editor_And_Telemetry() {
+    std::cout << "[TEST] Running Suite 28: Interactive Notepad 2.0 & Task Manager Performance Charts...\n";
+
+    // 1. Notepad 2.0 Initialization
+    surshell::TextViewerContent notepad;
+    TEST_ASSERT(notepad.fileName() == "Untitled.txt", "Default filename is Untitled.txt");
+    TEST_ASSERT(!notepad.isModified(), "Initial document is not modified");
+    TEST_ASSERT(notepad.lineCount() > 0, "Initial document has placeholder template lines");
+
+    // 2. Title Change and File Saved Callbacks
+    std::string currentTitle;
+    notepad.setTitleChangedCallback([&](const std::string& title) {
+        currentTitle = title;
+    });
+
+    bool savedCallbackInvoked = false;
+    uint64_t savedBytes = 0;
+    notepad.setFileSavedCallback([&](const std::string&, uint64_t bytes) {
+        savedCallbackInvoked = true;
+        savedBytes = bytes;
+    });
+
+    // 3. Typing & Character Insertion
+    notepad.setCursor(0, 0);
+    notepad.insertChar('#');
+    TEST_ASSERT(notepad.isModified(), "Typing marks document as modified");
+    TEST_ASSERT(currentTitle.starts_with("*"), "Modified title begins with asterisk");
+
+    notepad.onCharInput(' ');
+    notepad.onCharInput('M');
+    notepad.onCharInput('i');
+    notepad.onCharInput('c');
+    notepad.onCharInput('a');
+    notepad.onCharInput('N');
+    notepad.onCharInput('T');
+    notepad.onCharInput('\n');
+
+    TEST_ASSERT(notepad.cursorRow() == 1 && notepad.cursorCol() == 0, "Newline advanced cursor to row 1 col 0");
+
+    // 4. Backspace and Delete Operations
+    notepad.onCharInput('Z');
+    TEST_ASSERT(notepad.cursorCol() == 1, "Cursor at col 1 after typing Z");
+    notepad.onKeyDown(surshell::KeyCode::Backspace);
+    TEST_ASSERT(notepad.cursorCol() == 0, "Cursor at col 0 after backspace");
+
+    // 5. Keyboard Navigation
+    notepad.onKeyDown(surshell::KeyCode::Up);
+    TEST_ASSERT(notepad.cursorRow() == 0, "Up arrow moved to row 0");
+    notepad.onKeyDown(surshell::KeyCode::End);
+    TEST_ASSERT(notepad.cursorCol() > 0, "End key moved cursor to end of line");
+    notepad.onKeyDown(surshell::KeyCode::Home);
+    TEST_ASSERT(notepad.cursorCol() == 0, "Home key moved cursor to start of line");
+
+    // 6. File Saving Roundtrip
+    const std::string tempSavePath = "surshell_notepad_test.txt";
+    const bool saveOk = notepad.saveFile(tempSavePath);
+    TEST_ASSERT(saveOk, "saveFile returned true");
+    TEST_ASSERT(!notepad.isModified(), "Saving cleared modified flag");
+    TEST_ASSERT(savedCallbackInvoked && savedBytes > 0, "FileSaved callback fired with positive byte count");
+    TEST_ASSERT(std::filesystem::exists(tempSavePath), "Saved file exists on disk");
+
+    // 7. Reload File & Verify Content
+    surshell::TextViewerContent reloaded(tempSavePath);
+    TEST_ASSERT(reloaded.lineCount() >= 2, "Reloaded file has lines");
+    TEST_ASSERT(!reloaded.isModified(), "Freshly loaded file is not modified");
+
+    // Cleanup temp file
+    std::error_code ec;
+    std::filesystem::remove(tempSavePath, ec);
+
+    // 8. Notepad Surface Rendering
+    surshell::Surface npSurface(740, 480);
+    notepad.render(npSurface);
+    TEST_ASSERT(npSurface.width() == 740, "Notepad rendered cleanly to surface");
+
+    // 9. Task Manager Performance Tab & Historical Line Graphs
+    surshell::TaskManagerContent taskMgr;
+    taskMgr.setActiveTab(surshell::TaskManagerTab::Performance);
+    TEST_ASSERT(taskMgr.activeTab() == surshell::TaskManagerTab::Performance, "Task Manager active tab is Performance");
+    TEST_ASSERT(taskMgr.cpuHistory().size() > 0, "CPU history has historical telemetry samples");
+    TEST_ASSERT(taskMgr.memHistory().size() > 0, "Memory history has telemetry samples");
+
+    taskMgr.setPerformanceResource(surshell::PerformanceResource::Memory);
+    TEST_ASSERT(taskMgr.performanceResource() == surshell::PerformanceResource::Memory, "Selected resource is Memory");
+
+    surshell::Surface perfSurface(720, 480);
+    taskMgr.render(perfSurface);
+    TEST_ASSERT(perfSurface.width() == 720, "Task Manager Performance tab rendered with line chart");
+
+    // 10. Task Manager Details Tab
+    taskMgr.setActiveTab(surshell::TaskManagerTab::Details);
+    TEST_ASSERT(taskMgr.activeTab() == surshell::TaskManagerTab::Details, "Task Manager active tab is Details");
+    taskMgr.render(perfSurface);
+    TEST_ASSERT(perfSurface.width() == 720, "Task Manager Details tab rendered cleanly");
+
+    std::cout << "[TEST] Suite 28: Interactive Notepad 2.0 & Task Manager Performance Charts PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -1766,9 +1864,10 @@ int main() {
     Test_Registry_Editor_Application();
     Test_Storage_Topology_And_Network_Shares();
     Test_Photo_And_Image_Viewer();
+    Test_Notepad_Interactive_Editor_And_Telemetry();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 27 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 28 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

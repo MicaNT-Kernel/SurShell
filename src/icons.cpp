@@ -115,6 +115,9 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
         case IconId::Edit:
             drawEdit(surface, bounds, tintOverride);
             break;
+        case IconId::Save:
+            drawSave(surface, bounds, tintOverride);
+            break;
         case IconId::Copy:
             drawCopy(surface, bounds, tintOverride);
             break;
@@ -254,6 +257,8 @@ IconId IconRenderer::iconForAppId(std::string_view appId) {
     if (appId == "search" || appId == "find") return IconId::Search;
     if (appId == "admin") return IconId::ShieldAdmin;
     if (appId == "regedit" || appId == "registry") return IconId::Registry;
+    if (appId == "notepad" || appId == "editor" || appId == "notepad.exe") return IconId::Edit;
+    if (appId == "save") return IconId::Save;
     if (appId == "photos" || appId == "image_viewer" || appId == "image" || appId == "viewer") return IconId::ImageViewer;
     if (appId == "cloud" || appId == "gdrive" || appId == "google_drive") return IconId::CloudDrive;
     if (appId == "nas" || appId == "share" || appId == "storage") return IconId::NetworkShare;
@@ -757,6 +762,44 @@ void IconRenderer::drawEdit(Surface& s, Rect r, std::optional<Color> tint) {
     s.putPixel(startX + len + 1, startY - len, Color::fromHex(0xFFA726));
     // Sharp nib at bottom
     s.putPixel(startX, startY, Color::fromHex(0xFFFFFF));
+}
+
+void IconRenderer::drawSave(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color bodyCol = tint.value_or(Color::fromHex(0x00D4FF));
+    const int32_t w = r.width;
+    const int32_t h = r.height;
+    if (w < 8 || h < 8) return;
+
+    // Floppy disk outer casing
+    const Rect casing{r.x + 1, r.y + 1, w - 2, h - 2};
+    s.drawRoundedRect(casing, 2, Color::fromHex(0x182438), true);
+    s.drawRoundedRect(casing, 2, bodyCol, false);
+
+    // Beveled corner top-right
+    s.putPixel(casing.right() - 1, casing.y, Color::fromHex(0x0C121D));
+
+    // Metal shutter slide on top
+    const int32_t shutterW = std::max(4, w / 2);
+    const int32_t shutterH = std::max(3, h * 3 / 8);
+    const Rect shutter{casing.centerX() - shutterW / 2, casing.y, shutterW, shutterH};
+    s.fillRect(shutter, Color::fromHex(0x405B85));
+    // Shutter rectangular read-write hole
+    const int32_t holeW = std::max(2, shutterW / 3);
+    const Rect hole{shutter.x + 2, shutter.y + 1, holeW, shutterH - 2};
+    s.fillRect(hole, Color::fromHex(0x182438));
+
+    // Label area on bottom
+    const int32_t labelW = casing.width - 4;
+    const int32_t labelH = std::max(3, h * 3 / 8);
+    const Rect labelRect{casing.centerX() - labelW / 2, casing.bottom() - labelH, labelW, labelH};
+    s.fillRect(labelRect, Color::fromHex(0xCAD5E2));
+    // Horizontal text lines on label
+    if (labelRect.height >= 5) {
+        s.fillRect(Rect{labelRect.x + 2, labelRect.y + 2, labelRect.width - 4, 1}, Color::fromHex(0x3B82F6));
+        if (labelRect.height >= 8) {
+            s.fillRect(Rect{labelRect.x + 2, labelRect.y + 4, labelRect.width - 6, 1}, Color::fromHex(0x64748B));
+        }
+    }
 }
 
 void IconRenderer::drawCopy(Surface& s, Rect r, std::optional<Color> tint) {
