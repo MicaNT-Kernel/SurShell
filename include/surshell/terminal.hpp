@@ -83,6 +83,10 @@ public:
     // Kernel & Host Integration
     void setKernelBridge(class KernelBridge* bridge) noexcept { bridge_ = bridge; }
     void setActiveTabCwd(const std::string& path);
+    [[nodiscard]] const std::vector<TerminalLine>& activeBuffer() const {
+        static const std::vector<TerminalLine> s_empty;
+        return activeTabIndex_ < tabs_.size() ? tabs_[activeTabIndex_].buffer : s_empty;
+    }
 
 private:
     void executeCommand(const std::string& rawCmd);

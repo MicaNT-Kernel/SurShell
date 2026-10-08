@@ -6,6 +6,17 @@
 #include "surshell/surshell.hpp"
 #include <iostream>
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <mmsystem.h>
+#endif
+
 namespace surshell {
 
 SurShellDesktop::SurShellDesktop(uint32_t width, uint32_t height)
@@ -127,6 +138,10 @@ uint32_t SurShellDesktop::openFileExplorerWindow(std::string path) {
             openTerminalWindow(workingDir);
         });
 
+        explorer->setToastCallback([this](const std::string& title, const std::string& message, IconId icon) {
+            toastManager_.showToast(title, message, icon);
+        });
+
         expWin->content = explorer;
         explorer->render(expWin->clientSurface);
     }
@@ -166,6 +181,7 @@ uint32_t SurShellDesktop::openTerminalWindow(std::string workingDir) {
             else if (app == "explorer") openFileExplorerWindow(args.empty() ? "C:\\Users\\admin" : args);
             else if (app == "taskmgr") openTaskManagerWindow();
             else if (app == "regedit" || app == "registry") openRegistryEditorWindow();
+            else if (app == "cmd") openTerminalWindow(args.empty() ? "C:\\Users\\admin" : args);
             else kernelBridge_.spawnProcess(app, args);
         });
         cmdWin->content = term;
@@ -458,6 +474,11 @@ void SurShellDesktop::wireSubsystemCallbacks() {
     quickSettings_.setVolumeCallback([this](int32_t vol) {
         taskbar_.tray().setVolumeLevel(vol);
         mediaHud_.showVolume(vol);
+#if defined(_WIN32)
+        const DWORD winVol = static_cast<DWORD>((vol * 0xFFFF) / 100);
+        const DWORD stereoVol = winVol | (winVol << 16);
+        waveOutSetVolume(0, stereoVol);
+#endif
     });
 
     quickSettings_.setToggleCallback([this](std::string_view id, bool enabled) {

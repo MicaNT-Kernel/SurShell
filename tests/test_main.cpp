@@ -394,6 +394,24 @@ void Test_File_Explorer_Navigation() {
     exp.onKeyDown(surshell::KeyCode::Backspace);
     TEST_ASSERT(exp.currentPath() == "C:\\Windows", "Backspace navigated up to C:\\Windows");
 
+    // File Explorer Toast Notifications & Safe Operations
+    const std::filesystem::path tempDir = std::filesystem::temp_directory_path() / "surshell_suite7_test";
+    std::filesystem::create_directories(tempDir);
+    surshell::FileExplorer testExp(tempDir.string());
+    std::string lastToastTitle;
+    testExp.setToastCallback([&](const std::string& title, const std::string&, surshell::IconId) {
+        lastToastTitle = title;
+    });
+    testExp.createNewFolder("TestSubFolder");
+    TEST_ASSERT(lastToastTitle == "Folder Created", "Toast emitted on folder creation");
+    testExp.createNewFile("TestFile.txt");
+    TEST_ASSERT(lastToastTitle == "File Created", "Toast emitted on file creation");
+    testExp.onKeyDown(surshell::KeyCode::Down);
+    testExp.deleteSelected();
+    TEST_ASSERT(!lastToastTitle.empty(), "Toast emitted on item deletion");
+    std::error_code rmEc;
+    std::filesystem::remove_all(tempDir, rmEc);
+
     std::cout << "[TEST] Suite 7: File Explorer Navigation PASSED.\n";
 }
 
@@ -1275,6 +1293,15 @@ void Test_Modern_Terminal_Subsystem() {
 
     term.inputString("cls");
     term.executeCurrentCommand();
+
+    // Verify history and start commands
+    term.inputString("history");
+    term.executeCurrentCommand();
+    TEST_ASSERT(!term.activeBuffer().empty(), "Terminal executed history command");
+
+    term.inputString("start calc");
+    term.executeCurrentCommand();
+    TEST_ASSERT(launchedApp == "calc", "Terminal start command dispatched calc application");
 
     // Close tab 1
     term.closeTab(1);

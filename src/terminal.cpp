@@ -139,6 +139,8 @@ void TerminalContent::executeCommand(const std::string& rawCmd) {
         tab.buffer.push_back({"  EXPLORER   Launches File Explorer", Color::fromHex(0x00FF9D), false});
         tab.buffer.push_back({"  TASKMGR    Launches Task Manager & Monitor", Color::fromHex(0x00FF9D), false});
         tab.buffer.push_back({"  REGEDIT    Launches Sovereign Registry Editor", Color::fromHex(0x00FF9D), false});
+        tab.buffer.push_back({"  START      Starts a program, folder, or file", Color::fromHex(0x00FF9D), false});
+        tab.buffer.push_back({"  HISTORY    Displays session command history", Color::fromHex(0xCBD5E1), false});
         tab.buffer.push_back({"  EXIT       Closes current terminal tab", Color::fromHex(0xFF4D6D), false});
     } else if (lowerCmd == "ver") {
         tab.buffer.push_back({"MicaNT [Version 10.0.26100.1-SOVEREIGN] - Pure ISO C++23", Color::fromHex(0x00D4FF), true});
@@ -310,6 +312,28 @@ void TerminalContent::executeCommand(const std::string& rawCmd) {
     } else if (lowerCmd == "regedit" || lowerCmd == "regedit.exe") {
         tab.buffer.push_back({"Launching Sovereign Registry Editor...", Color::fromHex(0x00FF9D), false});
         if (onSpawnApp_) onSpawnApp_("regedit", "");
+    } else if (lowerCmd == "history") {
+        if (tab.history.empty()) {
+            tab.buffer.push_back({"  (No commands in history)", Color::fromHex(0x7186A4), false});
+        } else {
+            for (size_t i = 0; i < tab.history.size(); ++i) {
+                tab.buffer.push_back({"  " + std::to_string(i + 1) + "  " + tab.history[i], Color::fromHex(0xCBD5E1), false});
+            }
+        }
+    } else if (lowerCmd == "start") {
+        if (args.empty()) {
+            tab.buffer.push_back({"Launching new Command Prompt...", Color::fromHex(0x00FF9D), false});
+            if (onSpawnApp_) onSpawnApp_("cmd", tab.cwd);
+        } else if (args == "." || args == "..") {
+            std::filesystem::path p = std::filesystem::path(tab.cwd) / args;
+            std::error_code ec;
+            std::string canon = std::filesystem::canonical(p, ec).string();
+            tab.buffer.push_back({"Opening folder: " + (canon.empty() ? tab.cwd : canon), Color::fromHex(0x00FF9D), false});
+            if (onSpawnApp_) onSpawnApp_("explorer", canon.empty() ? tab.cwd : canon);
+        } else {
+            tab.buffer.push_back({"Starting: " + args, Color::fromHex(0x00FF9D), false});
+            if (onSpawnApp_) onSpawnApp_(args, "");
+        }
     } else if (lowerCmd == "exit") {
         closeTab(activeTabIndex_);
     } else {

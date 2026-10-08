@@ -7,6 +7,16 @@
 #include "surshell/icons.hpp"
 #include <algorithm>
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 namespace surshell {
 
 QuickSettingsFlyout::QuickSettingsFlyout() {
@@ -162,9 +172,34 @@ void QuickSettingsFlyout::render(Surface& surface, const ThemePalette& theme) {
 
     // 3. Header: Title, Telemetry & Status
     surface.drawString(bounds_.x + 18, bounds_.y + 16, "Quick Controls", theme.textPrimary, 1);
-    surface.drawString(bounds_.x + 18, bounds_.y + 32, "MicaNT Sentinel & Mesh Active", theme.accentColor, 1);
-    IconRenderer::draw(surface, IconId::BatteryCharging, Rect{bounds_.right() - 104, bounds_.y + 15, 14, 14}, theme.accentSecondary);
-    surface.drawString(bounds_.right() - 86, bounds_.y + 16, "100% AC", theme.accentSecondary, 1);
+
+    std::string subTitle = "MicaNT Sentinel & Mesh Active";
+    std::string powerStr = "100% AC";
+    IconId battIcon = IconId::BatteryCharging;
+
+#if defined(_WIN32)
+    char hostBuf[MAX_COMPUTERNAME_LENGTH + 1] = {0};
+    DWORD hostLen = sizeof(hostBuf);
+    if (GetComputerNameA(hostBuf, &hostLen) && hostLen > 0) {
+        subTitle = std::string(hostBuf) + " | Sovereign Node";
+    }
+
+    SYSTEM_POWER_STATUS sps{};
+    if (GetSystemPowerStatus(&sps)) {
+        if (sps.BatteryFlag == 128 || sps.BatteryLifePercent == 255) {
+            powerStr = "AC Power";
+            battIcon = IconId::BatteryCharging;
+        } else {
+            powerStr = std::to_string(static_cast<int>(sps.BatteryLifePercent)) + "% " +
+                       (sps.ACLineStatus == 1 ? "AC" : "Batt");
+            battIcon = IconId::BatteryCharging;
+        }
+    }
+#endif
+
+    surface.drawString(bounds_.x + 18, bounds_.y + 32, subTitle, theme.accentColor, 1);
+    IconRenderer::draw(surface, battIcon, Rect{bounds_.right() - 104, bounds_.y + 15, 14, 14}, theme.accentSecondary);
+    surface.drawString(bounds_.right() - 86, bounds_.y + 16, powerStr, theme.accentSecondary, 1);
 
     surface.fillRect(Rect{bounds_.x + 16, bounds_.y + 52, bounds_.width - 32, 1}, Color::fromRgba(255, 255, 255, 25));
 

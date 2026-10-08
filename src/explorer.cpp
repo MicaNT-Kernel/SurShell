@@ -19,6 +19,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <shellapi.h>
 #endif
 
 namespace surshell {
@@ -863,6 +864,9 @@ bool FileExplorer::createNewFolder(std::string_view folderName) {
                 break;
             }
         }
+        if (toastCallback_) {
+            toastCallback_("Folder Created", candidate + " created successfully.", IconId::Folder);
+        }
         return true;
     }
     return false;
@@ -895,6 +899,9 @@ bool FileExplorer::createNewFile(std::string_view fileName) {
             startRename();
             break;
         }
+    }
+    if (toastCallback_) {
+        toastCallback_("File Created", candidate + " created successfully.", IconId::NewFile);
     }
     return true;
 }
@@ -937,14 +944,21 @@ void FileExplorer::pasteToCurrentDirectory() {
         }
     }
 
+    const std::string targetName = dstP.filename().string();
     if (s_clipboard->isCut) {
         std::filesystem::rename(srcP, dstP, ec);
         s_clipboard.reset();
+        if (toastCallback_) {
+            toastCallback_("Moved Item", targetName + " moved to folder.", IconId::Folder);
+        }
     } else {
         if (std::filesystem::is_directory(srcP, ec)) {
             std::filesystem::copy(srcP, dstP, std::filesystem::copy_options::recursive, ec);
         } else {
             std::filesystem::copy_file(srcP, dstP, std::filesystem::copy_options::overwrite_existing, ec);
+        }
+        if (toastCallback_) {
+            toastCallback_("Copied Item", targetName + " copied to folder.", IconId::Copy);
         }
     }
 
@@ -970,6 +984,9 @@ bool FileExplorer::renameSelected(std::string_view newName) {
                 tab.selectedIndex = static_cast<int32_t>(i);
                 break;
             }
+        }
+        if (toastCallback_) {
+            toastCallback_("Renamed Item", "Renamed to " + std::string(newName), IconId::Rename);
         }
         return true;
     }
@@ -1004,9 +1021,39 @@ void FileExplorer::ensureSelectionVisible() {
 bool FileExplorer::deleteSelected() {
     auto sel = selectedItem();
     if (!sel) return false;
-    std::error_code ec;
-    if (std::filesystem::remove_all(sel->fullPath, ec)) {
+    const std::string itemName = sel->name;
+    const std::string itemPath = sel->fullPath;
+
+    bool deleted = false;
+#if defined(_WIN32)
+    // Send to Windows Recycle Bin via SHFileOperationW
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, itemPath.c_str(), -1, nullptr, 0);
+    if (wlen > 0) {
+        std::wstring wpath;
+        wpath.resize(wlen);
+        MultiByteToWideChar(CP_UTF8, 0, itemPath.c_str(), -1, wpath.data(), wlen);
+        wpath.push_back(L'\0'); // Double null termination required by SHFileOperation
+
+        SHFILEOPSTRUCTW op{};
+        op.wFunc = FO_DELETE;
+        op.pFrom = wpath.c_str();
+        op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI;
+        int res = SHFileOperationW(&op);
+        if (res == 0 && !op.fAnyOperationsAborted) {
+            deleted = true;
+        }
+    }
+#endif
+    if (!deleted) {
+        std::error_code ec;
+        deleted = (std::filesystem::remove_all(itemPath, ec) > 0);
+    }
+
+    if (deleted) {
         refreshCurrentDirectory();
+        if (toastCallback_) {
+            toastCallback_("Recycle Bin", itemName + " sent to Recycle Bin.", IconId::Delete);
+        }
         return true;
     }
     return false;
@@ -1081,6 +1128,7 @@ void FileExplorer::executeItem(const FileItem& item) {
         navigateTo(item.fullPath);
     } else if (item.extension == ".exe" || item.extension == ".bat" || item.extension == ".cmd") {
         if (executeCallback_) executeCallback_(item.fullPath);
+        if (toastCallback_) toastCallback_("Launched Executable", item.name, IconId::RunDialog);
     } else if (item.extension == ".txt" || item.extension == ".ini" || item.extension == ".cpp" ||
                item.extension == ".hpp" || item.extension == ".h" || item.extension == ".c" ||
                item.extension == ".log" || item.extension == ".md" || item.extension == ".json" ||
@@ -1090,8 +1138,10 @@ void FileExplorer::executeItem(const FileItem& item) {
         } else if (executeCallback_) {
             executeCallback_(item.fullPath);
         }
+        if (toastCallback_) toastCallback_("Opened Document", item.name, IconId::FileCode);
     } else if (executeCallback_) {
         executeCallback_(item.fullPath);
+        if (toastCallback_) toastCallback_("Opened File", item.name, IconId::FileGeneric);
     }
 }
 

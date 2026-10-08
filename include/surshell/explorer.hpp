@@ -126,6 +126,7 @@ public:
     using PathChangeCallback = std::function<void(const std::string& path)>;
     using OpenEditorCallback = std::function<void(const std::string& path)>;
     using OpenTerminalCallback = std::function<void(const std::string& workingDir)>;
+    using ToastCallback = std::function<void(const std::string& title, const std::string& message, IconId icon)>;
 
     explicit FileExplorer(std::string initialPath = "C:\\");
 
@@ -192,6 +193,7 @@ public:
     void setPathChangeCallback(PathChangeCallback cb) { pathChangeCallback_ = std::move(cb); }
     void setOpenEditorCallback(OpenEditorCallback cb) { openEditorCallback_ = std::move(cb); }
     void setOpenTerminalCallback(OpenTerminalCallback cb) { openTerminalCallback_ = std::move(cb); }
+    void setToastCallback(ToastCallback cb) { toastCallback_ = std::move(cb); }
 
     // IWindowContent Interface Overrides
     void render(Surface& clientSurface) override;
@@ -276,6 +278,7 @@ private:
     PathChangeCallback pathChangeCallback_{};
     OpenEditorCallback openEditorCallback_{};
     OpenTerminalCallback openTerminalCallback_{};
+    ToastCallback toastCallback_{};
 
     void ensureSelectionVisible();
 

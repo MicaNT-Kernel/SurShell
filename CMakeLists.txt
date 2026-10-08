@@ -42,7 +42,7 @@ target_include_directories(surshell PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 if (WIN32)
-    target_link_libraries(surshell PUBLIC shell32 psapi advapi32)
+    target_link_libraries(surshell PUBLIC shell32 psapi advapi32 winmm)
 endif()
 
 # Compiler warnings and options
