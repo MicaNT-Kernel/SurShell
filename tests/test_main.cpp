@@ -577,6 +577,7 @@ void Test_Procedural_Icon_Engine() {
         surshell::IconId::SentinelSec,
         surshell::IconId::NetBirdMesh,
         surshell::IconId::FileExplorer,
+        surshell::IconId::TaskView,
         surshell::IconId::Folder,
         surshell::IconId::FolderOpen,
         surshell::IconId::FileGeneric,
@@ -614,7 +615,7 @@ void Test_Procedural_Icon_Engine() {
         surshell::IconId::Hibernate
     };
 
-    TEST_ASSERT(allIcons.size() == 45, "All 45 procedural vector icons enumerated");
+    TEST_ASSERT(allIcons.size() == 46, "All 46 procedural vector icons enumerated");
 
     const int32_t testSizes[] = {14, 16, 24, 28, 32, 48};
     for (surshell::IconId id : allIcons) {
@@ -636,7 +637,7 @@ void Test_Procedural_Icon_Engine() {
         }
     }
 
-    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (45 icons verified across 6 DPI scales).\n";
+    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (46 icons verified across 6 DPI scales).\n";
 }
 
 void Test_AltTab_And_Taskbar_Hover_Preview() {

@@ -284,7 +284,7 @@ void VirtualDesktopManager::renderSwitcher(Surface& surface, const ThemePalette&
     surface.applyAcrylicTint(Rect{0, 0, screenWidth_, screenHeight_}, Color::fromRgba(8, 12, 22, 175), 4);
 
     // 2. Top Header Bar
-    IconRenderer::draw(surface, IconId::ViewGrid, Rect{40, 22, 24, 24}, theme.prismAccent);
+    IconRenderer::draw(surface, IconId::TaskView, Rect{40, 22, 24, 24}, theme.prismAccent);
     surface.drawString(74, 22, "Task View", theme.prismAccent, 2);
 
     const std::string activeDeskName = (activeIndex_ < desktops_.size()) ? desktops_[activeIndex_].name : "Desktop";

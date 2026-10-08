@@ -28,6 +28,7 @@ enum class IconId {
     SentinelSec,
     NetBirdMesh,
     FileExplorer,
+    TaskView,
 
     // File System & Documents
     Folder,
@@ -92,6 +93,7 @@ private:
     static void drawTaskManager(Surface& s, Rect r, std::optional<Color> tint);
     static void drawSentinelSec(Surface& s, Rect r, std::optional<Color> tint);
     static void drawNetBirdMesh(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawTaskView(Surface& s, Rect r, std::optional<Color> tint);
     static void drawFolder(Surface& s, Rect r, bool open, std::optional<Color> tint);
     static void drawDocument(Surface& s, Rect r, IconId docType, std::optional<Color> tint);
     static void drawNavChevron(Surface& s, Rect r, int32_t dir, std::optional<Color> tint); // 0=Back, 1=Forward, 2=Up

@@ -51,6 +51,9 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
         case IconId::NetBirdMesh:
             drawNetBirdMesh(surface, bounds, tintOverride);
             break;
+        case IconId::TaskView:
+            drawTaskView(surface, bounds, tintOverride);
+            break;
         case IconId::FileExplorer:
         case IconId::Folder:
             drawFolder(surface, bounds, false, tintOverride);
@@ -344,6 +347,29 @@ void IconRenderer::drawNetBirdMesh(Surface& s, Rect r, std::optional<Color> tint
     s.fillRect(Rect{cx - nSize / 2, cy - nSize / 2, nSize, nSize}, Color::fromHex(0xFFFFFF));
 }
 
+void IconRenderer::drawTaskView(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color accent = tint.value_or(Color::fromHex(0x00D4FF));
+    const Color backCol = Color::fromHex(0x566B88);
+    const int32_t mw = std::max(6, r.width * 60 / 100);
+    const int32_t mh = std::max(5, r.height * 55 / 100);
+
+    // Back desktop screen (offset top-left)
+    const Rect backRect{r.x + 1, r.y + 1, mw, mh};
+    s.drawRoundedRect(backRect, 2, Color::fromHex(0x121A28), true);
+    s.drawRoundedRect(backRect, 2, backCol, false);
+
+    // Front desktop screen (offset bottom-right)
+    const Rect frontRect{r.right() - mw - 1, r.bottom() - mh - 1, mw, mh};
+    s.drawRoundedRect(frontRect, 2, Color::fromHex(0x182438), true);
+    s.drawRoundedRect(frontRect, 2, accent, false);
+
+    // Inner mini-window wash and dock indicator on front screen
+    const int32_t innerW = std::max(2, mw - 4);
+    const int32_t innerH = std::max(2, mh - 6);
+    s.fillRect(Rect{frontRect.x + 2, frontRect.y + 2, innerW, innerH}, Color::fromRgba(0, 212, 255, 60));
+    s.fillRect(Rect{frontRect.x + mw / 4, frontRect.bottom() - 2, mw / 2, 1}, accent);
+}
+
 void IconRenderer::drawFolder(Surface& s, Rect r, bool open, std::optional<Color> tint) {
     const Color tabCol = tint.value_or(Color::fromHex(0xE09E05));
     const Color bodyCol = tint.value_or(Color::fromHex(0xF5B418));
@@ -547,13 +573,21 @@ void IconRenderer::drawViewList(Surface& s, Rect r, std::optional<Color> tint) {
 
 void IconRenderer::drawViewGrid(Surface& s, Rect r, std::optional<Color> tint) {
     const Color col = tint.value_or(Color::fromHex(0x8EA2BE));
-    const int32_t qw = (r.width - 3) / 2;
-    const int32_t qh = (r.height - 3) / 2;
+    const int32_t pad = 1;
+    const int32_t availableW = r.width - pad * 2;
+    const int32_t availableH = r.height - pad * 2;
+    const int32_t cellW = std::max(2, (availableW - 4) / 3);
+    const int32_t cellH = std::max(2, (availableH - 4) / 3);
+    const int32_t stepX = (availableW - cellW) / 2;
+    const int32_t stepY = (availableH - cellH) / 2;
 
-    s.fillRect(Rect{r.x + 1, r.y + 1, qw, qh}, col);
-    s.fillRect(Rect{r.x + qw + 2, r.y + 1, qw, qh}, col);
-    s.fillRect(Rect{r.x + 1, r.y + qh + 2, qw, qh}, col);
-    s.fillRect(Rect{r.x + qw + 2, r.y + qh + 2, qw, qh}, col);
+    for (int32_t row = 0; row < 3; ++row) {
+        for (int32_t colIdx = 0; colIdx < 3; ++colIdx) {
+            const int32_t px = r.x + pad + colIdx * stepX;
+            const int32_t py = r.y + pad + row * stepY;
+            s.fillRect(Rect{px, py, cellW, cellH}, col);
+        }
+    }
 }
 
 void IconRenderer::drawEdit(Surface& s, Rect r, std::optional<Color> tint) {
