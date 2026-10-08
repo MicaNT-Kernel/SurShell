@@ -50,6 +50,9 @@ public:
     void blit(const Surface& src, Rect srcRect, Point dstPos, uint8_t alpha = 255) noexcept;
     void blitScaled(const Surface& src, Rect srcRect, Rect dstRect, uint8_t alpha = 255) noexcept;
     void drawString(int32_t x, int32_t y, std::string_view text, Color color, int32_t scale = 1) noexcept;
+    void drawString(Point pt, std::string_view text, Color color, int32_t scale = 1) noexcept {
+        drawString(pt.x, pt.y, text, color, scale);
+    }
 
     // Procedural Clean-Room Vector Iconography (Zero Copyright/Proprietary Assets)
     void drawPrismLogo(Point center, int32_t size, Color accent, Color facetDark, Color facetLight) noexcept;

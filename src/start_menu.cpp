@@ -61,13 +61,13 @@ StartMenu::StartMenu() {
     });
 
     registerApp(ShellAppEntry{
-        .id = "netbird",
-        .title = "NetBird Mesh",
-        .subtitle = "P2P Sovereign Network",
-        .executablePath = "C:\\Program Files\\NetBird\\netbird-ui.exe",
+        .id = "network",
+        .title = "Network Connections",
+        .subtitle = "Ethernet & Wi-Fi Control",
+        .executablePath = "C:\\Windows\\System32\\ncpa.cpl",
         .arguments = "",
-        .iconGlyph = "[N]",
-        .category = AppCategory::Utilities,
+        .iconGlyph = "[NET]",
+        .category = AppCategory::SystemTools,
         .pinnedToTaskbar = false,
         .pinnedToStart = true
     });

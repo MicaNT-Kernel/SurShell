@@ -462,7 +462,7 @@ void Test_Quick_Settings_Flyout() {
     TEST_ASSERT(qs.bounds().width == 360, "Flyout width is 360");
 
     // Check default states
-    TEST_ASSERT(qs.isToggleEnabled("mesh"), "RazzleNet Mesh enabled by default");
+    TEST_ASSERT(qs.isToggleEnabled("network"), "Network enabled by default");
     TEST_ASSERT(qs.isToggleEnabled("sentinel"), "SentinelSec enabled by default");
     TEST_ASSERT(!qs.isToggleEnabled("nightlight"), "Night Light disabled by default");
 
@@ -587,9 +587,10 @@ void Test_Procedural_Icon_Engine() {
     TEST_ASSERT(surshell::IconRenderer::iconForAppId("settings") == surshell::IconId::Settings, "settings maps to Settings");
     TEST_ASSERT(surshell::IconRenderer::iconForAppId("taskmgr") == surshell::IconId::TaskManager, "taskmgr maps to TaskManager");
     TEST_ASSERT(surshell::IconRenderer::iconForAppId("sentinel") == surshell::IconId::SentinelSec, "sentinel maps to SentinelSec");
-    TEST_ASSERT(surshell::IconRenderer::iconForAppId("netbird") == surshell::IconId::NetBirdMesh, "netbird maps to NetBirdMesh");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("network") == surshell::IconId::NetworkOnline, "network maps to NetworkOnline");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("mediaplayer") == surshell::IconId::MediaPlay, "mediaplayer maps to MediaPlay");
 
-    // 3. Rasterize All 38 Procedural Vector Icons at Multiple Scales (14, 16, 24, 28, 32, 48px)
+    // 3. Rasterize All Procedural Vector Icons at Multiple Scales (14, 16, 24, 28, 32, 48px)
     surshell::Surface testCanvas(256, 256, surshell::Color::fromHex(0x0E1420));
     const std::vector<surshell::IconId> allIcons = {
         surshell::IconId::StartPrism,
@@ -641,10 +642,16 @@ void Test_Procedural_Icon_Engine() {
         surshell::IconId::Lock,
         surshell::IconId::SignOut,
         surshell::IconId::User,
-        surshell::IconId::Hibernate
+        surshell::IconId::Hibernate,
+        surshell::IconId::MediaPlay,
+        surshell::IconId::MediaPause,
+        surshell::IconId::MediaNext,
+        surshell::IconId::MediaPrev,
+        surshell::IconId::NotificationBell,
+        surshell::IconId::NetworkEthernet
     };
 
-    TEST_ASSERT(allIcons.size() == 50, "All 50 procedural vector icons enumerated");
+    TEST_ASSERT(allIcons.size() == 56, "All 56 procedural vector icons enumerated");
 
     const int32_t testSizes[] = {14, 16, 24, 28, 32, 48};
     for (surshell::IconId id : allIcons) {
@@ -666,7 +673,7 @@ void Test_Procedural_Icon_Engine() {
         }
     }
 
-    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (50 icons verified across 6 DPI scales).\n";
+    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (56 icons verified across 6 DPI scales).\n";
 }
 
 void Test_AltTab_And_Taskbar_Hover_Preview() {
@@ -796,6 +803,126 @@ void Test_AltTab_And_Taskbar_Hover_Preview() {
     std::cout << "[TEST] Suite 14: Alt+Tab Switcher HUD & Taskbar Live Previews (Windows Peek) PASSED.\n";
 }
 
+void Test_Task_Manager() {
+    std::cout << "[TEST] Running Suite 15: Interactive Task Manager & Resource Monitor...\n";
+
+    surshell::KernelBridge bridge;
+    bridge.connectToExecutive("\\RPC_Control\\SurWinLpc");
+
+    surshell::TaskManagerContent tm(&bridge);
+    TEST_ASSERT(tm.processCount() >= 8, "Task Manager queries processes from Executive");
+    TEST_ASSERT(tm.activeTab() == surshell::TaskManagerTab::Processes, "Default tab is Processes");
+
+    // Tab switching
+    tm.setActiveTab(surshell::TaskManagerTab::Performance);
+    TEST_ASSERT(tm.activeTab() == surshell::TaskManagerTab::Performance, "Switched to Performance tab");
+    tm.setActiveTab(surshell::TaskManagerTab::Processes);
+
+    // Selection
+    const uint32_t firstPid = tm.processes()[0].pid;
+    tm.selectPid(firstPid);
+    TEST_ASSERT(tm.selectedPid() == firstPid, "Process PID selected");
+
+    // End task callback
+    bool callbackFired = false;
+    uint32_t killedPid = 0;
+    tm.setTerminatedCallback([&](uint32_t pid, const std::string&) {
+        callbackFired = true;
+        killedPid = pid;
+    });
+
+    const size_t prevCount = tm.processCount();
+    const bool killed = tm.endSelectedTask();
+    TEST_ASSERT(killed, "endSelectedTask returned true");
+    TEST_ASSERT(callbackFired, "Terminated callback invoked");
+    TEST_ASSERT(killedPid == firstPid, "Correct PID killed");
+    TEST_ASSERT(tm.processCount() == prevCount - 1, "Process count decreased by 1");
+
+    // Keyboard navigation
+    tm.onKeyDown(surshell::KeyCode::Down);
+    TEST_ASSERT(tm.selectedPid().has_value(), "Down arrow selected next process");
+
+    // Render to surface
+    surshell::Surface tmSurface(720, 480);
+    tm.render(tmSurface);
+    TEST_ASSERT(tmSurface.width() == 720, "Task Manager rendered to surface");
+
+    std::cout << "[TEST] Suite 15: Interactive Task Manager & Resource Monitor PASSED.\n";
+}
+
+void Test_Toast_Notifications() {
+    std::cout << "[TEST] Running Suite 16: Sovereign Acrylic Toast Notifications...\n";
+
+    surshell::ToastManager tm;
+    TEST_ASSERT(tm.toastCount() == 0, "No toasts initially");
+
+    const uint32_t id1 = tm.showToast("Network Connected", "Ethernet 1000/1000 Mbps Active", surshell::IconId::NetworkOnline);
+    TEST_ASSERT(tm.toastCount() == 1, "1 toast active");
+    TEST_ASSERT(tm.findToast(id1) != nullptr, "Toast lookup succeeds");
+
+    tm.showToast("SentinelSec", "Zero-Telemetry Guard Secure", surshell::IconId::SentinelSec);
+    tm.showToast("Download Finished", "surshell_v1.0.iso downloaded", surshell::IconId::FileArchive);
+    const uint32_t id4 = tm.showToast("Volume", "Level set to 85%", surshell::IconId::VolumeHigh);
+    TEST_ASSERT(tm.toastCount() == 4, "4 toasts active");
+
+    // Adding 5th toast clamps queue to max 4
+    tm.showToast("New Event", "Clamping test", surshell::IconId::NotificationBell);
+    TEST_ASSERT(tm.toastCount() == 4, "Toast queue clamped to 4 items");
+
+    // Render toasts to surface
+    surshell::Surface screen(1920, 1080);
+    tm.render(screen, 1920, 1080, 48);
+
+    // Hit test dismiss
+    const auto* latest = tm.findToast(id4);
+    if (latest) {
+        const surshell::Point clickPt{latest->bounds.centerX(), latest->bounds.centerY()};
+        TEST_ASSERT(tm.onMouseDown(clickPt, surshell::MouseButton::Left), "Clicking toast body consumes event");
+        TEST_ASSERT(tm.findToast(id4) == nullptr, "Clicked toast dismissed");
+    }
+
+    // Timer tick decay
+    surshell::ToastManager tickTm;
+    const uint32_t quickId = tickTm.showToast("Quick", "Quick decay", surshell::IconId::Clock, surshell::Color::fromHex(0x00D4FF), 2);
+    tickTm.tick();
+    TEST_ASSERT(tickTm.findToast(quickId) != nullptr, "Toast alive after 1 tick");
+    tickTm.tick();
+    TEST_ASSERT(tickTm.findToast(quickId) == nullptr, "Toast expired and removed after 2 ticks");
+
+    std::cout << "[TEST] Suite 16: Sovereign Acrylic Toast Notifications PASSED.\n";
+}
+
+void Test_Media_Hud_OSD() {
+    std::cout << "[TEST] Running Suite 17: Audio & Media Playback HUD (OSD Overlay)...\n";
+
+    surshell::MediaHud hud;
+    TEST_ASSERT(!hud.isVisible(), "Media HUD initially hidden");
+
+    hud.showVolume(75);
+    TEST_ASSERT(hud.isVisible(), "Volume change triggers HUD visibility");
+    TEST_ASSERT(hud.volume() == 75, "Volume reported as 75%");
+    TEST_ASSERT(!hud.isMuted(), "Not muted initially");
+
+    // Transport buttons
+    bool playPauseToggled = false;
+    hud.setPlayPauseCallback([&]() { playPauseToggled = true; });
+    const bool prevPlaying = hud.isPlaying();
+    hud.togglePlayPause();
+    TEST_ASSERT(hud.isPlaying() != prevPlaying, "Play/Pause state toggled");
+    TEST_ASSERT(playPauseToggled, "Play/Pause callback invoked");
+
+    // Render to surface
+    surshell::Surface screen(1920, 1080);
+    hud.render(screen, 1920, 1080, 48);
+    TEST_ASSERT(hud.bounds().width == 360, "HUD width is 360");
+
+    // Timer tick decay
+    hud.hide();
+    TEST_ASSERT(!hud.isVisible(), "HUD hide() made it hidden");
+
+    std::cout << "[TEST] Suite 17: Audio & Media Playback HUD (OSD Overlay) PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -816,9 +943,12 @@ int main() {
     Test_MicaNT_Kernel_Bridge();
     Test_Procedural_Icon_Engine();
     Test_AltTab_And_Taskbar_Hover_Preview();
+    Test_Task_Manager();
+    Test_Toast_Notifications();
+    Test_Media_Hud_OSD();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 14 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 17 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

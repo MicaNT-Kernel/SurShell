@@ -193,6 +193,42 @@ int main(int argc, char* argv[]) {
     }
     shell.taskbar().setHoveredTaskWindowId(-1);
 
+    // ------------------------------------------------------------------------
+    // Scene 11: Task Manager & Resource Monitor Window (taskmgr.exe)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 11: Task Manager & Resource Monitor...\n";
+    const uint32_t tmWinId = shell.openTaskManagerWindow();
+    shell.windowManager().setWindowActive(tmWinId);
+    shell.render();
+    if (shell.exportSnapshot("surshell_task_manager.bmp")) {
+        std::cout << "  -> Exported: surshell_task_manager.bmp (1920x1080 32-bpp)\n";
+    }
+
+    // ------------------------------------------------------------------------
+    // Scene 12: Sovereign Acrylic Desktop Toast Notifications
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 12: Sovereign Acrylic Desktop Toast Notifications...\n";
+    shell.toastManager().showToast("Network Connected", "Gigabit Ethernet (1000/1000 Mbps) Online", surshell::IconId::NetworkEthernet, surshell::Color::fromHex(0x00FF9D));
+    shell.toastManager().showToast("SentinelSec Security", "Zero-Telemetry Protection Guard Active", surshell::IconId::SentinelSec, surshell::Color::fromHex(0x00D4FF));
+    shell.toastManager().showToast("MicaNT Audio Engine", "3D Spatial Prism HRTF Ready", surshell::IconId::VolumeHigh, surshell::Color::fromHex(0xFFD54F));
+    shell.render();
+    if (shell.exportSnapshot("surshell_toast_notifications.bmp")) {
+        std::cout << "  -> Exported: surshell_toast_notifications.bmp (1920x1080 32-bpp)\n";
+    }
+    shell.toastManager().clear();
+
+    // ------------------------------------------------------------------------
+    // Scene 13: Modern Audio & Media Playback HUD (OSD Overlay)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 13: Audio & Media Playback HUD (OSD Overlay)...\n";
+    shell.mediaHud().showVolume(85);
+    shell.mediaHud().showMedia("Dave Cutler - Symphony in C++23", "MicaNT Sovereign Philharmonic");
+    shell.render();
+    if (shell.exportSnapshot("surshell_media_hud.bmp")) {
+        std::cout << "  -> Exported: surshell_media_hud.bmp (1920x1080 32-bpp)\n";
+    }
+    shell.mediaHud().hide();
+
     std::cout << "\n[SurShell] Visual presentation pipeline completed successfully.\n";
     return 0;
 }

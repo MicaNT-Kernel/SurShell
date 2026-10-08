@@ -11,7 +11,7 @@ namespace surshell {
 
 QuickSettingsFlyout::QuickSettingsFlyout() {
     toggles_ = {
-        QuickToggle{.id = "mesh", .label = "RazzleNet Mesh", .statusText = "3 Nodes Active", .iconGlyph = "[M]", .iconId = IconId::NetBirdMesh, .enabled = true},
+        QuickToggle{.id = "network", .label = "Wi-Fi & Ethernet", .statusText = "1 Gbps Online", .iconGlyph = "[NET]", .iconId = IconId::NetworkOnline, .enabled = true},
         QuickToggle{.id = "sentinel", .label = "SentinelSec", .statusText = "Shield Guard", .iconGlyph = "[S]", .iconId = IconId::SentinelSec, .enabled = true},
         QuickToggle{.id = "nightlight", .label = "Night Light", .statusText = "Warm 4500K", .iconGlyph = "[N]", .iconId = IconId::Clock, .enabled = false},
         QuickToggle{.id = "focus", .label = "Focus Session", .statusText = "Quiet Hours", .iconGlyph = "[F]", .iconId = IconId::Clock, .enabled = false},

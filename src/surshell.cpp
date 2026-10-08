@@ -164,6 +164,22 @@ uint32_t SurShellDesktop::openTerminalWindow(std::string workingDir) {
     return winCmd;
 }
 
+uint32_t SurShellDesktop::openTaskManagerWindow() {
+    const uint32_t winId = windowManager_.createWindow("Task Manager", Rect{240, 120, 720, 480}, "[T]", IconId::TaskManager);
+    virtualDesktops_.assignWindowToDesktop(winId, virtualDesktops_.activeIndex());
+    auto* win = windowManager_.findWindow(winId);
+    if (win) {
+        auto taskMgr = std::make_shared<TaskManagerContent>(&kernelBridge_);
+        taskMgr->setTerminatedCallback([this](uint32_t pid, const std::string& name) {
+            toastManager_.showToast("Process Terminated", "Killed " + name + " (PID " + std::to_string(pid) + ")",
+                                    IconId::TaskManager, Color::fromHex(0xFF5555));
+        });
+        win->content = taskMgr;
+        taskMgr->render(win->clientSurface);
+    }
+    return winId;
+}
+
 void SurShellDesktop::wireSubsystemCallbacks() {
     // 1. Taskbar Start Button clicks toggle the Start Menu
     taskbar_.setStartButtonClickCallback([this]() {
@@ -193,6 +209,42 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             startMenu_.close();
             virtualDesktops_.hideSwitcher();
         }
+    });
+
+    // 3b. System Tray Icon individual click callbacks
+    taskbar_.tray().setClickCallback([this](const std::string& id, MouseButton) {
+        if (id == "network") {
+            toastManager_.showToast("Network Telemetry", "Ethernet Connected: 1000/1000 Mbps | IPv4: 192.168.1.105", IconId::NetworkEthernet, Color::fromHex(0x00FF9D));
+        } else if (id == "security") {
+            toastManager_.showToast("SentinelSec Security", "Zero-Telemetry Protection Active | System Enclave Secure", IconId::SentinelSec, Color::fromHex(0x00D4FF));
+        }
+    });
+
+    // 3c. Quick Settings Controls callbacks
+    quickSettings_.setVolumeCallback([this](int32_t vol) {
+        taskbar_.tray().setVolumeLevel(vol);
+        mediaHud_.showVolume(vol);
+    });
+
+    quickSettings_.setToggleCallback([this](std::string_view id, bool enabled) {
+        if (id == "network") {
+            taskbar_.tray().setNetworkOnline(enabled);
+            toastManager_.showToast("Network Configuration",
+                                    enabled ? "Gigabit Ethernet: Connected (1.0 Gbps)" : "Network Interface Disabled",
+                                    IconId::NetworkOnline,
+                                    enabled ? Color::fromHex(0x00FF9D) : Color::fromHex(0xFF5555));
+        }
+    });
+
+    // 3d. Media Transport callbacks
+    mediaHud_.setPlayPauseCallback([this]() {
+        toastManager_.showToast("Media Playback", mediaHud_.isPlaying() ? "Resumed: Symphony in C++23" : "Playback Paused", IconId::MediaPlay);
+    });
+    mediaHud_.setNextCallback([this]() {
+        toastManager_.showToast("Track Changed", "Next: Cutler Kernel Suite Mov. 2", IconId::MediaNext);
+    });
+    mediaHud_.setPrevCallback([this]() {
+        toastManager_.showToast("Track Changed", "Previous: Mica NT Overture", IconId::MediaPrev);
     });
 
     // 4. Taskbar Task View button toggles Virtual Desktops switcher strip
@@ -280,6 +332,8 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openTerminalWindow("C:\\Users\\admin");
         } else if (app.executablePath == "C:\\Windows\\notepad.exe") {
             openTextEditorWindow("");
+        } else if (app.executablePath == "C:\\Windows\\System32\\taskmgr.exe") {
+            openTaskManagerWindow();
         } else {
             kernelBridge_.spawnProcess(app.executablePath, app.arguments);
             const uint32_t wid = windowManager_.createWindow(app.title, Rect{240, 180, 660, 420}, app.iconGlyph, IconRenderer::iconForAppId(app.id));
@@ -385,7 +439,17 @@ void SurShellDesktop::dismissAltTab() {
 void SurShellDesktop::onMouseDown(Point pt, MouseButton button) {
     currentMousePos_ = pt;
 
-    // 0. Alt+Tab HUD takes precedence when active
+    // 0a. Toast notifications hit testing
+    if (toastManager_.onMouseDown(pt, button)) {
+        return;
+    }
+
+    // 0b. Media HUD hit testing
+    if (mediaHud_.onMouseDown(pt, button)) {
+        return;
+    }
+
+    // 0c. Alt+Tab HUD takes precedence when active
     if (altTab_.isActive()) {
         if (auto chosenId = altTab_.onMouseDown(pt, button, width_, height_)) {
             auto* win = windowManager_.findWindow(*chosenId);
@@ -462,6 +526,14 @@ void SurShellDesktop::onMouseMove(Point pt) {
 
     if (quickSettings_.isOpen()) {
         quickSettings_.onMouseMove(pt);
+    }
+
+    if (toastManager_.onMouseMove(pt)) {
+        // hovered toast
+    }
+
+    if (mediaHud_.onMouseMove(pt)) {
+        // hovered media hud
     }
 
     if (virtualDesktops_.isSwitcherVisible()) {
@@ -562,7 +634,15 @@ void SurShellDesktop::render() {
         quickSettings_.render(framebuffer_, palette);
     }
 
-    // 8. Render Alt+Tab HUD (if active)
+    // 8. Render Media Playback HUD OSD (if visible)
+    if (mediaHud_.isVisible()) {
+        mediaHud_.render(framebuffer_, width_, height_, taskbar_.bounds().height);
+    }
+
+    // 9. Render Toast Notifications
+    toastManager_.render(framebuffer_, width_, height_, taskbar_.bounds().height);
+
+    // 10. Render Alt+Tab HUD (if active)
     if (altTab_.isActive()) {
         altTab_.render(framebuffer_, width_, height_);
     }

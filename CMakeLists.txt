@@ -21,6 +21,9 @@ set(SURSHELL_SOURCES
     src/text_viewer.cpp
     src/icons.cpp
     src/alt_tab.cpp
+    src/task_manager.cpp
+    src/toast.cpp
+    src/media_hud.cpp
     src/surshell.cpp
 )
 

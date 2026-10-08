@@ -160,6 +160,24 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
         case IconId::Hibernate:
             drawHibernate(surface, bounds, tintOverride);
             break;
+        case IconId::MediaPlay:
+            drawMediaPlay(surface, bounds, tintOverride);
+            break;
+        case IconId::MediaPause:
+            drawMediaPause(surface, bounds, tintOverride);
+            break;
+        case IconId::MediaNext:
+            drawMediaNext(surface, bounds, tintOverride);
+            break;
+        case IconId::MediaPrev:
+            drawMediaPrev(surface, bounds, tintOverride);
+            break;
+        case IconId::NotificationBell:
+            drawNotificationBell(surface, bounds, tintOverride);
+            break;
+        case IconId::NetworkEthernet:
+            drawNetworkEthernet(surface, bounds, tintOverride);
+            break;
         default:
             drawDocument(surface, bounds, IconId::FileGeneric, tintOverride);
             break;
@@ -184,7 +202,9 @@ IconId IconRenderer::iconForAppId(std::string_view appId) {
     if (appId == "settings") return IconId::Settings;
     if (appId == "taskmgr") return IconId::TaskManager;
     if (appId == "sentinel") return IconId::SentinelSec;
-    if (appId == "netbird") return IconId::NetBirdMesh;
+    if (appId == "network") return IconId::NetworkOnline;
+    if (appId == "mediaplayer") return IconId::MediaPlay;
+    if (appId == "netbird") return IconId::NetworkOnline;
     return IconId::StartPrism;
 }
 
@@ -968,6 +988,113 @@ void IconRenderer::drawHibernate(Surface& s, Rect r, std::optional<Color> tint) 
     s.putPixel(cx, cy, col);
     s.putPixel(cx - zw / 4, cy + zh / 4, col);
     s.fillRect(Rect{cx - zw / 2, cy + zh / 2, zw, 1}, col);
+}
+
+void IconRenderer::drawMediaPlay(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color col = tint.value_or(Color::fromHex(0x00D4FF));
+    const int32_t pad = std::max(2, r.width / 5);
+    const int32_t x0 = r.x + pad;
+    const int32_t x1 = r.right() - pad;
+    const int32_t y0 = r.y + pad;
+    const int32_t y1 = r.bottom() - pad;
+    const int32_t cy = (y0 + y1) / 2;
+    const int32_t w = std::max(1, x1 - x0);
+
+    for (int32_t x = x0; x <= x1; ++x) {
+        const float t = static_cast<float>(x - x0) / static_cast<float>(w);
+        const int32_t halfH = static_cast<int32_t>((1.0f - t) * (cy - y0));
+        s.fillRect(Rect{x, cy - halfH, 1, halfH * 2 + 1}, col);
+    }
+}
+
+void IconRenderer::drawMediaPause(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color col = tint.value_or(Color::fromHex(0x00D4FF));
+    const int32_t pad = std::max(2, r.width / 5);
+    const int32_t barW = std::max(2, (r.width - pad * 2) / 3);
+    const int32_t h = r.height - pad * 2;
+    const int32_t y = r.y + pad;
+
+    // Left bar
+    s.drawRoundedRect(Rect{r.x + pad, y, barW, h}, 1, col, true);
+    // Right bar
+    s.drawRoundedRect(Rect{r.right() - pad - barW, y, barW, h}, 1, col, true);
+}
+
+void IconRenderer::drawMediaNext(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color col = tint.value_or(Color::fromHex(0x00D4FF));
+    const int32_t pad = std::max(2, r.width / 6);
+    const int32_t barW = std::max(2, r.width / 8);
+    // Right vertical stop bar
+    s.fillRect(Rect{r.right() - pad - barW, r.y + pad, barW, r.height - pad * 2}, col);
+    // Play triangle on the left
+    const Rect playR{r.x + pad, r.y + pad, r.width - pad * 2 - barW - 2, r.height - pad * 2};
+    drawMediaPlay(s, playR, tint);
+}
+
+void IconRenderer::drawMediaPrev(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color col = tint.value_or(Color::fromHex(0x00D4FF));
+    const int32_t pad = std::max(2, r.width / 6);
+    const int32_t barW = std::max(2, r.width / 8);
+    // Left vertical stop bar
+    s.fillRect(Rect{r.x + pad, r.y + pad, barW, r.height - pad * 2}, col);
+    // Left-pointing triangle
+    const int32_t x0 = r.x + pad + barW + 2;
+    const int32_t x1 = r.right() - pad;
+    const int32_t y0 = r.y + pad;
+    const int32_t y1 = r.bottom() - pad;
+    const int32_t cy = (y0 + y1) / 2;
+    const int32_t w = std::max(1, x1 - x0);
+
+    for (int32_t x = x0; x <= x1; ++x) {
+        const float t = static_cast<float>(x - x0) / static_cast<float>(w);
+        const int32_t halfH = static_cast<int32_t>(t * (cy - y0));
+        s.fillRect(Rect{x, cy - halfH, 1, halfH * 2 + 1}, col);
+    }
+}
+
+void IconRenderer::drawNotificationBell(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color col = tint.value_or(Color::fromHex(0xFFD54F));
+    const int32_t cx = r.centerX();
+    const int32_t top = r.y + std::max(2, r.height / 7);
+    const int32_t bottom = r.bottom() - std::max(3, r.height / 5);
+
+    // Top hanger loop
+    s.fillRect(Rect{cx - 1, r.y + 1, 3, 2}, col);
+
+    // Flared bell dome
+    const int32_t h = bottom - top;
+    for (int32_t y = top; y <= bottom; ++y) {
+        const float t = static_cast<float>(y - top) / static_cast<float>(std::max(1, h));
+        const int32_t halfW = static_cast<int32_t>((2 + t * t * (r.width / 2 - 2)));
+        s.fillRect(Rect{cx - halfW, y, halfW * 2 + 1, 1}, col);
+    }
+    // Bottom flare rim
+    s.fillRect(Rect{r.x + 2, bottom, r.width - 4, 2}, col);
+
+    // Clapper circle
+    const int32_t clapR = std::max(1, r.width / 10);
+    s.drawRoundedRect(Rect{cx - clapR, bottom + 1, clapR * 2 + 1, clapR * 2 + 1}, clapR, col, true);
+}
+
+void IconRenderer::drawNetworkEthernet(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color col = tint.value_or(Color::fromHex(0x00D4FF));
+    const int32_t pad = std::max(2, r.width / 6);
+    const Rect body{r.x + pad, r.y + pad, r.width - pad * 2, r.height - pad * 2};
+
+    // Outer RJ-45 jack outline
+    s.drawRoundedRect(body, 2, col, false);
+
+    // Bottom tab slot
+    const int32_t slotW = std::max(4, body.width / 2);
+    s.fillRect(Rect{body.centerX() - slotW / 2, body.bottom() - 2, slotW, 2}, Color::fromHex(0x0E1420));
+    s.fillRect(Rect{body.centerX() - slotW / 2, body.bottom() - 1, slotW, 1}, col);
+
+    // Contact pins inside
+    const int32_t pinY = body.y + 3;
+    const int32_t pinH = std::max(2, body.height / 4);
+    for (int32_t px = body.x + 3; px < body.right() - 3; px += 2) {
+        s.fillRect(Rect{px, pinY, 1, pinH}, Color::fromHex(0xFFD54F));
+    }
 }
 
 } // namespace surshell

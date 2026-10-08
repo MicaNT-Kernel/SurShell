@@ -75,7 +75,17 @@ enum class IconId {
     Lock,
     SignOut,
     User,
-    Hibernate
+    Hibernate,
+
+    // Media & Playback
+    MediaPlay,
+    MediaPause,
+    MediaNext,
+    MediaPrev,
+
+    // Notifications & Hardware
+    NotificationBell,
+    NetworkEthernet
 };
 
 class IconRenderer {
@@ -126,6 +136,12 @@ private:
     static void drawSignOut(Surface& s, Rect r, std::optional<Color> tint);
     static void drawUser(Surface& s, Rect r, std::optional<Color> tint);
     static void drawHibernate(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawMediaPlay(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawMediaPause(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawMediaNext(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawMediaPrev(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawNotificationBell(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawNetworkEthernet(Surface& s, Rect r, std::optional<Color> tint);
 };
 
 } // namespace surshell

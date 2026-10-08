@@ -14,7 +14,7 @@ namespace surshell {
 SystemTray::SystemTray() {
     // Standard sovereign status icons
     addIcon("security", "[SEC]", "Sentinel Security Authority: Active", IconId::SentinelSec);
-    addIcon("rosenpass", "[PQ]", "Rosenpass Post-Quantum WireGuard: Enabled", IconId::NetBirdMesh);
+    addIcon("network", "[NET]", "Network: Gigabit Ethernet Connected (1000/1000 Mbps)", IconId::NetworkEthernet);
 }
 
 void SystemTray::addIcon(std::string id, std::string glyph, std::string tooltip, std::optional<IconId> iconId) {

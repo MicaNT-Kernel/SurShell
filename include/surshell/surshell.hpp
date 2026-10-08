@@ -23,6 +23,10 @@
 #include "icons.hpp"
 #include "alt_tab.hpp"
 
+#include "toast.hpp"
+#include "media_hud.hpp"
+#include "task_manager.hpp"
+
 namespace surshell {
 
 class SurShellDesktop {
@@ -41,6 +45,10 @@ public:
     [[nodiscard]] VirtualDesktopManager& virtualDesktops() noexcept { return virtualDesktops_; }
     [[nodiscard]] AltTabSwitcher& altTab() noexcept { return altTab_; }
     [[nodiscard]] const AltTabSwitcher& altTab() const noexcept { return altTab_; }
+    [[nodiscard]] ToastManager& toastManager() noexcept { return toastManager_; }
+    [[nodiscard]] const ToastManager& toastManager() const noexcept { return toastManager_; }
+    [[nodiscard]] MediaHud& mediaHud() noexcept { return mediaHud_; }
+    [[nodiscard]] const MediaHud& mediaHud() const noexcept { return mediaHud_; }
     [[nodiscard]] KernelBridge& kernel() noexcept { return kernelBridge_; }
     [[nodiscard]] Surface& framebuffer() noexcept { return framebuffer_; }
 
@@ -63,6 +71,7 @@ public:
     uint32_t openFileExplorerWindow(std::string path = "C:\\Windows\\System32");
     uint32_t openTextEditorWindow(std::string filePath = "");
     uint32_t openTerminalWindow(std::string workingDir = "C:\\Windows\\System32");
+    uint32_t openTaskManagerWindow();
 
     // Master Render Loop
     void render();
@@ -87,6 +96,8 @@ private:
     QuickSettingsFlyout quickSettings_;
     VirtualDesktopManager virtualDesktops_;
     AltTabSwitcher altTab_;
+    ToastManager toastManager_;
+    MediaHud mediaHud_;
     KernelBridge kernelBridge_;
 
     Point currentMousePos_{0, 0};
