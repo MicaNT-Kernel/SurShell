@@ -33,6 +33,7 @@
 #include "action_center.hpp"
 #include "search_hub.hpp"
 #include "lock_screen.hpp"
+#include "registry_editor.hpp"
 
 namespace surshell {
 
@@ -93,6 +94,7 @@ public:
     uint32_t openSettingsWindow();
     uint32_t openCalculatorWindow();
     uint32_t openRunDialogWindow();
+    uint32_t openRegistryEditorWindow(std::string initialKey = "Computer\\HKEY_CURRENT_USER\\Software\\MicaNT\\SurShell");
 
     // Master Render Loop
     void render();

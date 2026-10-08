@@ -132,6 +132,18 @@ StartMenu::StartMenu() {
         .pinnedToStart = true
     });
 
+    registerApp(ShellAppEntry{
+        .id = "regedit",
+        .title = "Registry Editor",
+        .subtitle = "MicaNT Sovereign Configuration Hive",
+        .executablePath = "C:\\Windows\\regedit.exe",
+        .arguments = "",
+        .iconGlyph = "[REG]",
+        .category = AppCategory::SystemTools,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = true
+    });
+
     // Windows 11-style Interactive Power Flyout Options
     powerOptions_ = {
         PowerOptionItem{.action = PowerAction::Sleep, .label = "Sleep", .description = "Save session in low power", .iconId = IconId::Sleep},

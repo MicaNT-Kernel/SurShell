@@ -155,6 +155,7 @@ uint32_t SurShellDesktop::openTerminalWindow(std::string workingDir) {
             else if (app == "settings") openSettingsWindow();
             else if (app == "explorer") openFileExplorerWindow(args.empty() ? "C:\\Users\\admin" : args);
             else if (app == "taskmgr") openTaskManagerWindow();
+            else if (app == "regedit" || app == "registry") openRegistryEditorWindow();
             else kernelBridge_.spawnProcess(app, args);
         });
         cmdWin->content = term;
@@ -239,7 +240,8 @@ uint32_t SurShellDesktop::openSettingsWindow() {
             } else if (appId == "cmd" || appId == "terminal") {
                 openTerminalWindow();
             } else if (appId == "regedit" || appId == "registry") {
-                toastManager_.showToast("Registry Editor", "Launching Sovereign Registry Editor (regedit.exe)...", IconId::Registry);
+                openRegistryEditorWindow();
+                toastManager_.showToast("Registry Editor", "Launched Sovereign Registry Editor (regedit.exe)", IconId::Registry);
             }
         });
 
@@ -289,6 +291,8 @@ uint32_t SurShellDesktop::openRunDialogWindow() {
                 openTextEditorWindow("");
             } else if (lowerCmd == "cmd" || lowerCmd == "terminal" || lowerCmd == "cmd.exe") {
                 openTerminalWindow("C:\\Users\\admin");
+            } else if (lowerCmd == "regedit" || lowerCmd == "regedit.exe" || lowerCmd == "registry") {
+                openRegistryEditorWindow();
             } else {
                 kernelBridge_.spawnProcess(cmd, "");
             }
@@ -307,6 +311,27 @@ uint32_t SurShellDesktop::openRunDialogWindow() {
 
         win->content = runDlg;
         runDlg->render(win->clientSurface);
+    }
+    return winId;
+}
+
+uint32_t SurShellDesktop::openRegistryEditorWindow(std::string initialKey) {
+    const uint32_t winId = windowManager_.createWindow("Registry Editor", Rect{220, 60, 920, 580}, "[REG]", IconId::Registry);
+    virtualDesktops_.assignWindowToDesktop(winId, virtualDesktops_.activeIndex());
+    auto* win = windowManager_.findWindow(winId);
+    if (win) {
+        auto regEdit = std::make_shared<RegistryEditorContent>(initialKey);
+
+        regEdit->setValueModifiedCallback([this](const std::string& keyPath, const std::string& valName) {
+            toastManager_.showToast("Registry Modified", keyPath + "\\" + valName, IconId::Registry, Color::fromHex(0x00FF9D));
+        });
+
+        regEdit->setCloseCallback([this, winId]() {
+            windowManager_.closeWindow(winId);
+        });
+
+        win->content = regEdit;
+        regEdit->render(win->clientSurface);
     }
     return winId;
 }
@@ -401,6 +426,7 @@ void SurShellDesktop::wireSubsystemCallbacks() {
         else if (targetApp == "settings") openSettingsWindow();
         else if (targetApp == "run") openRunDialogWindow();
         else if (targetApp == "editor") openTextEditorWindow(args);
+        else if (targetApp == "regedit" || targetApp == "registry") openRegistryEditorWindow();
         else kernelBridge_.spawnProcess(targetApp, args);
     });
 
@@ -546,6 +572,8 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openCalculatorWindow();
         } else if (app.executablePath == "C:\\Windows\\System32\\run.exe") {
             openRunDialogWindow();
+        } else if (app.executablePath == "C:\\Windows\\System32\\regedit.exe" || app.id == "regedit") {
+            openRegistryEditorWindow();
         } else {
             kernelBridge_.spawnProcess(app.executablePath, app.arguments);
             const uint32_t wid = windowManager_.createWindow(app.title, Rect{240, 180, 660, 420}, app.iconGlyph, IconRenderer::iconForAppId(app.id));

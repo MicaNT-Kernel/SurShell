@@ -19,6 +19,7 @@ SearchHub::SearchHub() {
         {"app_settings", "Settings",          "System personalization, themes & hardware info", SearchCategoryType::Apps, IconId::Settings,     "settings", ""},
         {"app_run",      "Run...",            "Dispatch system executables and file paths", SearchCategoryType::Apps, IconId::RunDialog,    "run",      ""},
         {"app_editor",   "Sovereign Editor",  "Pure C++ code editor with syntax highlighting", SearchCategoryType::Apps, IconId::FileCode,     "editor",   ""},
+        {"app_regedit",  "Registry Editor",   "MicaNT sovereign configuration tree and keys", SearchCategoryType::Apps, IconId::Registry,     "regedit",  ""},
 
         // Settings
         {"set_theme",    "Personalization",   "Themes, accent color palette & wallpaper style", SearchCategoryType::Settings, IconId::Personalization, "settings", "personalize"},
@@ -29,7 +30,8 @@ SearchHub::SearchHub() {
         // Documents & System Files
         {"doc_kernel",   "ntoskrnl.exe",      "C:\\Windows\\System32\\ntoskrnl.exe", SearchCategoryType::Documents, IconId::FileExecutable, "explorer", "C:\\Windows\\System32"},
         {"doc_surwin",   "surwin.sys",        "C:\\Windows\\System32\\drivers\\surwin.sys", SearchCategoryType::Documents, IconId::FileLibrary, "explorer", "C:\\Windows\\System32"},
-        {"doc_k32",      "kernel32.dll",      "C:\\Windows\\System32\\kernel32.dll", SearchCategoryType::Documents, IconId::FileLibrary, "explorer", "C:\\Windows\\System32"}
+        {"doc_k32",      "kernel32.dll",      "C:\\Windows\\System32\\kernel32.dll", SearchCategoryType::Documents, IconId::FileLibrary, "explorer", "C:\\Windows\\System32"},
+        {"doc_regedit",  "regedit.exe",       "C:\\Windows\\regedit.exe", SearchCategoryType::Documents, IconId::Registry, "regedit", ""}
     };
 
     updateFilter();

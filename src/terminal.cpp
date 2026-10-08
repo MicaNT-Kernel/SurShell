@@ -132,6 +132,7 @@ void TerminalContent::executeCommand(const std::string& rawCmd) {
         tab.buffer.push_back({"  SETTINGS   Launches Personalization & Control Center", Color::fromHex(0x00FF9D), false});
         tab.buffer.push_back({"  EXPLORER   Launches File Explorer", Color::fromHex(0x00FF9D), false});
         tab.buffer.push_back({"  TASKMGR    Launches Task Manager & Monitor", Color::fromHex(0x00FF9D), false});
+        tab.buffer.push_back({"  REGEDIT    Launches Sovereign Registry Editor", Color::fromHex(0x00FF9D), false});
         tab.buffer.push_back({"  EXIT       Closes current terminal tab", Color::fromHex(0xFF4D6D), false});
     } else if (lowerCmd == "ver") {
         tab.buffer.push_back({"MicaNT [Version 10.0.26100.1-SOVEREIGN] - Pure ISO C++23", Color::fromHex(0x00D4FF), true});
@@ -151,10 +152,11 @@ void TerminalContent::executeCommand(const std::string& rawCmd) {
         tab.buffer.push_back({"2026-10-08  08:15 AM           248,832 calc.exe", Color::fromHex(0xCBD5E1), false});
         tab.buffer.push_back({"2026-10-08  08:15 AM           512,000 taskmgr.exe", Color::fromHex(0xCBD5E1), false});
         tab.buffer.push_back({"2026-10-08  08:15 AM           892,100 explorer.exe", Color::fromHex(0xCBD5E1), false});
+        tab.buffer.push_back({"2026-10-08  08:15 AM           348,160 regedit.exe", Color::fromHex(0xCBD5E1), false});
         tab.buffer.push_back({"2026-10-08  08:15 AM         1,048,576 surshell.exe", Color::fromHex(0x00FF9D), false});
         tab.buffer.push_back({"2026-10-08  08:15 AM           786,432 surwin.sys", Color::fromHex(0x7186A4), false});
         tab.buffer.push_back({"2026-10-08  08:15 AM         2,097,152 ntoskrnl.exe", Color::fromHex(0x00D4FF), false});
-        tab.buffer.push_back({"               7 File(s)      5,709,508 bytes", Color::fromHex(0xCBD5E1), false});
+        tab.buffer.push_back({"               8 File(s)      6,057,668 bytes", Color::fromHex(0xCBD5E1), false});
         tab.buffer.push_back({"               2 Dir(s)   2,453.2 GB free", Color::fromHex(0xCBD5E1), false});
     } else if (lowerCmd == "tasklist") {
         tab.buffer.push_back({"Image Name                     PID Session Name        Mem Usage", Color::fromHex(0x00D4FF), true});
@@ -177,6 +179,9 @@ void TerminalContent::executeCommand(const std::string& rawCmd) {
     } else if (lowerCmd == "taskmgr" || lowerCmd == "taskmgr.exe") {
         tab.buffer.push_back({"Launching Task Manager...", Color::fromHex(0x00FF9D), false});
         if (onSpawnApp_) onSpawnApp_("taskmgr", "");
+    } else if (lowerCmd == "regedit" || lowerCmd == "regedit.exe") {
+        tab.buffer.push_back({"Launching Sovereign Registry Editor...", Color::fromHex(0x00FF9D), false});
+        if (onSpawnApp_) onSpawnApp_("regedit", "");
     } else if (lowerCmd == "exit") {
         closeTab(activeTabIndex_);
     } else {

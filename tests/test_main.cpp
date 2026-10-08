@@ -1445,6 +1445,92 @@ void Test_Lock_Screen_And_Authentication() {
     std::cout << "[TEST] Suite 24: Sovereign Lock Screen & Authentication Center PASSED.\n";
 }
 
+void Test_Registry_Editor_Application() {
+    std::cout << "[TEST] Running Suite 25: Sovereign Registry Editor (regedit.exe)...\n";
+
+    // 1. Initial State & Path
+    surshell::RegistryEditorContent regedit;
+    TEST_ASSERT(regedit.currentPath() == "Computer\\HKEY_CURRENT_USER\\Software\\MicaNT\\SurShell",
+                "Initial default key path matches MicaNT SurShell hive");
+    TEST_ASSERT(regedit.valueCount() >= 5, "SurShell hive has initial configuration values");
+
+    // 2. Value Query & Type Formatting
+    const auto& values = regedit.currentValues();
+    bool foundDefault = false;
+    bool foundAlignment = false;
+    for (const auto& v : values) {
+        if (v.name == "(Default)") {
+            foundDefault = true;
+            TEST_ASSERT(v.type == surshell::RegType::Sz, "Default value is REG_SZ");
+            TEST_ASSERT(v.stringData.find("MicaNT") != std::string::npos, "Default string content");
+        }
+        if (v.name == "TaskbarAlignment") {
+            foundAlignment = true;
+            TEST_ASSERT(v.type == surshell::RegType::Sz, "TaskbarAlignment is REG_SZ");
+            TEST_ASSERT(v.stringData == "Center", "TaskbarAlignment value is Center");
+        }
+    }
+    TEST_ASSERT(foundDefault, "Default value found");
+    TEST_ASSERT(foundAlignment, "TaskbarAlignment found");
+
+    // 3. Navigation to different hives
+    std::string pathNotified;
+    regedit.setPathChangedCallback([&](const std::string& p) {
+        pathNotified = p;
+    });
+
+    regedit.navigateToPath("Computer\\HKEY_LOCAL_MACHINE\\SOFTWARE\\MicaNT\\CurrentVersion");
+    TEST_ASSERT(regedit.currentPath() == "Computer\\HKEY_LOCAL_MACHINE\\SOFTWARE\\MicaNT\\CurrentVersion",
+                "Navigated to HKLM MicaNT CurrentVersion");
+    TEST_ASSERT(pathNotified == "Computer\\HKEY_LOCAL_MACHINE\\SOFTWARE\\MicaNT\\CurrentVersion",
+                "Path changed callback invoked");
+
+    const auto& hklmValues = regedit.currentValues();
+    bool foundBuild = false;
+    for (const auto& v : hklmValues) {
+        if (v.name == "CurrentBuild") {
+            foundBuild = true;
+            TEST_ASSERT(v.stringData == "26100", "Build number is 26100");
+        }
+    }
+    TEST_ASSERT(foundBuild, "CurrentBuild value found in HKLM");
+
+    // 4. Navigate back to Computer root
+    regedit.navigateToPath("Computer");
+    TEST_ASSERT(regedit.currentPath() == "Computer", "Navigated to Computer root");
+
+    // 5. Test Value Modification Callback and Up Navigation
+    regedit.navigateToPath("Computer\\HKEY_CURRENT_USER\\Control Panel\\Personalization");
+    const surshell::RegistryValue* dwordVal = nullptr;
+    for (const auto& v : regedit.currentValues()) {
+        if (v.name == "TransparencyEffects") {
+            dwordVal = &v;
+            break;
+        }
+    }
+    TEST_ASSERT(dwordVal != nullptr, "TransparencyEffects DWORD found");
+    TEST_ASSERT(dwordVal->dwordData == 1, "TransparencyEffects initially 1");
+
+    regedit.onKeyDown(surshell::KeyCode::Up);
+    TEST_ASSERT(regedit.currentPath() == "Computer\\HKEY_CURRENT_USER\\Control Panel", "Up arrow navigates to parent key");
+
+    // 6. Surface Rendering
+    surshell::Surface clientCanvas(860, 540, surshell::Color::fromHex(0x0C101A));
+    regedit.render(clientCanvas);
+    TEST_ASSERT(clientCanvas.width() == 860 && clientCanvas.height() == 540, "Registry Editor rendered onto surface");
+
+    // 7. Desktop Coordinator Integration
+    surshell::SurShellDesktop desktop(1920, 1080);
+    const uint32_t winId = desktop.openRegistryEditorWindow();
+    TEST_ASSERT(!desktop.windowManager().windows().empty(), "Registry Editor window created via coordinator");
+
+    const auto* win = desktop.windowManager().findWindow(winId);
+    TEST_ASSERT(win != nullptr, "Created window exists");
+    TEST_ASSERT(win->title == "Registry Editor", "Window title is Registry Editor");
+
+    std::cout << "[TEST] Suite 25: Sovereign Registry Editor (regedit.exe) PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -1475,9 +1561,10 @@ int main() {
     Test_Action_Center_And_Calendar();
     Test_Universal_Search_Hub();
     Test_Lock_Screen_And_Authentication();
+    Test_Registry_Editor_Application();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 24 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 25 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

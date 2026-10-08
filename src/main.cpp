@@ -368,6 +368,17 @@ int main(int argc, char* argv[]) {
         std::cout << "  -> Exported: surshell_terminal_tabs.bmp (1920x1080 32-bpp)\n";
     }
 
-    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (23 high-resolution scenes generated).\n";
+    // ------------------------------------------------------------------------
+    // Scene 22: Sovereign Registry Editor (regedit.exe)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 22: Sovereign Registry Editor (regedit.exe)...\n";
+    const uint32_t regWin = shell.openRegistryEditorWindow("Computer\\HKEY_LOCAL_MACHINE\\SOFTWARE\\MicaNT\\CurrentVersion");
+    shell.windowManager().setWindowActive(regWin);
+    shell.render();
+    if (shell.exportSnapshot("surshell_registry_editor.bmp")) {
+        std::cout << "  -> Exported: surshell_registry_editor.bmp (1920x1080 32-bpp)\n";
+    }
+
+    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (24 high-resolution scenes generated).\n";
     return 0;
 }

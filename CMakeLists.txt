@@ -31,6 +31,7 @@ set(SURSHELL_SOURCES
     src/action_center.cpp
     src/search_hub.cpp
     src/lock_screen.cpp
+    src/registry_editor.cpp
     src/surshell.cpp
 )
 
