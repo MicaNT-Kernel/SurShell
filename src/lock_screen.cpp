@@ -108,7 +108,7 @@ void LockScreen::renderAmbient(Surface& s, int32_t screenW, int32_t screenH, con
 }
 
 void LockScreen::renderLogonCard(Surface& s, int32_t screenW, int32_t screenH, const ThemePalette& palette) {
-    const int32_t cardW = 420;
+    const int32_t cardW = 460;
     const int32_t cardH = 340;
     const int32_t cardX = (screenW - cardW) / 2;
     const int32_t cardY = (screenH - cardH) / 2 - 30;
@@ -131,15 +131,20 @@ void LockScreen::renderLogonCard(Surface& s, int32_t screenW, int32_t screenH, c
     const int32_t nameX = cardX + (cardW - static_cast<int32_t>(username_.size() * 8)) / 2;
     s.drawString(nameX, avatarY + avatarSize + 18, username_, Color::fromHex(0xFFFFFF), 1);
 
-    // Subtitle
-    const std::string sub = "Sovereign Workstation | Dave Cutler Clean-Room Security";
+    // Subtitle (Fits with 118px margin on left and right)
+    const std::string sub = "MicaNT Sovereign Workstation";
     const int32_t subX = cardX + (cardW - static_cast<int32_t>(sub.size() * 8)) / 2;
     s.drawString(subX, avatarY + avatarSize + 36, sub, Color::fromHex(0x00FF9D), 1);
 
-    // PIN Input Box
-    const int32_t pinBoxW = 220;
+    // PIN Input Box & Unlock Button (Centered compound group)
+    const int32_t pinBoxW = 200;
     const int32_t pinBoxH = 34;
-    pinBoxBounds_ = Rect{cardX + (cardW - pinBoxW - 40) / 2, cardY + 210, pinBoxW, pinBoxH};
+    const int32_t btnW = 34;
+    const int32_t gap = 8;
+    const int32_t groupW = pinBoxW + gap + btnW;
+    const int32_t startX = cardX + (cardW - groupW) / 2;
+
+    pinBoxBounds_ = Rect{startX, cardY + 210, pinBoxW, pinBoxH};
     s.drawRoundedRect(pinBoxBounds_, 6, Color::fromHex(0x0A0F18), true);
     s.drawRoundedRect(pinBoxBounds_, 6, palette.accentColor, false);
 
@@ -152,13 +157,15 @@ void LockScreen::renderLogonCard(Surface& s, int32_t screenW, int32_t screenH, c
     s.fillRect(Rect{curX, pinBoxBounds_.y + 8, 2, 18}, palette.accentColor);
 
     // [➔] Unlock Arrow Button
-    btnUnlockBounds_ = Rect{pinBoxBounds_.right() + 8, pinBoxBounds_.y, 34, pinBoxH};
+    btnUnlockBounds_ = Rect{pinBoxBounds_.right() + gap, pinBoxBounds_.y, btnW, pinBoxH};
     s.drawRoundedRect(btnUnlockBounds_, 6, hoverUnlock_ ? Color::fromHex(0x1E293B) : Color::fromHex(0x101724), true);
     s.drawRoundedRect(btnUnlockBounds_, 6, hoverUnlock_ ? palette.accentColor : Color::fromHex(0x354765), false);
     s.drawString(btnUnlockBounds_.x + 12, btnUnlockBounds_.y + 9, "->", Color::fromHex(0x00D4FF), 1);
 
-    // Bottom prompt hint
-    s.drawString(cardX + 80, cardY + 265, "Press Enter or [->] to authenticate", palette.textSecondary, 1);
+    // Bottom prompt hint (Centered)
+    const std::string authHint = "Press Enter or [->] to authenticate";
+    const int32_t hintX = cardX + (cardW - static_cast<int32_t>(authHint.size() * 8)) / 2;
+    s.drawString(hintX, cardY + 265, authHint, palette.textSecondary, 1);
 }
 
 bool LockScreen::onMouseDown(Point pt, MouseButton button) {

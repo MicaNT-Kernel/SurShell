@@ -57,10 +57,17 @@ void SearchHub::updateFilter() {
         } else {
             std::string lowerTitle = item.title;
             std::string lowerSub = item.subtitle;
+            std::string lowerTarget = item.targetApp;
+            std::string lowerId = item.id;
             std::transform(lowerTitle.begin(), lowerTitle.end(), lowerTitle.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
             std::transform(lowerSub.begin(), lowerSub.end(), lowerSub.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            std::transform(lowerTarget.begin(), lowerTarget.end(), lowerTarget.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            std::transform(lowerId.begin(), lowerId.end(), lowerId.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
-            if (lowerTitle.find(lowerQ) != std::string::npos || lowerSub.find(lowerQ) != std::string::npos) {
+            if (lowerTitle.find(lowerQ) != std::string::npos ||
+                lowerSub.find(lowerQ) != std::string::npos ||
+                lowerTarget.find(lowerQ) != std::string::npos ||
+                lowerId.find(lowerQ) != std::string::npos) {
                 filteredItems_.push_back(item);
             }
         }
@@ -207,8 +214,24 @@ void SearchHub::render(Surface& s, int32_t screenW, int32_t screenH) {
                                ((sel.category == SearchCategoryType::Settings) ? "System Setting" : "Document");
         s.drawString(prevX + 10, prevY + 88, catBadge, Color::fromHex(0x00FF9D), 1);
 
-        // Description box
-        s.drawString(prevX + 10, prevY + 112, sel.subtitle, palette.textSecondary, 1);
+        // Description box (wrapped cleanly across up to 2 lines to fit within prevW)
+        std::string line1 = sel.subtitle;
+        std::string line2;
+        if (line1.size() > 28) {
+            size_t splitPos = line1.rfind(' ', 28);
+            if (splitPos != std::string::npos && splitPos > 10) {
+                line2 = line1.substr(splitPos + 1);
+                line1 = line1.substr(0, splitPos);
+            } else {
+                line2 = line1.substr(28);
+                line1 = line1.substr(0, 28);
+            }
+            if (line2.size() > 28) line2 = line2.substr(0, 25) + "...";
+        }
+        s.drawString(prevX + 10, prevY + 110, line1, palette.textSecondary, 1);
+        if (!line2.empty()) {
+            s.drawString(prevX + 10, prevY + 126, line2, palette.textSecondary, 1);
+        }
 
         // Action Buttons
         const int32_t btnH = 30;
