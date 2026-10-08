@@ -41,6 +41,12 @@ struct WindowFrame {
     [[nodiscard]] HitTestResult hitTest(Point pt) const noexcept;
 };
 
+struct SnapZone {
+    Rect bounds{};
+    WindowState targetState{WindowState::Normal};
+    bool isHovered{false};
+};
+
 class WindowManager {
 public:
     using WindowStateChangedCallback = std::function<void(uint32_t windowId, WindowState state, bool active)>;
@@ -62,6 +68,10 @@ public:
     [[nodiscard]] const WindowFrame* findWindow(uint32_t windowId) const noexcept;
     [[nodiscard]] const std::vector<std::unique_ptr<WindowFrame>>& windows() const noexcept { return windows_; }
     [[nodiscard]] std::optional<uint32_t> activeWindowId() const noexcept { return activeWindowId_; }
+
+    [[nodiscard]] bool isSnapFlyoutVisible() const noexcept { return isSnapFlyoutVisible_; }
+    void showSnapFlyout(uint32_t windowId, Point triggerPt);
+    void hideSnapFlyout() noexcept;
 
     void setCallbacks(WindowStateChangedCallback stateCb, WindowClosedCallback closeCb) {
         stateChangedCb_ = std::move(stateCb);
@@ -86,6 +96,12 @@ private:
 
     std::vector<std::unique_ptr<WindowFrame>> windows_{}; // In Z-order (back to front)
 
+    // Modern Snap Layout Assistant
+    bool isSnapFlyoutVisible_{false};
+    uint32_t snapFlyoutWindowId_{0};
+    Rect snapFlyoutBounds_{};
+    std::vector<SnapZone> snapZones_{};
+
     // Interactive Drag / Resize tracking
     bool isDragging_{false};
     bool isResizing_{false};
@@ -99,6 +115,8 @@ private:
 
     [[nodiscard]] Rect availableWorkspace() const noexcept;
     void bringToFront(uint32_t windowId);
+    void buildSnapZones(Point anchor);
+    void renderSnapFlyout(Surface& surface);
 };
 
 } // namespace surshell

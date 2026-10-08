@@ -40,11 +40,10 @@ int main(int argc, char* argv[]) {
     }
 
     // ------------------------------------------------------------------------
-    // Scene 2: Start Menu Open with Search Query
+    // Scene 2: Modern Centered Start Prism Hub with Tactile App Grid
     // ------------------------------------------------------------------------
-    std::cout << "[SurShell] Rendering Scene 2: Start Menu with Search Query...\n";
+    std::cout << "[SurShell] Rendering Scene 2: Floating Start Prism Hub with Application Grid...\n";
     shell.startMenu().open();
-    shell.startMenu().setSearchQuery("sentinel");
     shell.render();
     if (shell.exportSnapshot("surshell_start_menu_active.bmp")) {
         std::cout << "  -> Exported: surshell_start_menu_active.bmp (1920x1080 32-bpp)\n";
@@ -52,13 +51,14 @@ int main(int argc, char* argv[]) {
     shell.startMenu().close();
 
     // ------------------------------------------------------------------------
-    // Scene 3: Window Management & Aero Snap Test
+    // Scene 3: Modern 67/33 Priority Snap Layout & Assistant HUD
     // ------------------------------------------------------------------------
-    std::cout << "[SurShell] Rendering Scene 3: Aero Snap Multi-Tasking Layout...\n";
+    std::cout << "[SurShell] Rendering Scene 3: Modern 67/33 Priority Snap Layout & Assistant HUD...\n";
     const auto& wins = shell.windowManager().windows();
     if (wins.size() >= 2) {
-        shell.windowManager().snapWindow(wins[0]->id, surshell::WindowState::SnappedLeft);
-        shell.windowManager().snapWindow(wins[1]->id, surshell::WindowState::SnappedRight);
+        shell.windowManager().snapWindow(wins[0]->id, surshell::WindowState::SnappedPriorityLeft);
+        shell.windowManager().snapWindow(wins[1]->id, surshell::WindowState::SnappedSidebarRight);
+        shell.windowManager().showSnapFlyout(wins[0]->id, surshell::Point{wins[0]->maxButtonBounds().center().x, wins[0]->maxButtonBounds().bottom() + 4});
     }
     shell.render();
     if (shell.exportSnapshot("surshell_aero_snap.bmp")) {

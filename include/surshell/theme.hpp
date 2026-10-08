@@ -19,19 +19,24 @@ enum class ThemeMode {
 };
 
 struct ThemeMetrics {
-    int32_t taskbarHeight{40};
-    int32_t taskbarIconSize{24};
+    int32_t taskbarHeight{48};
+    int32_t taskbarIconSize{26};
+    int32_t taskbarFloatingMargin{10};
+    int32_t taskbarIslandRadius{12};
+    TaskbarStyle taskbarStyle{TaskbarStyle::FloatingIsland};
+    TaskbarAlignment taskbarAlignment{TaskbarAlignment::Center};
     int32_t captionHeight{32};
     int32_t windowBorderWidth{1};
     int32_t windowCornerRadius{8};
     int32_t buttonCornerRadius{6};
-    int32_t startMenuWidth{360};
-    int32_t startMenuHeight{520};
+    int32_t startMenuWidth{520};
+    int32_t startMenuHeight{580};
+    int32_t startMenuFloatingMargin{12};
     int32_t desktopIconSize{48};
     int32_t desktopGridSpacingX{84};
     int32_t desktopGridSpacingY{96};
-    int32_t shadowRadius{12};
-    float shadowOpacity{0.45f};
+    int32_t shadowRadius{14};
+    float shadowOpacity{0.50f};
 };
 
 struct ThemePalette {
@@ -40,19 +45,37 @@ struct ThemePalette {
     Color desktopBgBottom{Color::fromHex(0x06090F)};
     Color gridLineColor{Color::fromRgba(28, 38, 56, 40)};
 
-    // Taskbar & Surfaces
+    // Taskbar & Floating Islands
     Color taskbarBg{Color::fromRgba(14, 20, 32, 235)};
     Color taskbarBorderTop{Color::fromRgba(45, 62, 92, 180)};
+    Color taskbarIslandBg{Color::fromRgba(18, 25, 40, 235)};
+    Color taskbarIslandBorder{Color::fromRgba(56, 80, 120, 180)};
     Color taskbarItemBg{Color::fromRgba(24, 34, 52, 140)};
-    Color taskbarItemHover{Color::fromRgba(38, 54, 82, 180)};
-    Color taskbarItemActive{Color::fromRgba(48, 70, 106, 220)};
+    Color taskbarItemHover{Color::fromRgba(42, 60, 92, 200)};
+    Color taskbarItemActive{Color::fromRgba(52, 76, 116, 230)};
     Color taskbarItemIndicator{Color::fromHex(0x00D4FF)}; // Cutler Cyan
 
-    // Start Menu
+    // Prism Emblem & Accents
+    Color prismAccent{Color::fromHex(0x00D4FF)};
+    Color prismFacetDark{Color::fromHex(0x006699)};
+    Color prismFacetLight{Color::fromHex(0x80EAFF)};
+
+    // Start Prism Hub
     Color startMenuBg{Color::fromRgba(16, 22, 36, 245)};
     Color startMenuBorder{Color::fromRgba(48, 68, 104, 200)};
     Color startMenuSearchBg{Color::fromRgba(24, 34, 54, 220)};
     Color startMenuSearchBorder{Color::fromRgba(60, 84, 128, 180)};
+    Color startCardBg{Color::fromRgba(25, 36, 56, 160)};
+    Color startCardHover{Color::fromRgba(40, 58, 90, 220)};
+    Color startCardBorder{Color::fromRgba(50, 72, 110, 140)};
+
+    // Snap Layout Assistant HUD
+    Color snapFlyoutBg{Color::fromRgba(16, 24, 38, 250)};
+    Color snapFlyoutBorder{Color::fromRgba(64, 90, 136, 220)};
+    Color snapZoneNormal{Color::fromRgba(32, 45, 68, 180)};
+    Color snapZoneHover{Color::fromRgba(0, 212, 255, 90)};
+    Color snapZoneBorder{Color::fromRgba(50, 70, 105, 180)};
+    Color snapZoneBorderHover{Color::fromHex(0x00D4FF)};
 
     // Window Frames & Chrome
     Color windowFrameActiveBg{Color::fromRgba(18, 25, 40, 240)};

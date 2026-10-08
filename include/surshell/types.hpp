@@ -125,6 +125,9 @@ struct Rect {
     [[nodiscard]] constexpr int32_t top() const noexcept { return y; }
     [[nodiscard]] constexpr int32_t right() const noexcept { return x + width; }
     [[nodiscard]] constexpr int32_t bottom() const noexcept { return y + height; }
+    [[nodiscard]] constexpr int32_t centerX() const noexcept { return x + width / 2; }
+    [[nodiscard]] constexpr int32_t centerY() const noexcept { return y + height / 2; }
+    [[nodiscard]] constexpr Point center() const noexcept { return Point{x + width / 2, y + height / 2}; }
 
     [[nodiscard]] constexpr bool empty() const noexcept {
         return width <= 0 || height <= 0;
@@ -195,7 +198,8 @@ enum class HitTestResult {
     BorderBottomRight,
     TaskbarStartButton,
     TaskbarTaskItem,
-    TaskbarTrayItem
+    TaskbarTrayItem,
+    SnapLayoutZone
 };
 
 enum class WindowState {
@@ -203,7 +207,20 @@ enum class WindowState {
     Minimized,
     Maximized,
     SnappedLeft,
-    SnappedRight
+    SnappedRight,
+    SnappedPriorityLeft,   // 67% width
+    SnappedSidebarRight,   // 33% width
+    SnappedTopLeft,        // 25% top-left quadrant
+    SnappedTopRight,       // 25% top-right quadrant
+    SnappedBottomLeft,     // 25% bottom-left quadrant
+    SnappedBottomRight     // 25% bottom-right quadrant
+};
+
+enum class SnapLayoutPreset {
+    None = 0,
+    Split50_50,
+    SplitPriority67_33,
+    Quad4Grid
 };
 
 enum class TaskbarPosition {
@@ -211,6 +228,16 @@ enum class TaskbarPosition {
     Top,
     Left,
     Right
+};
+
+enum class TaskbarAlignment {
+    Center = 0,
+    Left
+};
+
+enum class TaskbarStyle {
+    FloatingIsland = 0,
+    EdgeToEdge
 };
 
 enum class AppCategory {
@@ -225,6 +252,7 @@ enum class AppCategory {
 struct ShellAppEntry {
     std::string id;
     std::string title;
+    std::string subtitle;
     std::string executablePath;
     std::string arguments;
     std::string iconGlyph;

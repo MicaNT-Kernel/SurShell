@@ -39,6 +39,16 @@ public:
     void setStartButtonClickCallback(StartButtonClickCallback cb) { startClickCallback_ = std::move(cb); }
     void setTaskItemClickCallback(TaskItemClickCallback cb) { taskClickCallback_ = std::move(cb); }
 
+    void setStyle(TaskbarStyle style) noexcept { style_ = style; recalculateLayout(); }
+    [[nodiscard]] TaskbarStyle style() const noexcept { return style_; }
+
+    void setAlignment(TaskbarAlignment alignment) noexcept { alignment_ = alignment; recalculateLayout(); }
+    [[nodiscard]] TaskbarAlignment alignment() const noexcept { return alignment_; }
+
+    [[nodiscard]] Rect appIslandBounds() const noexcept { return appIslandBounds_; }
+    [[nodiscard]] Rect trayIslandBounds() const noexcept { return trayIslandBounds_; }
+    [[nodiscard]] Rect startButtonBounds() const noexcept { return startButtonBounds_; }
+
     void addOrUpdateTask(uint32_t windowId, std::string title, std::string glyph, bool active, bool minimized);
     void removeTask(uint32_t windowId);
     void setActiveTask(uint32_t windowId);
@@ -58,9 +68,13 @@ public:
 private:
     uint32_t screenWidth_{1920};
     uint32_t screenHeight_{1080};
-    int32_t height_{40};
+    int32_t height_{48};
+    TaskbarStyle style_{TaskbarStyle::FloatingIsland};
+    TaskbarAlignment alignment_{TaskbarAlignment::Center};
     SystemTray tray_{};
 
+    Rect appIslandBounds_{};
+    Rect trayIslandBounds_{};
     Rect startButtonBounds_{};
     bool isStartButtonHovered_{false};
     int32_t hoveredTaskWindowId_{-1};

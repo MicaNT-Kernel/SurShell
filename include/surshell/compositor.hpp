@@ -46,6 +46,16 @@ public:
     void blit(const Surface& src, Rect srcRect, Point dstPos, uint8_t alpha = 255) noexcept;
     void drawString(int32_t x, int32_t y, std::string_view text, Color color, int32_t scale = 1) noexcept;
 
+    // Procedural Clean-Room Vector Iconography (Zero Copyright/Proprietary Assets)
+    void drawPrismLogo(Point center, int32_t size, Color accent, Color facetDark, Color facetLight) noexcept;
+    void drawVectorFolder(Rect bounds, Color folderCol, Color tabCol) noexcept;
+    void drawVectorTerminal(Rect bounds, Color bgCol, Color promptCol) noexcept;
+    void drawVectorTaskMgr(Rect bounds, Color bgCol, Color pulseCol) noexcept;
+    void drawVectorShield(Rect bounds, Color shieldCol, Color accentCol) noexcept;
+    void drawVectorMesh(Rect bounds, Color nodeCol, Color linkCol) noexcept;
+    void drawVectorGear(Rect bounds, Color gearCol) noexcept;
+    void drawVectorPrismIcon(Rect bounds, Color accentCol) noexcept;
+
     // Export surface to standard 32-bit BMP file
     bool exportBmp(const std::string& filepath) const;
 

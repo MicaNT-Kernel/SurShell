@@ -369,4 +369,167 @@ bool Surface::exportBmp(const std::string& filepath) const {
     return true;
 }
 
+void Surface::drawPrismLogo(Point center, int32_t size, Color accent, Color facetDark, Color facetLight) noexcept {
+    const int32_t r = size;
+    const int32_t cx = center.x;
+    const int32_t cy = center.y;
+
+    // Outer bounding fill
+    for (int32_t dy = -r; dy <= r; ++dy) {
+        const int32_t y = cy + dy;
+        const int32_t span = static_cast<int32_t>(static_cast<float>(r - std::abs(dy)) * 0.95f);
+        for (int32_t dx = -span; dx <= span; ++dx) {
+            const int32_t x = cx + dx;
+            // Shading facets based on quadrant
+            if (dy < 0 && std::abs(dx) < -dy) {
+                putPixel(x, y, facetLight); // Top facet
+            } else if (dx < 0) {
+                putPixel(x, y, accent);     // Left facet
+            } else {
+                putPixel(x, y, facetDark);  // Right facet
+            }
+        }
+    }
+
+    // Facet seam lines in vibrant highlight
+    for (int32_t i = -r; i <= r; ++i) {
+        putPixel(cx, cy + i, Color::fromRgba(255, 255, 255, 180));
+    }
+    for (int32_t i = 0; i <= r; ++i) {
+        putPixel(cx - i, cy + (i / 2), Color::fromRgba(255, 255, 255, 140));
+        putPixel(cx + i, cy + (i / 2), Color::fromRgba(255, 255, 255, 140));
+    }
+    // Center crystal apex
+    putPixel(cx, cy, Color::fromRgb(255, 255, 255));
+    putPixel(cx - 1, cy, Color::fromRgb(255, 255, 255));
+    putPixel(cx + 1, cy, Color::fromRgb(255, 255, 255));
+    putPixel(cx, cy - 1, Color::fromRgb(255, 255, 255));
+    putPixel(cx, cy + 1, Color::fromRgb(255, 255, 255));
+}
+
+void Surface::drawVectorFolder(Rect bounds, Color folderCol, Color tabCol) noexcept {
+    if (bounds.empty()) return;
+    const int32_t tabW = bounds.width * 2 / 5;
+    const int32_t tabH = bounds.height / 3;
+
+    // Tab
+    drawRoundedRect(Rect{bounds.x, bounds.y, tabW, tabH + 2}, 3, tabCol, true);
+    // Body
+    drawRoundedRect(Rect{bounds.x, bounds.y + tabH - 2, bounds.width, bounds.height - tabH + 2}, 4, folderCol, true);
+    // Front tab gradient flap
+    drawRoundedRect(Rect{bounds.x + 2, bounds.y + tabH + 4, bounds.width - 4, bounds.height - tabH - 6}, 3, tabCol.withAlpha(160), true);
+    // Subtle horizontal folder seam
+    fillRect(Rect{bounds.x + 4, bounds.y + tabH + 2, bounds.width - 8, 1}, Color::fromRgba(255, 255, 255, 120));
+}
+
+void Surface::drawVectorTerminal(Rect bounds, Color bgCol, Color promptCol) noexcept {
+    if (bounds.empty()) return;
+    drawRoundedRect(bounds, 4, bgCol, true);
+    drawRoundedRect(bounds, 4, promptCol.withAlpha(120), false);
+
+    // Terminal header bar
+    fillRect(Rect{bounds.x + 1, bounds.y + 1, bounds.width - 2, 5}, promptCol.withAlpha(60));
+
+    // Terminal prompt ">_"
+    drawString(bounds.x + 4, bounds.y + 7, ">_", promptCol, 1);
+}
+
+void Surface::drawVectorTaskMgr(Rect bounds, Color bgCol, Color pulseCol) noexcept {
+    if (bounds.empty()) return;
+    drawRoundedRect(bounds, 4, bgCol, true);
+    drawRoundedRect(bounds, 4, pulseCol.withAlpha(100), false);
+
+    // Grid lines
+    const int32_t midY = bounds.y + bounds.height / 2;
+    for (int32_t gx = bounds.x + 4; gx < bounds.right() - 4; gx += 6) {
+        putPixel(gx, midY, Color::fromRgba(255, 255, 255, 40));
+    }
+
+    // EKG waveform pulse
+    const int32_t x0 = bounds.x + 4;
+    const int32_t w = bounds.width - 8;
+    for (int32_t i = 0; i < w; ++i) {
+        int32_t py = midY;
+        if (i == w / 3) py -= 6;
+        else if (i == w / 3 + 2) py += 8;
+        else if (i == w / 3 + 4) py -= 10;
+        else if (i == w / 3 + 6) py += 4;
+        putPixel(x0 + i, py, pulseCol);
+        putPixel(x0 + i, py + 1, pulseCol.withAlpha(180));
+    }
+}
+
+void Surface::drawVectorShield(Rect bounds, Color shieldCol, Color accentCol) noexcept {
+    if (bounds.empty()) return;
+    const int32_t cx = bounds.x + bounds.width / 2;
+    const int32_t top = bounds.y + 2;
+    const int32_t bottom = bounds.bottom() - 2;
+    const int32_t h = bottom - top;
+
+    for (int32_t y = top; y <= bottom; ++y) {
+        const float t = static_cast<float>(y - top) / static_cast<float>(std::max(1, h));
+        const int32_t halfW = static_cast<int32_t>(static_cast<float>(bounds.width / 2 - 2) * (1.0f - t * t * 0.7f));
+        for (int32_t x = cx - halfW; x <= cx + halfW; ++x) {
+            putPixel(x, y, shieldCol);
+        }
+    }
+
+    // Shield border
+    drawRect(Rect{bounds.x + 2, top, bounds.width - 4, h / 2}, accentCol);
+    // Center keyhole
+    fillRect(Rect{cx - 1, top + h / 3, 3, 5}, accentCol);
+    putPixel(cx, top + h / 3 - 2, accentCol);
+}
+
+void Surface::drawVectorMesh(Rect bounds, Color nodeCol, Color linkCol) noexcept {
+    if (bounds.empty()) return;
+    const int32_t cx = bounds.x + bounds.width / 2;
+    const int32_t cy = bounds.y + bounds.height / 2;
+    const int32_t n1x = cx, n1y = bounds.y + 4;
+    const int32_t n2x = bounds.x + 4, n2y = bounds.bottom() - 5;
+    const int32_t n3x = bounds.right() - 5, n3y = bounds.bottom() - 5;
+
+    // Links between nodes
+    for (int32_t i = 0; i <= 10; ++i) {
+        const float t = static_cast<float>(i) / 10.0f;
+        putPixel(static_cast<int32_t>(n1x + (n2x - n1x) * t), static_cast<int32_t>(n1y + (n2y - n1y) * t), linkCol);
+        putPixel(static_cast<int32_t>(n1x + (n3x - n1x) * t), static_cast<int32_t>(n1y + (n3y - n1y) * t), linkCol);
+        putPixel(static_cast<int32_t>(n2x + (n3x - n2x) * t), static_cast<int32_t>(n2y + (n3y - n2y) * t), linkCol);
+    }
+
+    // Nodes (3-pixel squares)
+    auto drawNode = [this, nodeCol](int32_t nx, int32_t ny) {
+        fillRect(Rect{nx - 1, ny - 1, 3, 3}, nodeCol);
+    };
+    drawNode(n1x, n1y);
+    drawNode(n2x, n2y);
+    drawNode(n3x, n3y);
+    // Center hub
+    drawNode(cx, cy);
+}
+
+void Surface::drawVectorGear(Rect bounds, Color gearCol) noexcept {
+    if (bounds.empty()) return;
+    const int32_t cx = bounds.x + bounds.width / 2;
+    const int32_t cy = bounds.y + bounds.height / 2;
+    const int32_t r = std::min(bounds.width, bounds.height) / 2 - 2;
+
+    // Body ring
+    drawRoundedRect(Rect{cx - r, cy - r, r * 2, r * 2}, r, gearCol, true);
+    // 4 cardinal teeth
+    fillRect(Rect{cx - 2, cy - r - 2, 5, 3}, gearCol);
+    fillRect(Rect{cx - 2, cy + r - 1, 5, 3}, gearCol);
+    fillRect(Rect{cx - r - 2, cy - 2, 3, 5}, gearCol);
+    fillRect(Rect{cx + r - 1, cy - 2, 3, 5}, gearCol);
+    // Center hole
+    drawRoundedRect(Rect{cx - r / 2, cy - r / 2, r, r}, r / 2, Color::fromRgba(16, 22, 34, 255), true);
+}
+
+void Surface::drawVectorPrismIcon(Rect bounds, Color accentCol) noexcept {
+    if (bounds.empty()) return;
+    const int32_t cx = bounds.x + bounds.width / 2;
+    const int32_t cy = bounds.y + bounds.height / 2;
+    drawPrismLogo(Point{cx, cy}, std::min(bounds.width, bounds.height) / 2 - 2, accentCol, Color::fromHex(0x006699), Color::fromHex(0x80EAFF));
+}
+
 } // namespace surshell

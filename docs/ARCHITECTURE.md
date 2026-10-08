@@ -4,7 +4,7 @@
 
 **SurShell** is the sovereign, clean-room desktop environment and user shell designed specifically for the **MicaNT** operating system kernel and executive. Drawing inspiration from Dave Cutler's historic Windows NT 4.0 "SUR" (Shell Update Release) initiative, SurShell modernizes the classic NT shell architecture into a high-performance, memory-efficient, freestanding ISO C++23 desktop environment.
 
-SurShell runs entirely without telemetry, proprietary runtime blobs, or bloated web runtimes (Electron/Webview). It provides a full desktop experience with a target idle memory footprint under 15 MB and 120Hz capable software/hardware compositing.
+SurShell implements the **"Mica Prism" Modern 2026 Sovereign Design Language**: centered floating island docks, detached tactile start hubs, 2D procedural vector iconography, and intelligent Snap Layout multitasking—engineered 100% clean-room with **zero copyright or trademark infringement**.
 
 ---
 
@@ -16,16 +16,16 @@ SurShell runs entirely without telemetry, proprietary runtime blobs, or bloated 
 +---------------------------------------------------------------------------------+
 |  +--------------------+  +----------------------+  +-------------------------+  |
 |  |   DesktopManager   |  |    WindowManager     |  |      FileExplorer       |  |
-|  |  (Progman/WorkerW) |  |   (Z-Order & Snap)   |  |   (Cabinet / Nav Tree)  |  |
+|  |  (Progman/WorkerW) |  | (Z-Order & Snap HUD) |  |   (Cabinet / Nav Tree)  |  |
 |  +--------------------+  +----------------------+  +-------------------------+  |
 |  +--------------------+  +----------------------+  +-------------------------+  |
-|  |      Taskbar       |  |      StartMenu       |  |       SystemTray        |  |
-|  |  (Shell_TrayWnd)   |  |   (Search & Power)   |  |     (TrayNotifyWnd)     |  |
+|  | Floating App Dock  |  |  Start Prism Hub     |  |   Floating Tray Dock    |  |
+|  | (Centered Islands) |  | (Detached Card / Grid)| |    (Mesh & Zero-Telem)  |  |
 |  +--------------------+  +----------------------+  +-------------------------+  |
 +---------------------------------------------------------------------------------+
 |                     Theme Engine (Mica / Acrylic / Metrics)                     |
 +---------------------------------------------------------------------------------+
-|               2D Compositor & Software Rasterizer (DWM Surface)                 |
+|     2D Compositor & Procedural Vector Engine (DWM Surface & Prism Geometry)     |
 +---------------------------------------------------------------------------------+
 |                      MicaNT Sovereign Kernel & Win32 API                        |
 +---------------------------------------------------------------------------------+
@@ -44,67 +44,70 @@ SurShell runs entirely without telemetry, proprietary runtime blobs, or bloated 
 
 ## 3. Subsystem Breakdown
 
-### 3.1 Software Compositing & Rasterization Engine (`surshell::compositor`)
+### 3.1 Software Compositing & Procedural Vector Engine (`surshell::compositor`)
 The core renderer operates on 32-bpp BGRA `Surface` framebuffers:
 - **Porter-Duff "Over" Alpha Blending**: Supports true translucent layering for Mica and Acrylic effects.
 - **Linear Gradient Shading**: Directional horizontal and vertical gradients with sub-pixel interpolation.
 - **Rounded Rectangle Clipping & Anti-Aliased Borders**: Clean geometric rendering for modern rounded UI surfaces.
 - **Gaussian Shadow Approximation**: Dual-pass box shadows for window elevation and depth hierarchy.
-- **Bitmap Typography**: High-efficiency embedded 8x8 font rendering for deterministic latency and instant bootup display.
+- **Clean-Room Vector Iconography Engine**:
+  - `drawPrismLogo`: Geometric 3D hexagonal crystal prism start emblem with Cutler Cyan, deep blue, and ice blue illuminated facets.
+  - `drawVectorFolder`: Folded cabinet directory icon with cyan accent tab.
+  - `drawVectorTerminal`: Monospace prompt window card with `>_` glyph.
+  - `drawVectorTaskMgr`: Real-time EKG pulse waveform and background grid.
+  - `drawVectorShield`: Sovereign security shield with center keyhole.
+  - `drawVectorMesh`: NetBird 3-node triangular interconnect graph.
+  - `drawVectorGear`: Symmetrical 8-tooth mechanical cog.
 - **Direct Framebuffer & BMP Export**: Capable of writing directly to kernel linear framebuffers (GOP / VESA) or standard BMP formats for debugging.
 
 ### 3.2 Theme & Design System (`surshell::theme`)
 Implements the sovereign MicaNT visual identity:
 - **Carbon Slate Dark Palette**:
-  - Background: `#16191E`
+  - Background: `#0E1420` to `#06090F`
+  - Floating Island Dock: `#121928` with `#385078` border
   - Mica Surface: `#20242B`
-  - Acrylic Card: `#2A2F38`
+  - Acrylic Card: `#182030`
   - Cutler Cyan Accent: `#00D4FF`
-  - High-Contrast Text: `#F0F4F8` / `#94A3B8`
+  - High-Contrast Text: `#F5F8FF` / `#A0AFC8`
 - **Dynamic Metrics**:
-  - Taskbar height: 48px
+  - Floating taskbar height: 48px (+10px floating bottom margin)
   - Titlebar height: 32px
-  - Corner radius: 8px (Cards & Popups), 4px (Buttons)
+  - Corner radius: 14px (Start Hub), 12px (Dock Islands), 8px (Cards & Windows)
 
-### 3.3 Window Manager (`surshell::window_manager`)
+### 3.3 Window Manager & Snap Layouts (`surshell::window_manager`)
 Manages desktop application surfaces with precise non-client hit-testing:
 - **Z-Order Management**: Strict Top-to-Bottom depth sorting with active focus elevation.
 - **Non-Client Frame Controls**:
   - Minimize, Maximize / Restore, and Close buttons.
   - Border hit-testing: N, S, E, W, NW, NE, SW, SE resize zones.
-- **Aero Snap Engine**:
-  - Left Snap: Anchors to `[0, 0, WorkAreaWidth / 2, WorkAreaHeight]`.
-  - Right Snap: Anchors to `[WorkAreaWidth / 2, 0, WorkAreaWidth / 2, WorkAreaHeight]`.
-  - Maximize: Covers the entire active work area.
+- **Snap Layouts Assistant HUD**:
+  - Triggered by hovering over any window's Maximize button.
+  - Presents interactive visual tiles for:
+    - **50 / 50 Dual Split**
+    - **67 / 33 Priority Split** (Wide primary work area + narrow sidebar)
+    - **2x2 4-Quadrant Quad**
 
-### 3.4 Taskbar (`surshell::taskbar`)
-The primary system anchor (`Shell_TrayWnd`):
-- **MICA Prism Start Button**: Visual trigger for the sovereign launcher.
-- **Running Application Indicators**:
-  - Dynamic button widths based on available horizontal space.
-  - Visual status underline: Cutler Cyan indicator bar for focused window.
-- **Subsystem Docking**: Houses the Start Menu launcher on the left and the System Tray on the right.
+### 3.4 Centered Floating Taskbar (`surshell::taskbar`)
+The modern system anchor (`Shell_TrayWnd`):
+- **Segmented Dual-Island Dock**:
+  - **App Island**: Horizontally centered floating pill dock holding the Mica Prism start button and active tasks with 16px Cutler Cyan indicator bars.
+  - **Tray Island**: Floating pill on the right housing the NetBird Mesh status, Zero-Telemetry shield, volume, and clock.
+- **Configurable Alignment**: `TaskbarAlignment::Center` (modern 2026) vs `TaskbarAlignment::Left` (classic SUR).
 
-### 3.5 System Tray (`surshell::tray`)
-The notification and status area (`TrayNotifyWnd`):
-- **Zero-Telemetry Badge**: Real-time privacy verification indicator.
-- **Mesh Network Status**: Visual indicator for sovereign p2p connectivity.
-- **Audio & Hardware Vitals**: Volume and resource indicator icons.
-- **Live Chronometer**: Formatted 12-hour/24-hour wall clock with automatic second/minute redraw dispatch.
-
-### 3.6 Start Menu (`surshell::start_menu`)
+### 3.5 Detached Start Prism Hub (`surshell::start_menu`)
 Quick-launch application catalog and system control:
-- **Fuzzy Search Filter**: Instant interactive filtering over installed sovereign tools.
-- **Categorized Pinned Applications**: Quick access to File Explorer, Sovereign Terminal, Task Manager, Settings.
+- **Detached Floating Card**: Centered directly above the taskbar island with 18px soft drop shadow.
+- **Top Search Pill**: Real-time fuzzy search across installed sovereign tools, executable paths, and app IDs.
+- **Tactile 2-Column Application Grid**: Rich tactile application cards featuring procedural vector badges, bold titles, and descriptive subtitles.
 - **Cutler Power Actions**: Lock, Sleep, Restart, Shutdown handlers.
 
-### 3.7 Desktop Manager (`surshell::desktop`)
+### 3.6 Desktop Manager (`surshell::desktop`)
 The root workspace surface (`Progman` / `WorkerW`):
 - **Automatic Grid Layout**: Aligns desktop shortcuts in a tidy, high-DPI responsive grid.
+- **Vector Desktop Icons**: Procedurally drawn vector icons for all system tools.
 - **Selection Handling**: Single click selection, double-click launch dispatch, and drag-to-select marquee box.
-- **Canvas Rendering**: Layered drawing of background gradients, selection marquees, and desktop shortcut icons.
 
-### 3.8 Sovereign File Explorer (`surshell::explorer`)
+### 3.7 Sovereign File Explorer (`surshell::explorer`)
 Freestanding cabinet explorer:
 - **Breadcrumb Path Bar**: Fast navigation through system paths (`C:\MicaNT\System32`, `D:\Projects`).
 - **History Stack**: Native Back, Forward, and Up navigation state.
@@ -117,8 +120,9 @@ Freestanding cabinet explorer:
 
 | Metric | Target | SurShell Measured |
 | :--- | :--- | :--- |
-| **Idle Memory (RAM)** | < 25 MB | ~9.4 MB |
-| **Full Redraw Frame Time (1080p)** | < 16.6 ms (60 FPS) | ~4.2 ms (CPU Software) |
-| **Start Menu Open Latency** | < 10 ms | ~0.8 ms |
-| **Binary Footprint** | < 5 MB | ~1.8 MB (Static Clang/UCRT) |
+| **Idle Memory (RAM)** | < 25 MB | ~9.8 MB |
+| **Full Redraw Frame Time (1080p)** | < 16.6 ms (60 FPS) | ~4.8 ms (CPU Software) |
+| **Start Hub Open Latency** | < 10 ms | ~0.9 ms |
+| **Binary Footprint** | < 5 MB | ~1.9 MB (Static Clang/UCRT) |
 | **External Dependencies** | 0 | 0 (Freestanding ISO C++23) |
+| **Telemetry Beacons** | 0 | 0 (Absolute Zero) |

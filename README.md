@@ -4,8 +4,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Telemetry: 0%](https://img.shields.io/badge/Telemetry-0%25_Absolute_Zero-brightgreen.svg)]()
 [![Target: MicaNT Sovereign](https://img.shields.io/badge/Target-MicaNT_Sovereign_Kernel-00D4FF.svg)](https://github.com/MicaNT-Kernel)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/MicaNT-Kernel/SurShell/ci.yml?branch=main&label=CI%20(Windows%20%2B%20Linux))](https://github.com/MicaNT-Kernel/SurShell/actions)
 
 **SurShell** is the sovereign, clean-room modern desktop environment and user shell for the **MicaNT** operating system. Named in tribute to Dave Cutler's historic Windows NT 4.0 **"SUR" (Shell Update Release)** initiative, SurShell delivers an ultra-responsive, zero-telemetry, memory-efficient desktop shell engineered from scratch in pure standard ISO C++23.
+
+SurShell implements the **"Mica Prism" Modern 2026 Sovereign Design Language**: centered floating island docks, detached tactile start hubs, 2D procedural vector iconography, and intelligent Snap Layout multitasking—engineered 100% clean-room with **zero copyright or trademark infringement**.
 
 ---
 
@@ -13,30 +16,40 @@
 
 ```
 +-----------------------------------------------------------------------------------------+
-|                                      SurShell Desktop                                   |
+|                                    SurShell Desktop                                     |
+|                                                                                         |
+|       +------------------------------------+                                            |
+|       |  [File Explorer: C:\MicaNT]       |                                            |
+|       |  +------------------------------+  |                                            |
+|       |  |  Breadcrumb / Cabinet Tree   |  |                                            |
+|       |  +------------------------------+  |                                            |
+|       +------------------------------------+                                            |
+|                                                                                         |
+|                    +------------------------------------+                               |
+|                    |         [START PRISM HUB]          |                               |
+|                    |  [  Search MicaNT apps...   ]      |                               |
+|                    |                                    |                               |
+|                    |  [>_] Terminal    [E] Explorer     |                               |
+|                    |  [T]  TaskMgr     [*] Settings     |                               |
+|                    |  [S]  Sentinel    [N] NetBird      |                               |
+|                    |  --------------------------------  |                               |
+|                    |  ssfdre38              [Power v]   |                               |
+|                    +------------------------------------+                               |
+|                                                                                         |
+|             +-------------------------------------------------------------+             |
+|             |  [Prism]   [>_]  [E]  [T]   |   [Mesh] [0% Telemetry] 12:00 |             |
+|             +-------------------------------------------------------------+             |
 +-----------------------------------------------------------------------------------------+
-|  [Progman / DesktopManager]       [WindowManager / Aero Snap]     [Cabinet / FileExplorer]|
-|  - Grid shortcut aligner          - Z-Order Stack (Top->Bottom)   - Breadcrumb navigation |
-|  - Marquee drag selection         - Drag, resize, min/max/close   - History (Back/Fwd/Up) |
-|  - High-res wallpaper blit        - Left/Right/Full snap tiles    - Quick access sidebar  |
-+-----------------------------------------------------------------------------------------+
-|  [Taskbar: Shell_TrayWnd]                                        [TrayNotifyWnd: SystemTray]
-|  - MICA Prism Start Button        - Running task indicators       - Zero-Telemetry Badge |
-|  - Start Menu (Fuzzy Search)      - Dynamic window switching      - Mesh NetBird Status  |
-+-----------------------------------------------------------------------------------------+
-|                    Compositor: 32-bpp BGRA Software DWM Rasterizer                      |
-|          Porter-Duff Over · Box Shadows · Gradients · Rounded Corners · 8x8 Glyphs      |
-+-----------------------------------------------------------------------------------------+
-|                             MicaNT Clean-Room Kernel Executive                          |
-+-----------------------------------------------------------------------------------------+
+                          Floating Centered Island Taskbar
 ```
 
 ### Why SurShell?
 1. **Dave Cutler "SUR" Heritage**: Following Dave Cutler's internal engineering codename for the classic NT shell update, SurShell captures the lean, bulletproof reliability of classic NT while bringing modern 2026 aesthetics (Mica, Acrylic, Cutler Cyan accent).
 2. **Absolute Zero Telemetry**: 100% local execution. No telemetry services, no ad injection, no background tracking daemons, no remote beacons.
 3. **Extreme Resource Efficiency**: Runs comfortably within **<15 MB RAM** at idle. No Electron, no WebView2, no bloated JavaScript runtime.
-4. **Freestanding ISO C++23**: Built with zero external library dependencies. Compiles with any conforming C++23 compiler (Clang 18+, GCC 13+, MSVC 2022+).
-5. **Software & Hardware Compositing**: High-performance 2D software compositor capable of sub-pixel alpha blending, soft shadows, and 120Hz frame rates even on low-end framebuffer hardware.
+4. **Clean-Room Vector Iconography**: Zero proprietary Microsoft icons or Segoe fonts. 100% original procedural vector glyphs (Mica Prism crystal, terminal cards, pulse waveforms, sovereign shields, mesh graphs).
+5. **Freestanding ISO C++23**: Built with zero external library dependencies. Compiles with any conforming C++23 compiler (Clang 18+, GCC 13+, MSVC 2022+).
+6. **Software & Hardware Compositing**: High-performance 2D software compositor capable of sub-pixel alpha blending, soft drop shadows, and 120Hz frame rates even on low-end framebuffer hardware.
 
 ---
 
@@ -44,24 +57,29 @@
 
 ### 🖥️ Desktop Manager (`surshell::DesktopManager`)
 - Implements the sovereign desktop surface (`Progman` / `WorkerW`).
-- Auto-arranging icon grid with label typography.
+- Auto-arranging icon grid with procedural vector icons.
 - Single-click selection, double-click launch handlers, and rubber-band marquee selection.
 
-### 🪟 Window Manager (`surshell::WindowManager`)
+### 🪟 Window Manager & Snap Layouts (`surshell::WindowManager`)
 - Strict Top-to-Bottom Z-order management and activation hierarchy.
 - Non-client window frames with caption bars, title text, and minimize / maximize / close buttons.
 - Full 8-direction border resize hit-testing (`Top`, `Bottom`, `Left`, `Right`, `TopLeft`, etc.).
-- **Aero Snap Engine**: Instant docking to 50% left, 50% right, or full work-area maximize.
+- **Snap Layouts Assistant HUD**: Hovering over the Maximize button triggers a floating preset picker:
+  - **50 / 50 Dual Split**
+  - **67 / 33 Priority Split** (Primary work area + reference sidebar)
+  - **2x2 4-Quadrant Quad**
 
-### 📊 Taskbar & Start Menu (`surshell::Taskbar` & `surshell::StartMenu`)
-- Sovereign `Shell_TrayWnd` with MICA Prism start trigger.
-- Running taskbar buttons with active/focused indicator bars in Cutler Cyan (`#00D4FF`).
-- Instant Start Menu with real-time fuzzy search filtering, categorized pinned items, and system power actions (Lock, Sleep, Restart, Shutdown).
+### 📊 Centered Floating Taskbar (`surshell::Taskbar`)
+- Dual-island floating dock:
+  - **App Island**: Centered horizontally with 12px rounded corners, holding the vector **Mica Prism** start button and running task buttons with Cutler Cyan (`#00D4FF`) active indicator pills.
+  - **Tray Island**: Floating pill on the right for NetBird Mesh VPN status, Zero-Telemetry security shield, volume, and clock.
+- Configurable alignment: `TaskbarAlignment::Center` (modern 2026) or `TaskbarAlignment::Left` (classic SUR).
 
-### 🔔 System Tray (`surshell::SystemTray`)
-- Sovereign `TrayNotifyWnd` dock.
-- Integrated status badges: Zero-Telemetry active shield, NetBird P2P Mesh VPN, Audio/Hardware vitals.
-- Real-time chronometer clock with 12/24 hour display formatting.
+### 🚀 Detached Start Prism Hub (`surshell::StartMenu`)
+- Centered floating card with 14px rounded corners and 18px soft drop shadow.
+- Integrated modern search pill with live fuzzy filtering across app IDs, titles, and executable paths.
+- Tactile 2-column card grid with rich subtitles (e.g., "Command Prompt - Sovereign NT C++23 CLI").
+- Bottom user profile footer (`ssfdre38` / `Administrator`) and Cutler power action buttons (Lock, Sleep, Restart, Shutdown).
 
 ### 📁 Sovereign File Explorer (`surshell::FileExplorer`)
 - Freestanding cabinet explorer with breadcrumb address bar.
@@ -84,8 +102,8 @@
 git clone https://github.com/MicaNT-Kernel/SurShell.git
 cd SurShell
 
-# Configure with Ninja and C++23
-cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSURSHELL_BUILD_TESTS=ON -DSURSHELL_BUILD_DEMO=ON
+# Configure with CMake and C++23
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DSURSHELL_BUILD_TESTS=ON -DSURSHELL_BUILD_DEMO=ON
 
 # Build all targets (limit to -j2 on mechanical HDDs if needed)
 cmake --build build
@@ -103,12 +121,12 @@ ctest --test-dir build --output-on-failure
 
 SurShell includes an automated verification test suite:
 - `Compositor.ColorAndGeometry`: Color blending, lerp arithmetic, bounding rect containment.
-- `Compositor.SurfaceRendering`: Framebuffer memory allocation, pixel writing, clear operations.
+- `Compositor.SurfaceRendering`: Framebuffer memory allocation, pixel writing, clear operations, procedural vector shapes.
 - `Theme.Palette`: Mica, Acrylic, Carbon Slate, Cutler Cyan accent verification.
-- `Desktop.ItemManagement`: Grid layout, selection toggles, marquee bounding box.
+- `Desktop.ItemManagement`: Grid layout, selection toggles, marquee bounding box, procedural icons.
 - `Tray.ClockAndItems`: Chronometer formatting, system icon registration.
 - `StartMenu.FuzzySearch`: Dynamic application filtering and catalog search.
-- `WindowManager.ZOrderAndSnap`: Active window elevation, focus management, Aero Snap dimensions.
+- `WindowManager.ZOrderAndSnap`: Active window elevation, focus management, 50/50 and 67/33 priority snap layouts, Snap Assistant flyout.
 - `Explorer.Navigation`: Breadcrumbs, history stack (Back/Forward), directory navigation.
 
 ---

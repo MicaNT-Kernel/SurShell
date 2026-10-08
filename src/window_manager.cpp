@@ -85,7 +85,7 @@ void WindowManager::setScreenSize(uint32_t width, uint32_t height, int32_t taskb
     for (auto& win : windows_) {
         if (win->state == WindowState::Maximized) {
             win->currentBounds = availableWorkspace();
-        } else if (win->state == WindowState::SnappedLeft || win->state == WindowState::SnappedRight) {
+        } else if (win->state != WindowState::Normal && win->state != WindowState::Minimized) {
             snapWindow(win->id, win->state);
         }
     }
@@ -107,31 +107,33 @@ uint32_t WindowManager::createWindow(std::string title, Rect bounds, std::string
     win->isActive = true;
     win->isVisible = true;
 
-    // Allocate client surface matching initial bounds
     const auto& metrics = ThemeManager::instance().metrics();
-    const uint32_t clientW = std::max(10, bounds.width - metrics.windowBorderWidth * 2);
-    const uint32_t clientH = std::max(10, bounds.height - metrics.captionHeight - metrics.windowBorderWidth);
-    win->clientSurface.resize(clientW, clientH, ThemeManager::instance().palette().windowClientBg);
+    const int32_t clientW = std::max(10, bounds.width - metrics.windowBorderWidth * 2);
+    const int32_t clientH = std::max(10, bounds.height - metrics.captionHeight - metrics.windowBorderWidth);
+    win->clientSurface.resize(clientW, clientH, Color{10, 14, 22, 255});
 
     windows_.push_back(std::move(win));
     setWindowActive(id);
 
-    if (stateChangedCb_) {
-        stateChangedCb_(id, WindowState::Normal, true);
-    }
     return id;
 }
 
 void WindowManager::closeWindow(uint32_t windowId) {
     std::erase_if(windows_, [&](const std::unique_ptr<WindowFrame>& w) { return w->id == windowId; });
-    if (activeWindowId_ && *activeWindowId_ == windowId) {
-        activeWindowId_ = std::nullopt;
-        if (!windows_.empty()) {
-            setWindowActive(windows_.back()->id);
-        }
+
+    if (snapFlyoutWindowId_ == windowId) {
+        hideSnapFlyout();
     }
+
     if (closedCb_) {
         closedCb_(windowId);
+    }
+
+    // Activate the top window
+    if (!windows_.empty()) {
+        setWindowActive(windows_.back()->id);
+    } else {
+        activeWindowId_.reset();
     }
 }
 
@@ -153,10 +155,11 @@ void WindowManager::bringToFront(uint32_t windowId) {
     auto it = std::find_if(windows_.begin(), windows_.end(), [&](const std::unique_ptr<WindowFrame>& w) {
         return w->id == windowId;
     });
-    if (it != windows_.end() && it != std::prev(windows_.end())) {
-        auto winPtr = std::move(*it);
+
+    if (it != windows_.end() && it != windows_.end() - 1) {
+        auto win = std::move(*it);
         windows_.erase(it);
-        windows_.push_back(std::move(winPtr));
+        windows_.push_back(std::move(win));
     }
 }
 
@@ -230,15 +233,38 @@ void WindowManager::snapWindow(uint32_t windowId, WindowState snapState) {
 
     const Rect ws = availableWorkspace();
     const int32_t halfWidth = ws.width / 2;
+    const int32_t halfHeight = ws.height / 2;
 
-    if (snapState == WindowState::SnappedLeft) {
-        win->state = WindowState::SnappedLeft;
-        win->currentBounds = Rect{ws.x, ws.y, halfWidth, ws.height};
-        win->isVisible = true;
-    } else if (snapState == WindowState::SnappedRight) {
-        win->state = WindowState::SnappedRight;
-        win->currentBounds = Rect{ws.x + halfWidth, ws.y, halfWidth, ws.height};
-        win->isVisible = true;
+    win->state = snapState;
+    win->isVisible = true;
+
+    switch (snapState) {
+        case WindowState::SnappedLeft:
+            win->currentBounds = Rect{ws.x, ws.y, halfWidth, ws.height};
+            break;
+        case WindowState::SnappedRight:
+            win->currentBounds = Rect{ws.x + halfWidth, ws.y, halfWidth, ws.height};
+            break;
+        case WindowState::SnappedPriorityLeft: // 67% left
+            win->currentBounds = Rect{ws.x, ws.y, ws.width * 2 / 3, ws.height};
+            break;
+        case WindowState::SnappedSidebarRight: // 33% right
+            win->currentBounds = Rect{ws.x + ws.width * 2 / 3, ws.y, ws.width - ws.width * 2 / 3, ws.height};
+            break;
+        case WindowState::SnappedTopLeft:
+            win->currentBounds = Rect{ws.x, ws.y, halfWidth, halfHeight};
+            break;
+        case WindowState::SnappedTopRight:
+            win->currentBounds = Rect{ws.x + halfWidth, ws.y, halfWidth, halfHeight};
+            break;
+        case WindowState::SnappedBottomLeft:
+            win->currentBounds = Rect{ws.x, ws.y + halfHeight, halfWidth, halfHeight};
+            break;
+        case WindowState::SnappedBottomRight:
+            win->currentBounds = Rect{ws.x + halfWidth, ws.y + halfHeight, halfWidth, halfHeight};
+            break;
+        default:
+            break;
     }
 
     if (stateChangedCb_) {
@@ -246,8 +272,107 @@ void WindowManager::snapWindow(uint32_t windowId, WindowState snapState) {
     }
 }
 
+void WindowManager::showSnapFlyout(uint32_t windowId, Point triggerPt) {
+    snapFlyoutWindowId_ = windowId;
+    isSnapFlyoutVisible_ = true;
+    buildSnapZones(triggerPt);
+}
+
+void WindowManager::hideSnapFlyout() noexcept {
+    isSnapFlyoutVisible_ = false;
+    snapFlyoutWindowId_ = 0;
+    snapZones_.clear();
+}
+
+void WindowManager::buildSnapZones(Point anchor) {
+    snapZones_.clear();
+    const int32_t flyoutW = 280;
+    const int32_t flyoutH = 110;
+    snapFlyoutBounds_ = Rect{anchor.x - flyoutW / 2, anchor.y, flyoutW, flyoutH};
+
+    const Rect ws = availableWorkspace();
+    if (snapFlyoutBounds_.right() > ws.right() - 8) {
+        snapFlyoutBounds_.x = ws.right() - flyoutW - 8;
+    }
+    if (snapFlyoutBounds_.x < ws.x + 8) {
+        snapFlyoutBounds_.x = ws.x + 8;
+    }
+
+    // Card 1: 50 / 50 Split
+    const int32_t card1X = snapFlyoutBounds_.x + 12;
+    const int32_t cardY = snapFlyoutBounds_.y + 26;
+    const int32_t cardW = 76;
+    const int32_t cardH = 68;
+
+    snapZones_.push_back(SnapZone{
+        .bounds = Rect{card1X, cardY, cardW / 2 - 1, cardH},
+        .targetState = WindowState::SnappedLeft,
+        .isHovered = false
+    });
+    snapZones_.push_back(SnapZone{
+        .bounds = Rect{card1X + cardW / 2 + 1, cardY, cardW / 2 - 1, cardH},
+        .targetState = WindowState::SnappedRight,
+        .isHovered = false
+    });
+
+    // Card 2: 67 / 33 Priority Split
+    const int32_t card2X = card1X + cardW + 14;
+    const int32_t priW = cardW * 2 / 3;
+    snapZones_.push_back(SnapZone{
+        .bounds = Rect{card2X, cardY, priW - 1, cardH},
+        .targetState = WindowState::SnappedPriorityLeft,
+        .isHovered = false
+    });
+    snapZones_.push_back(SnapZone{
+        .bounds = Rect{card2X + priW + 1, cardY, cardW - priW - 1, cardH},
+        .targetState = WindowState::SnappedSidebarRight,
+        .isHovered = false
+    });
+
+    // Card 3: 2x2 4-Quadrant Quad
+    const int32_t card3X = card2X + cardW + 14;
+    const int32_t qW = cardW / 2 - 1;
+    const int32_t qH = cardH / 2 - 1;
+    snapZones_.push_back(SnapZone{
+        .bounds = Rect{card3X, cardY, qW, qH},
+        .targetState = WindowState::SnappedTopLeft,
+        .isHovered = false
+    });
+    snapZones_.push_back(SnapZone{
+        .bounds = Rect{card3X + qW + 2, cardY, qW, qH},
+        .targetState = WindowState::SnappedTopRight,
+        .isHovered = false
+    });
+    snapZones_.push_back(SnapZone{
+        .bounds = Rect{card3X, cardY + qH + 2, qW, qH},
+        .targetState = WindowState::SnappedBottomLeft,
+        .isHovered = false
+    });
+    snapZones_.push_back(SnapZone{
+        .bounds = Rect{card3X + qW + 2, cardY + qH + 2, qW, qH},
+        .targetState = WindowState::SnappedBottomRight,
+        .isHovered = false
+    });
+}
+
 bool WindowManager::onMouseDown(Point pt, MouseButton button) {
     if (button != MouseButton::Left) return false;
+
+    // Check click on Snap Flyout
+    if (isSnapFlyoutVisible_) {
+        if (snapFlyoutBounds_.contains(pt)) {
+            for (const auto& zone : snapZones_) {
+                if (zone.bounds.contains(pt)) {
+                    snapWindow(snapFlyoutWindowId_, zone.targetState);
+                    hideSnapFlyout();
+                    return true;
+                }
+            }
+            return true;
+        } else {
+            hideSnapFlyout();
+        }
+    }
 
     // Iterate in reverse Z-order (top to bottom)
     for (auto it = windows_.rbegin(); it != windows_.rend(); ++it) {
@@ -288,6 +413,26 @@ bool WindowManager::onMouseDown(Point pt, MouseButton button) {
 }
 
 bool WindowManager::onMouseMove(Point pt) {
+    // Snap Flyout hover handling
+    if (isSnapFlyoutVisible_) {
+        if (snapFlyoutBounds_.contains(pt)) {
+            for (auto& zone : snapZones_) {
+                zone.isHovered = zone.bounds.contains(pt);
+            }
+            return true;
+        } else if (!snapFlyoutBounds_.inflate(30, 30).contains(pt)) {
+            hideSnapFlyout();
+        }
+    } else {
+        // Check hover over Maximize button of top active window
+        if (activeWindowId_) {
+            auto* activeWin = findWindow(*activeWindowId_);
+            if (activeWin && activeWin->isVisible && activeWin->maxButtonBounds().contains(pt)) {
+                showSnapFlyout(activeWin->id, Point{activeWin->maxButtonBounds().center().x, activeWin->maxButtonBounds().bottom() + 4});
+            }
+        }
+    }
+
     if (isDragging_) {
         auto* win = findWindow(interactingWindowId_);
         if (win) {
@@ -295,7 +440,6 @@ bool WindowManager::onMouseMove(Point pt) {
             const int32_t dy = pt.y - dragStartMouse_.y;
 
             if (win->state != WindowState::Normal) {
-                // Restore on drag away
                 win->state = WindowState::Normal;
                 win->currentBounds.width = win->normalBounds.width;
                 win->currentBounds.height = win->normalBounds.height;
@@ -306,13 +450,13 @@ bool WindowManager::onMouseMove(Point pt) {
             win->normalBounds = win->currentBounds;
 
             // Aero Snap triggers at screen edges
-            if (pt.x <= 4) {
+            if (pt.x <= 2) {
                 snapWindow(win->id, WindowState::SnappedLeft);
                 isDragging_ = false;
-            } else if (pt.x >= static_cast<int32_t>(screenWidth_) - 4) {
+            } else if (pt.x >= static_cast<int32_t>(screenWidth_) - 3) {
                 snapWindow(win->id, WindowState::SnappedRight);
                 isDragging_ = false;
-            } else if (pt.y <= 4) {
+            } else if (pt.y <= 2) {
                 setWindowState(win->id, WindowState::Maximized);
                 isDragging_ = false;
             }
@@ -322,30 +466,32 @@ bool WindowManager::onMouseMove(Point pt) {
 
     if (isResizing_) {
         auto* win = findWindow(interactingWindowId_);
-        if (win && win->state == WindowState::Normal) {
+        if (win) {
             const int32_t dx = pt.x - dragStartMouse_.x;
             const int32_t dy = pt.y - dragStartMouse_.y;
             Rect nb = dragStartWindowBounds_;
 
-            if (resizeEdge_ == HitTestResult::BorderRight || resizeEdge_ == HitTestResult::BorderTopRight || resizeEdge_ == HitTestResult::BorderBottomRight) {
-                nb.width = std::max(240, dragStartWindowBounds_.width + dx);
-            }
-            if (resizeEdge_ == HitTestResult::BorderBottom || resizeEdge_ == HitTestResult::BorderBottomLeft || resizeEdge_ == HitTestResult::BorderBottomRight) {
-                nb.height = std::max(160, dragStartWindowBounds_.height + dy);
-            }
-            if (resizeEdge_ == HitTestResult::BorderLeft || resizeEdge_ == HitTestResult::BorderTopLeft || resizeEdge_ == HitTestResult::BorderBottomLeft) {
-                const int32_t nw = dragStartWindowBounds_.width - dx;
-                if (nw >= 240) {
-                    nb.x = dragStartWindowBounds_.x + dx;
-                    nb.width = nw;
-                }
-            }
-            if (resizeEdge_ == HitTestResult::BorderTop || resizeEdge_ == HitTestResult::BorderTopLeft || resizeEdge_ == HitTestResult::BorderTopRight) {
-                const int32_t nh = dragStartWindowBounds_.height - dy;
-                if (nh >= 160) {
-                    nb.y = dragStartWindowBounds_.y + dy;
-                    nb.height = nh;
-                }
+            switch (resizeEdge_) {
+                case HitTestResult::BorderRight:
+                    nb.width = std::max(200, dragStartWindowBounds_.width + dx);
+                    break;
+                case HitTestResult::BorderBottom:
+                    nb.height = std::max(120, dragStartWindowBounds_.height + dy);
+                    break;
+                case HitTestResult::BorderLeft:
+                    nb.x = std::min(dragStartWindowBounds_.right() - 200, dragStartWindowBounds_.x + dx);
+                    nb.width = dragStartWindowBounds_.right() - nb.x;
+                    break;
+                case HitTestResult::BorderTop:
+                    nb.y = std::min(dragStartWindowBounds_.bottom() - 120, dragStartWindowBounds_.y + dy);
+                    nb.height = dragStartWindowBounds_.bottom() - nb.y;
+                    break;
+                case HitTestResult::BorderBottomRight:
+                    nb.width = std::max(200, dragStartWindowBounds_.width + dx);
+                    nb.height = std::max(120, dragStartWindowBounds_.height + dy);
+                    break;
+                default:
+                    break;
             }
 
             win->currentBounds = nb;
@@ -380,6 +526,29 @@ bool WindowManager::onDoubleClick(Point pt) {
         }
     }
     return false;
+}
+
+void WindowManager::renderSnapFlyout(Surface& surface) {
+    const auto& palette = ThemeManager::instance().palette();
+
+    // Drop shadow
+    surface.drawDropShadow(snapFlyoutBounds_, 16, 0.50f);
+
+    // Modern rounded container
+    surface.drawRoundedRect(snapFlyoutBounds_, 10, palette.snapFlyoutBg, true);
+    surface.drawRoundedRect(snapFlyoutBounds_, 10, palette.snapFlyoutBorder, false);
+
+    // Flyout Header
+    surface.drawString(snapFlyoutBounds_.x + 14, snapFlyoutBounds_.y + 8, "SNAP LAYOUTS", palette.accentColor, 1);
+
+    // Render snap layout zones
+    for (const auto& zone : snapZones_) {
+        Color fillCol = zone.isHovered ? palette.snapZoneHover : palette.snapZoneNormal;
+        Color borderCol = zone.isHovered ? palette.snapZoneBorderHover : palette.snapZoneBorder;
+
+        surface.drawRoundedRect(zone.bounds, 4, fillCol, true);
+        surface.drawRoundedRect(zone.bounds, 4, borderCol, false);
+    }
 }
 
 void WindowManager::render(Surface& surface) {
@@ -436,6 +605,11 @@ void WindowManager::render(Surface& surface) {
 
         // Blit client surface
         surface.blit(win->clientSurface, Rect{0, 0, clientRect.width, clientRect.height}, Point{clientRect.x, clientRect.y});
+    }
+
+    // 6. Render Snap Layouts Flyout if active
+    if (isSnapFlyoutVisible_) {
+        renderSnapFlyout(surface);
     }
 }
 

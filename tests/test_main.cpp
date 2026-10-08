@@ -125,7 +125,9 @@ void Test_Taskbar_And_SystemTray() {
 
     surshell::Taskbar tb(1920, 1080);
     surshell::Rect r = tb.bounds();
-    TEST_ASSERT(r.x == 0 && r.y == 1040 && r.width == 1920 && r.height == 40, "Taskbar bottom placement");
+    TEST_ASSERT(r.x == 0 && r.width == 1920, "Taskbar horizontal span");
+    TEST_ASSERT(tb.appIslandBounds().width > 0, "Floating App Island initialized");
+    TEST_ASSERT(tb.trayIslandBounds().width > 0, "Floating Tray Island initialized");
 
     tb.addOrUpdateTask(1001, "Command Prompt", ">_", true, false);
     tb.addOrUpdateTask(1002, "File Explorer", "[E]", false, false);
@@ -212,6 +214,22 @@ void Test_Window_Manager_And_Aero_Snap() {
     TEST_ASSERT(win2->currentBounds.x == 960, "SnappedRight x starts at 960");
     TEST_ASSERT(win2->currentBounds.width == 960, "SnappedRight width is 960");
 
+    // Modern 67/33 Priority Split Snap
+    wm.snapWindow(w1, surshell::WindowState::SnappedPriorityLeft);
+    TEST_ASSERT(win1->state == surshell::WindowState::SnappedPriorityLeft, "SnappedPriorityLeft state");
+    TEST_ASSERT(win1->currentBounds.width == 1280, "SnappedPriorityLeft 67% width (1280px)");
+
+    wm.snapWindow(w2, surshell::WindowState::SnappedSidebarRight);
+    TEST_ASSERT(win2->state == surshell::WindowState::SnappedSidebarRight, "SnappedSidebarRight state");
+    TEST_ASSERT(win2->currentBounds.x == 1280, "SnappedSidebarRight begins at 1280px");
+    TEST_ASSERT(win2->currentBounds.width == 640, "SnappedSidebarRight 33% width (640px)");
+
+    // Snap Layout Assistant Flyout
+    wm.showSnapFlyout(w1, surshell::Point{500, 40});
+    TEST_ASSERT(wm.isSnapFlyoutVisible(), "Snap Layout Flyout is visible");
+    wm.hideSnapFlyout();
+    TEST_ASSERT(!wm.isSnapFlyoutVisible(), "Snap Layout Flyout is hidden");
+
     // Maximize & Restore
     wm.toggleMaximize(w1);
     TEST_ASSERT(win1->state == surshell::WindowState::Maximized, "Window maximized");
@@ -258,9 +276,10 @@ void Test_Full_Desktop_Integration() {
     TEST_ASSERT(shell.width() == 1920, "Width match");
     TEST_ASSERT(shell.height() == 1080, "Height match");
 
-    // Click Start button
-    shell.onMouseDown(surshell::Point{20, 1055}, surshell::MouseButton::Left);
-    shell.onMouseUp(surshell::Point{20, 1055}, surshell::MouseButton::Left);
+    // Click Start button (Mica Prism)
+    const surshell::Point startPt = shell.taskbar().startButtonBounds().center();
+    shell.onMouseDown(startPt, surshell::MouseButton::Left);
+    shell.onMouseUp(startPt, surshell::MouseButton::Left);
     TEST_ASSERT(shell.startMenu().isOpen(), "Start button click opened start menu");
 
     // Type query
