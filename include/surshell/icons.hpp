@@ -61,7 +61,16 @@ enum class IconId {
     VolumeMute,
     BatteryCharging,
     NetworkOnline,
-    Clock
+    Clock,
+
+    // Power & Session
+    Power,
+    Restart,
+    Sleep,
+    Lock,
+    SignOut,
+    User,
+    Hibernate
 };
 
 class IconRenderer {
@@ -100,6 +109,13 @@ private:
     static void drawBattery(Surface& s, Rect r, std::optional<Color> tint);
     static void drawNetwork(Surface& s, Rect r, std::optional<Color> tint);
     static void drawClock(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawPower(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawRestart(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawSleep(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawLock(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawSignOut(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawUser(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawHibernate(Surface& s, Rect r, std::optional<Color> tint);
 };
 
 } // namespace surshell

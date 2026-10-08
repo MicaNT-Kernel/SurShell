@@ -175,8 +175,41 @@ void Test_Start_Menu_And_Filter() {
     sm.setSearchQuery("");
     TEST_ASSERT(sm.filteredApps().size() >= 5, "Empty query shows all pinned apps");
 
-    sm.toggle();
-    TEST_ASSERT(!sm.isOpen(), "Toggle closed start menu");
+    // View mode tests (Pinned vs AllApps)
+    TEST_ASSERT(sm.viewMode() == surshell::StartViewMode::Pinned, "Default view mode is Pinned");
+    sm.toggleViewMode();
+    TEST_ASSERT(sm.viewMode() == surshell::StartViewMode::AllApps, "Toggled view mode is AllApps");
+    sm.toggleViewMode();
+    TEST_ASSERT(sm.viewMode() == surshell::StartViewMode::Pinned, "Toggled back to Pinned");
+
+    // Recommended Items
+    TEST_ASSERT(sm.recommendedItems().size() >= 4, "Recommended activities initialized");
+
+    // Power Flyout & Power Callback Tests
+    sm.open();
+    const auto menuBounds = sm.calculateBounds(1920, 1080, 48);
+    TEST_ASSERT(!sm.isPowerFlyoutOpen(), "Power flyout initially closed");
+
+    sm.togglePowerFlyout();
+    TEST_ASSERT(sm.isPowerFlyoutOpen(), "Power flyout opened");
+    TEST_ASSERT(!sm.isUserFlyoutOpen(), "User flyout closed when power flyout open");
+
+    surshell::PowerAction receivedAction = surshell::PowerAction::Lock;
+    bool powerTriggered = false;
+    sm.setPowerCallback([&](surshell::PowerAction act) {
+        receivedAction = act;
+        powerTriggered = true;
+    });
+
+    // Simulate clicking Restart (index 2 in power flyout)
+    const auto pfb = sm.powerFlyoutBounds(menuBounds);
+    const surshell::Point restartPt{pfb.x + 20, pfb.y + 12 + 2 * 34 + 10};
+    sm.onMouseMove(restartPt, menuBounds);
+    sm.onMouseDown(restartPt, surshell::MouseButton::Left, menuBounds);
+
+    TEST_ASSERT(powerTriggered, "Power callback executed on restart click");
+    TEST_ASSERT(receivedAction == surshell::PowerAction::Restart, "Received PowerAction::Restart");
+    TEST_ASSERT(!sm.isOpen(), "Start Menu closed after power action");
 
     std::cout << "[TEST] Suite 5: Start Menu & Search Filter PASSED.\n";
 }
@@ -571,10 +604,17 @@ void Test_Procedural_Icon_Engine() {
         surshell::IconId::VolumeMute,
         surshell::IconId::BatteryCharging,
         surshell::IconId::NetworkOnline,
-        surshell::IconId::Clock
+        surshell::IconId::Clock,
+        surshell::IconId::Power,
+        surshell::IconId::Restart,
+        surshell::IconId::Sleep,
+        surshell::IconId::Lock,
+        surshell::IconId::SignOut,
+        surshell::IconId::User,
+        surshell::IconId::Hibernate
     };
 
-    TEST_ASSERT(allIcons.size() == 38, "All 38 procedural vector icons enumerated");
+    TEST_ASSERT(allIcons.size() == 45, "All 45 procedural vector icons enumerated");
 
     const int32_t testSizes[] = {14, 16, 24, 28, 32, 48};
     for (surshell::IconId id : allIcons) {
@@ -596,7 +636,7 @@ void Test_Procedural_Icon_Engine() {
         }
     }
 
-    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (38 icons verified across 6 DPI scales).\n";
+    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (45 icons verified across 6 DPI scales).\n";
 }
 
 int main() {

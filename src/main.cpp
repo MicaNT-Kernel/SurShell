@@ -40,13 +40,35 @@ int main(int argc, char* argv[]) {
     }
 
     // ------------------------------------------------------------------------
-    // Scene 2: Modern Centered Start Prism Hub with Tactile App Grid
+    // Scene 2: Modern Centered Start Prism Hub with Tactile App Grid & Recommended
     // ------------------------------------------------------------------------
     std::cout << "[SurShell] Rendering Scene 2: Floating Start Prism Hub with Application Grid...\n";
     shell.startMenu().open();
     shell.render();
     if (shell.exportSnapshot("surshell_start_menu_active.bmp")) {
         std::cout << "  -> Exported: surshell_start_menu_active.bmp (1920x1080 32-bpp)\n";
+    }
+
+    // ------------------------------------------------------------------------
+    // Scene 2b: Start Menu with Windows 11-Style Interactive Power Flyout
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 2b: Start Menu with Interactive Power Flyout...\n";
+    shell.startMenu().setPowerFlyoutOpen(true);
+    shell.render();
+    if (shell.exportSnapshot("surshell_start_menu_power.bmp")) {
+        std::cout << "  -> Exported: surshell_start_menu_power.bmp (1920x1080 32-bpp)\n";
+    }
+    shell.startMenu().close();
+
+    // ------------------------------------------------------------------------
+    // Scene 2c: Start Menu All Applications Catalog View (A-Z)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 2c: Start Menu All Applications Catalog...\n";
+    shell.startMenu().open();
+    shell.startMenu().setViewMode(surshell::StartViewMode::AllApps);
+    shell.render();
+    if (shell.exportSnapshot("surshell_start_menu_allapps.bmp")) {
+        std::cout << "  -> Exported: surshell_start_menu_allapps.bmp (1920x1080 32-bpp)\n";
     }
     shell.startMenu().close();
 

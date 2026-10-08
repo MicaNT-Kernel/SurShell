@@ -124,6 +124,27 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
         case IconId::Clock:
             drawClock(surface, bounds, tintOverride);
             break;
+        case IconId::Power:
+            drawPower(surface, bounds, tintOverride);
+            break;
+        case IconId::Restart:
+            drawRestart(surface, bounds, tintOverride);
+            break;
+        case IconId::Sleep:
+            drawSleep(surface, bounds, tintOverride);
+            break;
+        case IconId::Lock:
+            drawLock(surface, bounds, tintOverride);
+            break;
+        case IconId::SignOut:
+            drawSignOut(surface, bounds, tintOverride);
+            break;
+        case IconId::User:
+            drawUser(surface, bounds, tintOverride);
+            break;
+        case IconId::Hibernate:
+            drawHibernate(surface, bounds, tintOverride);
+            break;
         default:
             drawDocument(surface, bounds, IconId::FileGeneric, tintOverride);
             break;
@@ -667,6 +688,174 @@ void IconRenderer::drawClock(Surface& s, Rect r, std::optional<Color> tint) {
 
     // Minute hand (pointing to 12)
     s.fillRect(Rect{cx, cy - rad * 2 / 3, 1, rad * 2 / 3}, col);
+}
+
+void IconRenderer::drawPower(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color col = tint.value_or(Color::fromHex(0xFF453A));
+    const int32_t cx = r.centerX();
+    const int32_t cy = r.centerY();
+    const int32_t rad = std::max(3, r.width / 2 - 2);
+
+    // Broken circular ring (gap at top)
+    const int32_t r2Min = (rad - 2) * (rad - 2);
+    const int32_t r2Max = rad * rad;
+    for (int32_t dy = -rad; dy <= rad; ++dy) {
+        for (int32_t dx = -rad; dx <= rad; ++dx) {
+            const int32_t d2 = dx * dx + dy * dy;
+            if (d2 >= r2Min && d2 <= r2Max) {
+                // Gap at the top: if dy < 0 and |dx| <= rad / 2, skip
+                if (dy < 0 && std::abs(dx) <= std::max(1, rad / 3)) {
+                    continue;
+                }
+                s.putPixel(cx + dx, cy + dy, col);
+            }
+        }
+    }
+
+    // Vertical power toggle bar in the top gap
+    const int32_t barH = std::max(3, rad + 1);
+    s.fillRect(Rect{cx - 1, cy - rad, 2, barH}, col);
+}
+
+void IconRenderer::drawRestart(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color col = tint.value_or(Color::fromHex(0x00D4FF));
+    const int32_t cx = r.centerX();
+    const int32_t cy = r.centerY();
+    const int32_t rad = std::max(3, r.width / 2 - 2);
+
+    // 3/4 circular arc (clockwise)
+    const int32_t r2Min = (rad - 2) * (rad - 2);
+    const int32_t r2Max = rad * rad;
+    for (int32_t dy = -rad; dy <= rad; ++dy) {
+        for (int32_t dx = -rad; dx <= rad; ++dx) {
+            const int32_t d2 = dx * dx + dy * dy;
+            if (d2 >= r2Min && d2 <= r2Max) {
+                // Skip upper-right quadrant gap where arrowhead sits
+                if (dx > 0 && dy < 0) continue;
+                s.putPixel(cx + dx, cy + dy, col);
+            }
+        }
+    }
+
+    // Arrowhead at top right pointing clockwise
+    const int32_t ax = cx + rad - 1;
+    const int32_t ay = cy - 2;
+    for (int32_t i = 0; i <= std::max(2, rad / 2); ++i) {
+        s.fillRect(Rect{ax - i, ay + i - 1, 2, 2}, col);
+    }
+}
+
+void IconRenderer::drawSleep(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color col = tint.value_or(Color::fromHex(0x94A8C4));
+    const int32_t cx = r.centerX();
+    const int32_t cy = r.centerY();
+    const int32_t rad = std::max(3, r.width / 2 - 2);
+
+    // Crescent moon
+    const int32_t r2Outer = rad * rad;
+    const int32_t cutX = cx + std::max(2, rad / 3);
+    const int32_t cutY = cy - std::max(1, rad / 4);
+    const int32_t cutRad = std::max(2, rad * 3 / 4);
+    const int32_t r2Inner = cutRad * cutRad;
+
+    for (int32_t dy = -rad; dy <= rad; ++dy) {
+        for (int32_t dx = -rad; dx <= rad; ++dx) {
+            const int32_t d2Outer = dx * dx + dy * dy;
+            if (d2Outer <= r2Outer) {
+                const int32_t px = cx + dx;
+                const int32_t py = cy + dy;
+                const int32_t d2Inner = (px - cutX) * (px - cutX) + (py - cutY) * (py - cutY);
+                if (d2Inner > r2Inner) {
+                    s.putPixel(px, py, col);
+                }
+            }
+        }
+    }
+}
+
+void IconRenderer::drawLock(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color col = tint.value_or(Color::fromHex(0xFFB900));
+    const int32_t cx = r.centerX();
+    const int32_t bodyW = std::max(6, r.width * 3 / 4);
+    const int32_t bodyH = std::max(5, r.height / 2);
+    const int32_t bodyY = r.bottom() - bodyH - 1;
+    const int32_t bodyX = cx - bodyW / 2;
+
+    // Padlock body
+    s.drawRoundedRect(Rect{bodyX, bodyY, bodyW, bodyH}, 2, col, true);
+
+    // Keyhole (dark)
+    s.drawRoundedRect(Rect{cx - 1, bodyY + 2, 2, 2}, 1, Color::fromHex(0x0E1420), true);
+    s.fillRect(Rect{cx, bodyY + 3, 1, std::max(2, bodyH / 3)}, Color::fromHex(0x0E1420));
+
+    // Shackle loop (arch on top)
+    const int32_t shackleW = bodyW - 4;
+    const int32_t shackleH = std::max(4, r.height / 3);
+    const int32_t shackleY = bodyY - shackleH + 1;
+    const int32_t shackleX = cx - shackleW / 2;
+
+    s.drawRoundedRect(Rect{shackleX, shackleY, shackleW, shackleH + 2}, 2, col, false);
+}
+
+void IconRenderer::drawSignOut(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color col = tint.value_or(Color::fromHex(0x94A8C4));
+    const int32_t cy = r.centerY();
+
+    // Door frame (left side)
+    const int32_t doorW = std::max(4, r.width / 2);
+    const int32_t doorH = std::max(8, r.height - 4);
+    const int32_t doorX = r.x + 2;
+    const int32_t doorY = r.y + 2;
+
+    s.fillRect(Rect{doorX, doorY, 2, doorH}, col); // left upright
+    s.fillRect(Rect{doorX, doorY, doorW, 2}, col); // top
+    s.fillRect(Rect{doorX, doorY + doorH - 2, doorW, 2}, col); // bottom
+
+    // Arrow pointing right
+    const int32_t arrowY = cy;
+    const int32_t arrowX1 = doorX + doorW / 2;
+    const int32_t arrowX2 = r.right() - 2;
+    s.fillRect(Rect{arrowX1, arrowY - 1, arrowX2 - arrowX1, 2}, col);
+    s.putPixel(arrowX2, arrowY, col);
+    s.putPixel(arrowX2 - 1, arrowY - 1, col);
+    s.putPixel(arrowX2 - 1, arrowY + 1, col);
+    s.putPixel(arrowX2 - 2, arrowY - 2, col);
+    s.putPixel(arrowX2 - 2, arrowY + 2, col);
+}
+
+void IconRenderer::drawUser(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color col = tint.value_or(Color::fromHex(0x00D4FF));
+    const int32_t cx = r.centerX();
+    const int32_t headR = std::max(2, r.width / 5);
+    const int32_t headY = r.y + headR + 2;
+
+    // Head circle
+    s.drawRoundedRect(Rect{cx - headR, headY - headR, headR * 2, headR * 2}, headR, col, true);
+
+    // Shoulder arch
+    const int32_t shoulderW = std::max(6, r.width * 3 / 4);
+    const int32_t shoulderH = std::max(3, r.height / 3);
+    const int32_t shoulderY = r.bottom() - shoulderH - 1;
+    s.drawRoundedRect(Rect{cx - shoulderW / 2, shoulderY, shoulderW, shoulderH * 2}, shoulderH, col, true);
+}
+
+void IconRenderer::drawHibernate(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color col = tint.value_or(Color::fromHex(0x00FF9D));
+    const int32_t cx = r.centerX();
+    const int32_t cy = r.centerY();
+    const int32_t rad = std::max(3, r.width / 2 - 2);
+
+    // Outer circle
+    s.drawRoundedRect(Rect{cx - rad, cy - rad, rad * 2, rad * 2}, rad, col, false);
+
+    // Stylized "Z"
+    const int32_t zw = std::max(3, rad);
+    const int32_t zh = std::max(3, rad);
+    s.fillRect(Rect{cx - zw / 2, cy - zh / 2, zw, 1}, col);
+    s.putPixel(cx + zw / 4, cy - zh / 4, col);
+    s.putPixel(cx, cy, col);
+    s.putPixel(cx - zw / 4, cy + zh / 4, col);
+    s.fillRect(Rect{cx - zw / 2, cy + zh / 2, zw, 1}, col);
 }
 
 } // namespace surshell

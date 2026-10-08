@@ -250,6 +250,41 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             virtualDesktops_.assignWindowToDesktop(wid, virtualDesktops_.activeIndex());
         }
     });
+
+    // 9. Start Menu Power Option callback
+    startMenu_.setPowerCallback([this](PowerAction action) {
+        switch (action) {
+            case PowerAction::Lock:
+                kernelBridge_.spawnProcess("rundll32.exe", "user32.dll,LockWorkStation");
+                break;
+            case PowerAction::Sleep:
+                kernelBridge_.spawnProcess("rundll32.exe", "powrprof.dll,SetSuspendState 0,1,0");
+                break;
+            case PowerAction::Hibernate:
+                kernelBridge_.spawnProcess("shutdown.exe", "/h");
+                break;
+            case PowerAction::Restart:
+                kernelBridge_.spawnProcess("shutdown.exe", "/r /t 0");
+                break;
+            case PowerAction::ShutDown:
+                kernelBridge_.spawnProcess("shutdown.exe", "/s /t 0");
+                break;
+            case PowerAction::SignOut:
+                kernelBridge_.spawnProcess("logoff.exe", "");
+                break;
+        }
+    });
+
+    // 10. Start Menu Recommended Item Open callback
+    startMenu_.setOpenItemCallback([this](const std::string& path) {
+        if (path.ends_with(".hpp") || path.ends_with(".cpp") || path.ends_with(".txt") || path.ends_with(".log")) {
+            openTextEditorWindow(path);
+        } else if (path.find('.') == std::string::npos || path.ends_with("\\")) {
+            openFileExplorerWindow(path);
+        } else {
+            kernelBridge_.spawnProcess(path, "");
+        }
+    });
 }
 
 void SurShellDesktop::onMouseDown(Point pt, MouseButton button) {
@@ -275,7 +310,9 @@ void SurShellDesktop::onMouseDown(Point pt, MouseButton button) {
     // 3. Start Menu card (if open)
     const Rect smBounds = startMenu_.calculateBounds(width_, height_, taskbar_.bounds().height);
     if (startMenu_.isOpen()) {
-        if (smBounds.contains(pt)) {
+        const bool inFlyout = (startMenu_.isPowerFlyoutOpen() && startMenu_.powerFlyoutBounds(smBounds).contains(pt)) ||
+                              (startMenu_.isUserFlyoutOpen() && startMenu_.userFlyoutBounds(smBounds).contains(pt));
+        if (smBounds.contains(pt) || inFlyout) {
             startMenu_.onMouseDown(pt, button, smBounds);
             return;
         } else {
