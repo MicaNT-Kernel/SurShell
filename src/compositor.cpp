@@ -273,6 +273,109 @@ void Surface::drawDropShadow(Rect rect, int32_t radius, float opacity) noexcept 
     }
 }
 
+void Surface::applyBoxBlur(Rect area, int32_t radius) noexcept {
+    if (radius <= 0 || width_ == 0 || height_ == 0) return;
+    const Rect bounds = area.intersectWith(Rect{0, 0, static_cast<int32_t>(width_), static_cast<int32_t>(height_)});
+    if (bounds.empty()) return;
+
+    radius = std::clamp(radius, 1, 32);
+    const uint32_t winSize = static_cast<uint32_t>(2 * radius + 1);
+
+    // Scratch buffer for horizontal intermediate pass
+    std::vector<uint32_t> temp(static_cast<size_t>(bounds.width) * static_cast<size_t>(bounds.height));
+
+    // Pass 1: Horizontal box blur (from pixels_ into temp)
+    for (int32_t y = 0; y < bounds.height; ++y) {
+        const int32_t srcY = bounds.y + y;
+        const size_t rowOffset = static_cast<size_t>(srcY) * width_;
+
+        uint32_t sumR = 0, sumG = 0, sumB = 0, sumA = 0;
+
+        for (int32_t dx = -radius; dx <= radius; ++dx) {
+            const int32_t sampleX = std::clamp(bounds.x + dx, 0, static_cast<int32_t>(width_ - 1));
+            const uint32_t p = pixels_[rowOffset + static_cast<size_t>(sampleX)];
+            sumR += (p >> 16) & 0xFF;
+            sumG += (p >> 8) & 0xFF;
+            sumB += p & 0xFF;
+            sumA += (p >> 24) & 0xFF;
+        }
+
+        for (int32_t x = 0; x < bounds.width; ++x) {
+            const int32_t curX = bounds.x + x;
+            const uint8_t avgR = static_cast<uint8_t>(sumR / winSize);
+            const uint8_t avgG = static_cast<uint8_t>(sumG / winSize);
+            const uint8_t avgB = static_cast<uint8_t>(sumB / winSize);
+            const uint8_t avgA = static_cast<uint8_t>(sumA / winSize);
+
+            temp[static_cast<size_t>(y) * bounds.width + static_cast<size_t>(x)] =
+                (static_cast<uint32_t>(avgA) << 24) |
+                (static_cast<uint32_t>(avgR) << 16) |
+                (static_cast<uint32_t>(avgG) << 8)  |
+                static_cast<uint32_t>(avgB);
+
+            const int32_t remX = std::clamp(curX - radius, 0, static_cast<int32_t>(width_ - 1));
+            const int32_t addX = std::clamp(curX + radius + 1, 0, static_cast<int32_t>(width_ - 1));
+
+            const uint32_t pRem = pixels_[rowOffset + static_cast<size_t>(remX)];
+            const uint32_t pAdd = pixels_[rowOffset + static_cast<size_t>(addX)];
+
+            sumR += ((pAdd >> 16) & 0xFF) - ((pRem >> 16) & 0xFF);
+            sumG += ((pAdd >> 8) & 0xFF) - ((pRem >> 8) & 0xFF);
+            sumB += (pAdd & 0xFF) - (pRem & 0xFF);
+            sumA += ((pAdd >> 24) & 0xFF) - ((pRem >> 24) & 0xFF);
+        }
+    }
+
+    // Pass 2: Vertical box blur (from temp back into pixels_)
+    for (int32_t x = 0; x < bounds.width; ++x) {
+        const int32_t dstX = bounds.x + x;
+
+        uint32_t sumR = 0, sumG = 0, sumB = 0, sumA = 0;
+
+        for (int32_t dy = -radius; dy <= radius; ++dy) {
+            const int32_t sampleY = std::clamp(dy, 0, bounds.height - 1);
+            const uint32_t p = temp[static_cast<size_t>(sampleY) * bounds.width + static_cast<size_t>(x)];
+            sumR += (p >> 16) & 0xFF;
+            sumG += (p >> 8) & 0xFF;
+            sumB += p & 0xFF;
+            sumA += (p >> 24) & 0xFF;
+        }
+
+        for (int32_t y = 0; y < bounds.height; ++y) {
+            const int32_t dstY = bounds.y + y;
+            const uint8_t avgR = static_cast<uint8_t>(sumR / winSize);
+            const uint8_t avgG = static_cast<uint8_t>(sumG / winSize);
+            const uint8_t avgB = static_cast<uint8_t>(sumB / winSize);
+            const uint8_t avgA = static_cast<uint8_t>(sumA / winSize);
+
+            pixels_[static_cast<size_t>(dstY) * width_ + static_cast<size_t>(dstX)] =
+                (static_cast<uint32_t>(avgA) << 24) |
+                (static_cast<uint32_t>(avgR) << 16) |
+                (static_cast<uint32_t>(avgG) << 8)  |
+                static_cast<uint32_t>(avgB);
+
+            const int32_t remY = std::clamp(y - radius, 0, bounds.height - 1);
+            const int32_t addY = std::clamp(y + radius + 1, 0, bounds.height - 1);
+
+            const uint32_t pRem = temp[static_cast<size_t>(remY) * bounds.width + static_cast<size_t>(x)];
+            const uint32_t pAdd = temp[static_cast<size_t>(addY) * bounds.width + static_cast<size_t>(x)];
+
+            sumR += ((pAdd >> 16) & 0xFF) - ((pRem >> 16) & 0xFF);
+            sumG += ((pAdd >> 8) & 0xFF) - ((pRem >> 8) & 0xFF);
+            sumB += (pAdd & 0xFF) - (pRem & 0xFF);
+            sumA += ((pAdd >> 24) & 0xFF) - ((pRem >> 24) & 0xFF);
+        }
+    }
+}
+
+void Surface::applyAcrylicTint(Rect area, Color tint, int32_t blurRadius) noexcept {
+    if (area.empty()) return;
+    if (blurRadius > 0) {
+        applyBoxBlur(area, blurRadius);
+    }
+    fillRect(area, tint);
+}
+
 void Surface::blit(const Surface& src, Rect srcRect, Point dstPos, uint8_t alpha) noexcept {
     const int32_t sxStart = std::max(0, srcRect.x);
     const int32_t syStart = std::max(0, srcRect.y);

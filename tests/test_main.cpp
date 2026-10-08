@@ -297,6 +297,143 @@ void Test_Full_Desktop_Integration() {
     std::cout << "[TEST] Suite 8: Master Desktop Integration PASSED.\n";
 }
 
+void Test_SubSurface_Blur_And_Acrylic() {
+    std::cout << "[TEST] Running Suite 9: Sub-Surface Blur & Acrylic Translucency...\n";
+
+    surshell::Surface surf(120, 120, surshell::Color::fromRgb(0, 0, 0));
+    // Draw bright white column
+    surf.fillRect(surshell::Rect{50, 0, 20, 120}, surshell::Color::fromRgb(255, 255, 255));
+
+    TEST_ASSERT(surf.getPixel(49, 60).r == 0, "Pre-blur adjacent pixel is black");
+    TEST_ASSERT(surf.getPixel(50, 60).r == 255, "Pre-blur stripe pixel is white");
+
+    // Apply fast separable box blur
+    surf.applyBoxBlur(surshell::Rect{30, 30, 60, 60}, 5);
+
+    // Pixel at (49, 60) should now be blurred to an intermediate gray
+    const surshell::Color blurredAdj = surf.getPixel(49, 60);
+    TEST_ASSERT(blurredAdj.r > 20 && blurredAdj.r < 240, "Blurred adjacent pixel must be intermediate intensity");
+
+    // Apply acrylic frosted glass tint
+    surf.applyAcrylicTint(surshell::Rect{30, 30, 60, 60}, surshell::Color::fromRgba(16, 24, 40, 200), 4);
+    const surshell::Color tinted = surf.getPixel(50, 50);
+    TEST_ASSERT(tinted.r < 200, "Tinted pixel has darkened acrylic tone");
+
+    std::cout << "[TEST] Suite 9: Sub-Surface Blur & Acrylic Translucency PASSED.\n";
+}
+
+void Test_Quick_Settings_Flyout() {
+    std::cout << "[TEST] Running Suite 10: Quick Settings Flyout & Audio/Brightness Controls...\n";
+
+    surshell::QuickSettingsFlyout qs;
+    qs.updateLayout(1920, 1080, 48);
+
+    TEST_ASSERT(!qs.isOpen(), "Quick settings closed initially");
+    qs.open();
+    TEST_ASSERT(qs.isOpen(), "Quick settings open");
+    TEST_ASSERT(qs.bounds().width == 360, "Flyout width is 360");
+
+    // Check default states
+    TEST_ASSERT(qs.isToggleEnabled("mesh"), "RazzleNet Mesh enabled by default");
+    TEST_ASSERT(qs.isToggleEnabled("sentinel"), "SentinelSec enabled by default");
+    TEST_ASSERT(!qs.isToggleEnabled("nightlight"), "Night Light disabled by default");
+
+    // Toggle Night Light
+    qs.setToggleEnabled("nightlight", true);
+    TEST_ASSERT(qs.isToggleEnabled("nightlight"), "Night Light toggled on");
+
+    // Sliders
+    qs.setVolume(90);
+    TEST_ASSERT(qs.volume() == 90, "Volume set to 90%");
+    qs.setBrightness(75);
+    TEST_ASSERT(qs.brightness() == 75, "Brightness set to 75%");
+
+    // Mouse click inside flyout (toggle first item or slider)
+    const surshell::Point insidePt{qs.bounds().centerX(), qs.bounds().centerY()};
+    TEST_ASSERT(qs.onMouseDown(insidePt, surshell::MouseButton::Left), "Click inside flyout consumed");
+
+    // Click outside closes
+    const surshell::Point outsidePt{10, 10};
+    TEST_ASSERT(!qs.onMouseDown(outsidePt, surshell::MouseButton::Left), "Click outside not consumed");
+    TEST_ASSERT(!qs.isOpen(), "Click outside closed flyout");
+
+    std::cout << "[TEST] Suite 10: Quick Settings Flyout & Audio/Brightness Controls PASSED.\n";
+}
+
+void Test_Virtual_Desktops() {
+    std::cout << "[TEST] Running Suite 11: Virtual Desktops & Multi-Workspace Manager...\n";
+
+    surshell::VirtualDesktopManager vdm;
+    vdm.updateLayout(1920, 1080, 48);
+
+    TEST_ASSERT(vdm.desktopCount() == 2, "2 default virtual desktops created");
+    TEST_ASSERT(vdm.activeIndex() == 0, "Active desktop is 0");
+
+    // Create a 3rd desktop
+    const uint32_t d3 = vdm.createDesktop("3: Media & Gaming");
+    TEST_ASSERT(vdm.desktopCount() == 3, "3 virtual desktops present");
+    TEST_ASSERT(d3 > 0, "Valid desktop ID returned");
+
+    // Assign window 1001 to Desktop 0, window 1002 to Desktop 1
+    vdm.assignWindowToDesktop(1001, 0);
+    vdm.assignWindowToDesktop(1002, 1);
+
+    // On Desktop 0: 1001 is visible, 1002 is hidden
+    TEST_ASSERT(vdm.isWindowVisible(1001), "Window 1001 visible on Desktop 0");
+    TEST_ASSERT(!vdm.isWindowVisible(1002), "Window 1002 hidden on Desktop 0");
+
+    // Switch to Desktop 1
+    vdm.switchDesktop(1);
+    TEST_ASSERT(vdm.activeIndex() == 1, "Active desktop is 1");
+    TEST_ASSERT(!vdm.isWindowVisible(1001), "Window 1001 hidden on Desktop 1");
+    TEST_ASSERT(vdm.isWindowVisible(1002), "Window 1002 visible on Desktop 1");
+
+    // Pin window 1001 to all desktops
+    vdm.pinWindowToAllDesktops(1001, true);
+    TEST_ASSERT(vdm.isWindowVisible(1001), "Pinned window 1001 now visible on Desktop 1");
+
+    // Switcher HUD
+    TEST_ASSERT(!vdm.isSwitcherVisible(), "Switcher hidden initially");
+    vdm.toggleSwitcher();
+    TEST_ASSERT(vdm.isSwitcherVisible(), "Switcher toggled open");
+    vdm.toggleSwitcher();
+    TEST_ASSERT(!vdm.isSwitcherVisible(), "Switcher toggled closed");
+
+    std::cout << "[TEST] Suite 11: Virtual Desktops & Multi-Workspace Manager PASSED.\n";
+}
+
+void Test_MicaNT_Kernel_Bridge() {
+    std::cout << "[TEST] Running Suite 12: MicaNT Executive LPC Syscall Bridge...\n";
+
+    surshell::KernelBridge bridge;
+    TEST_ASSERT(!bridge.isConnected(), "Bridge disconnected initially");
+
+    TEST_ASSERT(bridge.connectToExecutive("\\RPC_Control\\SurWinLpc"), "Connect to SurWin LPC port succeeds");
+    TEST_ASSERT(bridge.isConnected(), "Bridge is connected");
+
+    // Spawn process
+    auto proc = bridge.spawnProcess("C:\\Windows\\System32\\sentinel_scan.exe", "--deep-heuristic");
+    TEST_ASSERT(proc.has_value(), "Process spawned");
+    TEST_ASSERT(proc->pid >= 2000, "PID allocated above standard userland range");
+    TEST_ASSERT(proc->name == "sentinel_scan.exe", "Process name extracted");
+
+    // Query active processes
+    auto procList = bridge.queryProcesses();
+    TEST_ASSERT(procList.size() >= 9, "Process list contains core system and spawned processes");
+
+    // Query vitals
+    auto vitals = bridge.queryVitals();
+    TEST_ASSERT(vitals.activeProcessCount >= 9, "Vitals reports active process count");
+    TEST_ASSERT(vitals.totalPhysicalMemoryKb > 0, "Vitals reports physical memory");
+
+    // Register window with SurWin
+    uint32_t handle = bridge.registerWindowWithSurWin("Test Window", surshell::Rect{100, 100, 400, 300});
+    TEST_ASSERT(handle > 0, "Valid SurWin window handle returned");
+    TEST_ASSERT(bridge.unregisterWindowWithSurWin(handle), "Unregister window succeeds");
+
+    std::cout << "[TEST] Suite 12: MicaNT Executive LPC Syscall Bridge PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -311,9 +448,13 @@ int main() {
     Test_Window_Manager_And_Aero_Snap();
     Test_File_Explorer_Navigation();
     Test_Full_Desktop_Integration();
+    Test_SubSurface_Blur_And_Acrylic();
+    Test_Quick_Settings_Flyout();
+    Test_Virtual_Desktops();
+    Test_MicaNT_Kernel_Bridge();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 8 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 12 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

@@ -534,8 +534,8 @@ void WindowManager::renderSnapFlyout(Surface& surface) {
     // Drop shadow
     surface.drawDropShadow(snapFlyoutBounds_, 16, 0.50f);
 
-    // Modern rounded container
-    surface.drawRoundedRect(snapFlyoutBounds_, 10, palette.snapFlyoutBg, true);
+    // Modern rounded container with translucent Mica Acrylic blur
+    surface.applyAcrylicTint(snapFlyoutBounds_, palette.snapFlyoutBg, 8);
     surface.drawRoundedRect(snapFlyoutBounds_, 10, palette.snapFlyoutBorder, false);
 
     // Flyout Header

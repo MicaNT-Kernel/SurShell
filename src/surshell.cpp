@@ -15,7 +15,10 @@ SurShellDesktop::SurShellDesktop(uint32_t width, uint32_t height)
       desktop_(width, height),
       taskbar_(width, height),
       startMenu_(),
-      windowManager_(width, height, 40) {
+      windowManager_(width, height, 40),
+      quickSettings_(),
+      virtualDesktops_(),
+      kernelBridge_() {
     setupDefaultEnvironment();
     wireSubsystemCallbacks();
 }
@@ -27,10 +30,15 @@ void SurShellDesktop::setScreenSize(uint32_t width, uint32_t height) {
     desktop_.setScreenSize(width, height);
     taskbar_.setScreenSize(width, height);
     windowManager_.setScreenSize(width, height, 40);
+    quickSettings_.updateLayout(width, height, taskbar_.bounds().height);
+    virtualDesktops_.updateLayout(width, height, taskbar_.bounds().height);
 }
 
 void SurShellDesktop::setupDefaultEnvironment() {
-    // 1. Setup Standard Sovereign Desktop Icons
+    // 1. Initialize Kernel Bridge Connection to SurWin/CSRSS LPC Executive
+    kernelBridge_.connectToExecutive("\\RPC_Control\\SurWinLpc");
+
+    // 2. Setup Standard Sovereign Desktop Icons
     desktop_.addIcon(DesktopIcon{
         .id = "this_pc",
         .label = "This PC",
@@ -71,11 +79,11 @@ void SurShellDesktop::setupDefaultEnvironment() {
         .iconGlyph = "[*]"
     });
 
-    // 2. Spawn Initial Sovereign Windows: Command Prompt & File Explorer
+    // 3. Spawn Initial Sovereign Windows: Command Prompt & File Explorer
     const uint32_t winCmd = windowManager_.createWindow("Command Prompt - [MicaNT ConHost: cmd.exe]", Rect{40, 60, 680, 420}, ">_");
+    virtualDesktops_.assignWindowToDesktop(winCmd, 0);
     auto* cmdWin = windowManager_.findWindow(winCmd);
     if (cmdWin) {
-        // Draw initial terminal text inside cmd client surface
         auto& cs = cmdWin->clientSurface;
         cs.clear(Color{12, 16, 24, 255});
         cs.drawString(14, 14, "MicaNT Sovereign Executive [Version 10.0.26100.1]", Color{0, 212, 255}, 1);
@@ -90,17 +98,26 @@ void SurShellDesktop::setupDefaultEnvironment() {
     }
 
     const uint32_t winExp = windowManager_.createWindow("File Explorer - C:\\Windows\\System32", Rect{420, 160, 720, 460}, "[E]");
+    virtualDesktops_.assignWindowToDesktop(winExp, 0);
     auto* expWin = windowManager_.findWindow(winExp);
     if (expWin) {
         FileExplorer explorer("C:\\Windows\\System32");
         explorer.render(expWin->clientSurface);
     }
+
+    // Initialize Layouts for flyouts
+    quickSettings_.updateLayout(width_, height_, taskbar_.bounds().height);
+    virtualDesktops_.updateLayout(width_, height_, taskbar_.bounds().height);
 }
 
 void SurShellDesktop::wireSubsystemCallbacks() {
     // 1. Taskbar Start Button clicks toggle the Start Menu
     taskbar_.setStartButtonClickCallback([this]() {
         startMenu_.toggle();
+        if (startMenu_.isOpen()) {
+            quickSettings_.close();
+            virtualDesktops_.hideSwitcher();
+        }
     });
 
     // 2. Taskbar Task item clicks toggle/focus window
@@ -115,7 +132,32 @@ void SurShellDesktop::wireSubsystemCallbacks() {
         }
     });
 
-    // 3. Window Manager events update Taskbar tasks
+    // 3. Taskbar Tray Island click toggles Quick Settings flyout
+    taskbar_.setTrayClickCallback([this]() {
+        quickSettings_.toggle();
+        if (quickSettings_.isOpen()) {
+            startMenu_.close();
+            virtualDesktops_.hideSwitcher();
+        }
+    });
+
+    // 4. Taskbar Task View button toggles Virtual Desktops switcher strip
+    taskbar_.setTaskViewClickCallback([this]() {
+        virtualDesktops_.toggleSwitcher();
+        if (virtualDesktops_.isSwitcherVisible()) {
+            startMenu_.close();
+            quickSettings_.close();
+        }
+    });
+
+    // 5. Virtual Desktop switching updates window visibility
+    virtualDesktops_.setSwitchCallback([this](size_t) {
+        for (const auto& win : windowManager_.windows()) {
+            win->isVisible = virtualDesktops_.isWindowVisible(win->id);
+        }
+    });
+
+    // 6. Window Manager events update Taskbar tasks
     windowManager_.setCallbacks(
         [this](uint32_t windowId, WindowState state, bool active) {
             auto* win = windowManager_.findWindow(windowId);
@@ -124,24 +166,46 @@ void SurShellDesktop::wireSubsystemCallbacks() {
         },
         [this](uint32_t windowId) {
             taskbar_.removeTask(windowId);
+            virtualDesktops_.unassignWindow(windowId);
         }
     );
 
-    // 4. Desktop Icon double-click launches window
+    // 7. Desktop Icon double-click launches window & registers with kernel
     desktop_.setLaunchCallback([this](const DesktopIcon& icon) {
-        windowManager_.createWindow(icon.label + " - [" + icon.executable + "]", Rect{200, 150, 640, 400}, icon.iconGlyph);
+        kernelBridge_.spawnProcess(icon.executable, icon.arguments);
+        const uint32_t wid = windowManager_.createWindow(icon.label + " - [" + icon.executable + "]", Rect{200, 150, 640, 400}, icon.iconGlyph);
+        virtualDesktops_.assignWindowToDesktop(wid, virtualDesktops_.activeIndex());
     });
 
-    // 5. Start Menu App click launches window
+    // 8. Start Menu App click launches window & registers with kernel
     startMenu_.setLaunchCallback([this](const ShellAppEntry& app) {
-        windowManager_.createWindow(app.title, Rect{240, 180, 660, 420}, app.iconGlyph);
+        kernelBridge_.spawnProcess(app.executablePath, app.arguments);
+        const uint32_t wid = windowManager_.createWindow(app.title, Rect{240, 180, 660, 420}, app.iconGlyph);
+        virtualDesktops_.assignWindowToDesktop(wid, virtualDesktops_.activeIndex());
     });
 }
 
 void SurShellDesktop::onMouseDown(Point pt, MouseButton button) {
     currentMousePos_ = pt;
 
-    // Check Start Menu first if open
+    // 1. Quick Settings Flyout (highest z-order when open)
+    if (quickSettings_.isOpen()) {
+        if (quickSettings_.bounds().contains(pt)) {
+            quickSettings_.onMouseDown(pt, button);
+            return;
+        } else {
+            quickSettings_.close();
+        }
+    }
+
+    // 2. Virtual Desktops Switcher HUD (if visible)
+    if (virtualDesktops_.isSwitcherVisible()) {
+        if (virtualDesktops_.onMouseDown(pt, button)) {
+            return;
+        }
+    }
+
+    // 3. Start Menu card (if open)
     const Rect smBounds = startMenu_.calculateBounds(width_, height_, taskbar_.bounds().height);
     if (startMenu_.isOpen()) {
         if (smBounds.contains(pt)) {
@@ -152,29 +216,38 @@ void SurShellDesktop::onMouseDown(Point pt, MouseButton button) {
         }
     }
 
-    // Check Taskbar
+    // 4. Taskbar (App Island, Tray Island, Start, Task View)
     if (taskbar_.bounds().contains(pt)) {
         taskbar_.onMouseDown(pt, button);
         return;
     }
 
-    // Check Window Manager
+    // 5. Window Manager (Windows, Captions, Snap Flyout, Borders)
     if (windowManager_.onMouseDown(pt, button)) {
         return;
     }
 
-    // Fallthrough to Desktop icons & marquee
+    // 6. Fallthrough to Desktop icons & marquee
     desktop_.onMouseDown(pt, button);
 }
 
 void SurShellDesktop::onMouseUp(Point pt, MouseButton button) {
     currentMousePos_ = pt;
+    quickSettings_.onMouseUp(pt, button);
     windowManager_.onMouseUp(pt, button);
     desktop_.onMouseUp(pt, button);
 }
 
 void SurShellDesktop::onMouseMove(Point pt) {
     currentMousePos_ = pt;
+
+    if (quickSettings_.isOpen()) {
+        quickSettings_.onMouseMove(pt);
+    }
+
+    if (virtualDesktops_.isSwitcherVisible()) {
+        virtualDesktops_.onMouseMove(pt);
+    }
 
     const Rect smBounds = startMenu_.calculateBounds(width_, height_, taskbar_.bounds().height);
     if (startMenu_.isOpen()) {
@@ -224,20 +297,31 @@ void SurShellDesktop::render() {
     framebuffer_.drawRoundedRect(Rect{rightBadgeX, 5, 178, 16}, 4, Color::fromRgba(25, 35, 55, 220), true);
     framebuffer_.drawString(rightBadgeX + 8, 9, "PASSIVE_LEVEL [IRQL 0]", Color::fromHex(0x00FF9D), 1);
 
-    // 4. Render Taskbar
+    // 4. Render Taskbar (Floating Island Dock)
     taskbar_.render(framebuffer_);
 
-    // 5. Render Start Menu overlay (if open)
+    // 5. Render Virtual Desktops Switcher Strip (if visible)
+    if (virtualDesktops_.isSwitcherVisible()) {
+        const auto& palette = ThemeManager::instance().palette();
+        virtualDesktops_.renderSwitcher(framebuffer_, palette);
+    }
+
+    // 6. Render Start Menu overlay (if open)
     if (startMenu_.isOpen()) {
         const Rect smBounds = startMenu_.calculateBounds(width_, height_, taskbar_.bounds().height);
         startMenu_.render(framebuffer_, smBounds);
     }
 
-    // 6. Render Mouse Cursor Arrow
+    // 7. Render Quick Settings Flyout (if open)
+    if (quickSettings_.isOpen()) {
+        const auto& palette = ThemeManager::instance().palette();
+        quickSettings_.render(framebuffer_, palette);
+    }
+
+    // 8. Render Mouse Cursor Arrow
     const int32_t mx = currentMousePos_.x;
     const int32_t my = currentMousePos_.y;
     if (mx >= 0 && mx < static_cast<int32_t>(width_) && my >= 0 && my < static_cast<int32_t>(height_)) {
-        // High-contrast clean cursor arrow
         for (int32_t cy = 0; cy < 12; ++cy) {
             for (int32_t cx = 0; cx <= cy && cx < 8; ++cx) {
                 framebuffer_.putPixel(mx + cx, my + cy, Color::fromHex(0xFFFFFF));

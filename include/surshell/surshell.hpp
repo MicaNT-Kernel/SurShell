@@ -16,6 +16,9 @@
 #include "tray.hpp"
 #include "window_manager.hpp"
 #include "explorer.hpp"
+#include "quick_settings.hpp"
+#include "virtual_desktop.hpp"
+#include "kernel_bridge.hpp"
 
 namespace surshell {
 
@@ -31,6 +34,9 @@ public:
     [[nodiscard]] Taskbar& taskbar() noexcept { return taskbar_; }
     [[nodiscard]] StartMenu& startMenu() noexcept { return startMenu_; }
     [[nodiscard]] WindowManager& windowManager() noexcept { return windowManager_; }
+    [[nodiscard]] QuickSettingsFlyout& quickSettings() noexcept { return quickSettings_; }
+    [[nodiscard]] VirtualDesktopManager& virtualDesktops() noexcept { return virtualDesktops_; }
+    [[nodiscard]] KernelBridge& kernel() noexcept { return kernelBridge_; }
     [[nodiscard]] Surface& framebuffer() noexcept { return framebuffer_; }
 
     // Master Input Dispatching
@@ -55,6 +61,9 @@ private:
     Taskbar taskbar_;
     StartMenu startMenu_;
     WindowManager windowManager_;
+    QuickSettingsFlyout quickSettings_;
+    VirtualDesktopManager virtualDesktops_;
+    KernelBridge kernelBridge_;
 
     Point currentMousePos_{0, 0};
 

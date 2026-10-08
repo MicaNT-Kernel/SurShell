@@ -46,11 +46,12 @@ void Taskbar::recalculateLayout() {
 
         // 2. Calculate App Island bounds
         const int32_t startBtnW = 42;
+        const int32_t taskViewBtnW = 38;
         const int32_t taskItemW = 44;
         const int32_t itemGap = 6;
         const int32_t paddingX = 10;
         const int32_t totalTasksW = tasks_.empty() ? 0 : static_cast<int32_t>(tasks_.size()) * (taskItemW + itemGap);
-        const int32_t appIslandW = paddingX * 2 + startBtnW + (totalTasksW > 0 ? (itemGap + totalTasksW) : 0);
+        const int32_t appIslandW = paddingX * 2 + startBtnW + itemGap + taskViewBtnW + (totalTasksW > 0 ? (itemGap + totalTasksW) : 0);
 
         int32_t appIslandX = 14;
         if (alignment_ == TaskbarAlignment::Center) {
@@ -59,8 +60,9 @@ void Taskbar::recalculateLayout() {
 
         appIslandBounds_ = Rect{appIslandX, tbY + 2, appIslandW, height_ - 4};
         startButtonBounds_ = Rect{appIslandBounds_.x + paddingX, appIslandBounds_.y + (height_ - 4 - btnH) / 2, startBtnW, btnH};
+        taskViewButtonBounds_ = Rect{startButtonBounds_.right() + itemGap, startButtonBounds_.y, taskViewBtnW, btnH};
 
-        int32_t curX = startButtonBounds_.right() + itemGap;
+        int32_t curX = taskViewButtonBounds_.right() + itemGap;
         for (auto& task : tasks_) {
             task.bounds = Rect{curX, startButtonBounds_.y, taskItemW, btnH};
             curX += taskItemW + itemGap;
@@ -121,6 +123,7 @@ void Taskbar::setActiveTask(uint32_t windowId) {
 
 void Taskbar::onMouseMove(Point pt) {
     isStartButtonHovered_ = startButtonBounds_.contains(pt);
+    isTaskViewHovered_ = taskViewButtonBounds_.contains(pt);
 
     hoveredTaskWindowId_ = -1;
     for (const auto& task : tasks_) {
@@ -143,6 +146,13 @@ void Taskbar::onMouseDown(Point pt, MouseButton button) {
         return;
     }
 
+    if (taskViewButtonBounds_.contains(pt)) {
+        if (taskViewClickCallback_) {
+            taskViewClickCallback_();
+        }
+        return;
+    }
+
     for (const auto& task : tasks_) {
         if (task.bounds.contains(pt)) {
             if (taskClickCallback_) {
@@ -155,12 +165,20 @@ void Taskbar::onMouseDown(Point pt, MouseButton button) {
     if (style_ == TaskbarStyle::FloatingIsland) {
         if (trayIslandBounds_.contains(pt)) {
             tray_.onMouseDown(pt, button);
+            if (trayClickCallback_) {
+                trayClickCallback_();
+            }
+            return;
         }
     } else {
         const int32_t trayWidth = tray_.preferredWidth();
         const Rect trayRect{static_cast<int32_t>(screenWidth_) - trayWidth - 8, bounds().y + 4, trayWidth, height_ - 8};
         if (trayRect.contains(pt)) {
             tray_.onMouseDown(pt, button);
+            if (trayClickCallback_) {
+                trayClickCallback_();
+            }
+            return;
         }
     }
 }
@@ -174,12 +192,12 @@ void Taskbar::render(Surface& surface) {
         surface.drawDropShadow(appIslandBounds_, metrics.shadowRadius, 0.40f);
         surface.drawDropShadow(trayIslandBounds_, metrics.shadowRadius, 0.40f);
 
-        // App Island container
-        surface.drawRoundedRect(appIslandBounds_, metrics.taskbarIslandRadius, palette.taskbarIslandBg, true);
+        // App Island container with translucent Mica Acrylic sub-surface blur
+        surface.applyAcrylicTint(appIslandBounds_, palette.taskbarIslandBg, 8);
         surface.drawRoundedRect(appIslandBounds_, metrics.taskbarIslandRadius, palette.taskbarIslandBorder, false);
 
-        // Tray Island container
-        surface.drawRoundedRect(trayIslandBounds_, metrics.taskbarIslandRadius, palette.taskbarIslandBg, true);
+        // Tray Island container with translucent Mica Acrylic sub-surface blur
+        surface.applyAcrylicTint(trayIslandBounds_, palette.taskbarIslandBg, 8);
         surface.drawRoundedRect(trayIslandBounds_, metrics.taskbarIslandRadius, palette.taskbarIslandBorder, false);
 
         // 1. Modern Mica Prism Start Button
@@ -197,6 +215,17 @@ void Taskbar::render(Surface& surface) {
             palette.prismFacetDark,
             palette.prismFacetLight
         );
+
+        // Task View Button (Virtual Desktops)
+        Color taskViewBg = isTaskViewHovered_ ? palette.taskbarItemHover : palette.taskbarItemBg;
+        surface.drawRoundedRect(taskViewButtonBounds_, 8, taskViewBg, true);
+        if (isTaskViewHovered_) {
+            surface.drawRoundedRect(taskViewButtonBounds_, 8, palette.accentColor, false);
+        }
+        const int32_t tvCenterX = taskViewButtonBounds_.centerX();
+        const int32_t tvCenterY = taskViewButtonBounds_.centerY();
+        surface.drawRoundedRect(Rect{tvCenterX - 7, tvCenterY - 6, 11, 9}, 2, palette.textSecondary, false);
+        surface.drawRoundedRect(Rect{tvCenterX - 3, tvCenterY - 3, 11, 9}, 2, palette.accentColor, false);
 
         // 2. Running Task Items (Modern Centered Pill Icons)
         for (const auto& task : tasks_) {

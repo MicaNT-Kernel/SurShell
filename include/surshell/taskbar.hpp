@@ -30,6 +30,8 @@ class Taskbar {
 public:
     using StartButtonClickCallback = std::function<void()>;
     using TaskItemClickCallback = std::function<void(uint32_t windowId)>;
+    using TrayClickCallback = std::function<void()>;
+    using TaskViewClickCallback = std::function<void()>;
 
     Taskbar(uint32_t screenWidth, uint32_t screenHeight);
 
@@ -38,6 +40,8 @@ public:
 
     void setStartButtonClickCallback(StartButtonClickCallback cb) { startClickCallback_ = std::move(cb); }
     void setTaskItemClickCallback(TaskItemClickCallback cb) { taskClickCallback_ = std::move(cb); }
+    void setTrayClickCallback(TrayClickCallback cb) { trayClickCallback_ = std::move(cb); }
+    void setTaskViewClickCallback(TaskViewClickCallback cb) { taskViewClickCallback_ = std::move(cb); }
 
     void setStyle(TaskbarStyle style) noexcept { style_ = style; recalculateLayout(); }
     [[nodiscard]] TaskbarStyle style() const noexcept { return style_; }
@@ -48,6 +52,7 @@ public:
     [[nodiscard]] Rect appIslandBounds() const noexcept { return appIslandBounds_; }
     [[nodiscard]] Rect trayIslandBounds() const noexcept { return trayIslandBounds_; }
     [[nodiscard]] Rect startButtonBounds() const noexcept { return startButtonBounds_; }
+    [[nodiscard]] Rect taskViewButtonBounds() const noexcept { return taskViewButtonBounds_; }
 
     void addOrUpdateTask(uint32_t windowId, std::string title, std::string glyph, bool active, bool minimized);
     void removeTask(uint32_t windowId);
@@ -76,13 +81,17 @@ private:
     Rect appIslandBounds_{};
     Rect trayIslandBounds_{};
     Rect startButtonBounds_{};
+    Rect taskViewButtonBounds_{};
     bool isStartButtonHovered_{false};
+    bool isTaskViewHovered_{false};
     int32_t hoveredTaskWindowId_{-1};
 
     std::vector<TaskItem> tasks_{};
 
     StartButtonClickCallback startClickCallback_{};
     TaskItemClickCallback taskClickCallback_{};
+    TrayClickCallback trayClickCallback_{};
+    TaskViewClickCallback taskViewClickCallback_{};
 
     void recalculateLayout();
 };

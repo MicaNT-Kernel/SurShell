@@ -15,6 +15,9 @@ set(SURSHELL_SOURCES
     src/taskbar.cpp
     src/window_manager.cpp
     src/explorer.cpp
+    src/quick_settings.cpp
+    src/virtual_desktop.cpp
+    src/kernel_bridge.cpp
     src/surshell.cpp
 )
 

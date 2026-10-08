@@ -87,6 +87,35 @@ SurShell implements the **"Mica Prism" Modern 2026 Sovereign Design Language**: 
 - Directory listing with file metadata, extension badges, and size formatting.
 - Quick Access sidebar for system root, drives, and user directories.
 
+### ⚙️ Quick Settings & Action Center Island (`surshell::QuickSettingsFlyout`)
+- Modern 2026 floating Action Center card anchored to the System Tray Island.
+- Tactile toggle grid:
+  - **RazzleNet Mesh**: Instant peer mesh status & toggle.
+  - **SentinelSec Shield**: Real-time malware scanning & intrusion detection.
+  - **Night Light**: 4500K warm color temperature calibration.
+  - **Focus Session / DND**: Quiet hours notification filter.
+  - **Daytona Eco Mode**: Energy-saving power throttle.
+  - **Prism 3D Spatial Audio**: HRTF surround sound engine.
+- Interactive volume and brightness sliders with drag and click position tracking.
+- Power telemetry: AC power status, battery percent, and Settings shortcut.
+
+### 🗂️ Task View & Virtual Desktops (`surshell::VirtualDesktopManager`)
+- Multi-workspace window isolation and switching.
+- Centered floating Task View switcher strip with preview cards.
+- Pin individual windows to appear across all virtual desktops.
+- Hotkey and dock-level switching between isolated workflow environments.
+
+### 🌉 MicaNT Executive LPC Syscall Bridge (`surshell::KernelBridge`)
+- Clean-room Win32 / NT executive syscall abstraction conforming to Dave Cutler's `SurWin` (`micant::surwin`, `micant::user32`, `micant::csrss`).
+- Connects directly to `\RPC_Control\SurWinLpc` for window station creation and message dispatching.
+- Process spawning and lifecycle monitoring for sovereign kernel executables (`micant_kernel.exe`, `sentinel.exe`, `cmd.exe`).
+- Seamless freestanding emulation fallback when executing on host developer systems.
+
+### 🔮 Sub-Surface Mica Acrylic Blur Pipeline (`surshell::Surface::applyBoxBlur`)
+- Fast, two-pass separable 1D horizontal + 1D vertical box blur running in $O(W \times H)$ time.
+- Single-pass sliding accumulator window providing sub-millisecond frosted glass blur.
+- Blends Mica dark slate and Cutler Cyan acrylic tints directly over blurred backdrops.
+
 ---
 
 ## 🚀 Building from Source

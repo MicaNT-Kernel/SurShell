@@ -64,6 +64,29 @@ int main(int argc, char* argv[]) {
     if (shell.exportSnapshot("surshell_aero_snap.bmp")) {
         std::cout << "  -> Exported: surshell_aero_snap.bmp (1920x1080 32-bpp)\n";
     }
+    shell.windowManager().hideSnapFlyout();
+
+    // ------------------------------------------------------------------------
+    // Scene 4: Modern Quick Settings Flyout with Audio/Brightness Sliders
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 4: Quick Settings Island with Sliders...\n";
+    shell.quickSettings().open();
+    shell.render();
+    if (shell.exportSnapshot("surshell_quick_settings.bmp")) {
+        std::cout << "  -> Exported: surshell_quick_settings.bmp (1920x1080 32-bpp)\n";
+    }
+    shell.quickSettings().close();
+
+    // ------------------------------------------------------------------------
+    // Scene 5: Task View & Virtual Desktops Switcher Strip
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 5: Task View & Virtual Desktops Switcher Strip...\n";
+    shell.virtualDesktops().showSwitcher();
+    shell.render();
+    if (shell.exportSnapshot("surshell_virtual_desktops.bmp")) {
+        std::cout << "  -> Exported: surshell_virtual_desktops.bmp (1920x1080 32-bpp)\n";
+    }
+    shell.virtualDesktops().hideSwitcher();
 
     std::cout << "\n[SurShell] Visual presentation pipeline completed successfully.\n";
     return 0;

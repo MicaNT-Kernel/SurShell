@@ -114,6 +114,25 @@ Freestanding cabinet explorer:
 - **Quick Access Sidebar**: One-click jumps to root drives, home folder, and system directories.
 - **Item Grid / List**: Visual representation of directory contents with type-specific badges and file metadata.
 
+### 3.8 Quick Settings & Action Center Flyout (`surshell::quick_settings`)
+Anchored directly above the Taskbar System Tray island:
+- **Quick Toggles**: 2-column tactile toggles for RazzleNet Mesh, SentinelSec Shield, Night Light (4500K warm tint), Focus Session (DND), and Daytona Eco Mode.
+- **Continuous Sliders**: Volume and brightness slider controls with real-time percentage badges and mouse position tracking.
+- **Power & Host Telemetry**: Battery status, AC power indicators, and one-click access to system settings.
+
+### 3.9 Virtual Desktops & Task View (`surshell::virtual_desktop`)
+Modern workspace multi-tasking:
+- **Workspace Isolation**: Segregates open application windows across customizable virtual desktops (e.g., Sovereign Kernel, Development & Tools, Media).
+- **Task View Switcher Strip**: Centered floating strip providing visual desktop cards, current window counts, and quick desktop creation.
+- **Window Pinning**: Allows essential utility windows (e.g., Sentinel monitor) to stay visible across all virtual desktops.
+
+### 3.10 MicaNT Executive LPC Syscall Bridge (`surshell::kernel_bridge`)
+Integration bridge to MicaNT's Dave Cutler architecture:
+- **SurWin LPC Port**: Connects directly to `\RPC_Control\SurWinLpc` for window station registration and userland event delivery.
+- **Win32 Message Translation**: Converts raw compositor mouse and keyboard events into standard Win32 message packets (`WM_LBUTTONDOWN`, `WM_MOUSEMOVE`, `WM_KEYDOWN`).
+- **Process Lifecycle Spawning**: Directly coordinates process execution (`micant_kernel.exe`, `sentinel.exe`, `cmd.exe`) with PID tracking and working set telemetry.
+- **Freestanding Host Emulation**: Runs cleanly across standard Windows and Linux hosts with zero kernel dependencies required during development.
+
 ---
 
 ## 4. Performance Specifications

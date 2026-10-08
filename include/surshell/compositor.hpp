@@ -43,6 +43,10 @@ public:
     void drawRoundedRect(Rect rect, int32_t radius, Color color, bool filled = true) noexcept;
     void drawDropShadow(Rect rect, int32_t radius, float opacity) noexcept;
 
+    // Sub-surface fast multi-pass separable box blur & Acrylic material tinting
+    void applyBoxBlur(Rect area, int32_t radius) noexcept;
+    void applyAcrylicTint(Rect area, Color tint, int32_t blurRadius = 8) noexcept;
+
     void blit(const Surface& src, Rect srcRect, Point dstPos, uint8_t alpha = 255) noexcept;
     void drawString(int32_t x, int32_t y, std::string_view text, Color color, int32_t scale = 1) noexcept;
 

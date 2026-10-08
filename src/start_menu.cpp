@@ -264,8 +264,8 @@ void StartMenu::render(Surface& surface, Rect menuBounds) {
     // 1. Soft deep drop shadow behind detached Start card
     surface.drawDropShadow(menuBounds, 18, 0.55f);
 
-    // 2. Modern 14px rounded container in Mica slate
-    surface.drawRoundedRect(menuBounds, 14, palette.startMenuBg, true);
+    // 2. Modern 14px rounded container with translucent Mica Acrylic blur
+    surface.applyAcrylicTint(menuBounds, palette.startMenuBg, 10);
     surface.drawRoundedRect(menuBounds, 14, palette.startMenuBorder, false);
 
     // 3. Modern Search Pill at Top
