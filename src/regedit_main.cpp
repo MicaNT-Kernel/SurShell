@@ -13,6 +13,9 @@
 #include <chrono>
 
 #ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <windowsx.h>
@@ -213,8 +216,8 @@ int main(int argc, char* argv[]) {
     const int screenH = GetSystemMetrics(SM_CYSCREEN);
     const int winW = 960;
     const int winH = 620;
-    const int winX = std::max(0, (screenW - winW) / 2);
-    const int winY = std::max(0, (screenH - winH) / 2);
+    const int winX = (std::max)(0, (screenW - winW) / 2);
+    const int winY = (std::max)(0, (screenH - winH) / 2);
 
     HWND hwnd = CreateWindowExW(
         WS_EX_APPWINDOW,

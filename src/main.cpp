@@ -10,6 +10,9 @@
 #include <string>
 
 #ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <windowsx.h>
@@ -214,8 +217,8 @@ int runInteractiveDesktop() {
 
     const int screenW = GetSystemMetrics(SM_CXSCREEN);
     const int screenH = GetSystemMetrics(SM_CYSCREEN);
-    const int winW = std::min(1600, screenW - 60);
-    const int winH = std::min(900, screenH - 80);
+    const int winW = (std::min)(1600, screenW - 60);
+    const int winH = (std::min)(900, screenH - 80);
     const int winX = (screenW - winW) / 2;
     const int winY = (screenH - winH) / 2;
 

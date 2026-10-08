@@ -45,6 +45,7 @@ target_include_directories(surshell PUBLIC
 # Compiler warnings and options
 if (MSVC)
     add_compile_options(/W4 /permissive- /utf-8)
+    add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN)
 else()
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
