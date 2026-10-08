@@ -5,6 +5,8 @@
 
 #include "surshell/surshell.hpp"
 #include <iostream>
+#include <fstream>
+#include <filesystem>
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -15,6 +17,7 @@
 #endif
 #include <windows.h>
 #include <mmsystem.h>
+#include <shellapi.h>
 #endif
 
 namespace surshell {
@@ -592,6 +595,91 @@ void SurShellDesktop::wireSubsystemCallbacks() {
         }
     });
 
+    // 7b. Desktop Context Menu actions (Right-click wallpaper & icons)
+    desktop_.setContextMenuActionCallback([this](const std::string& actionId, const std::string& targetIconId) {
+        if (actionId == "refresh") {
+            desktop_.discoverHostDesktop();
+            toastManager_.showToast("Desktop Refreshed", "Discovered host shortcuts and documents", IconId::NavRefresh);
+        } else if (actionId == "sort_name") {
+            toastManager_.showToast("Desktop Arranged", "Sorted icons by name", IconId::SortAsc);
+        } else if (actionId == "terminal") {
+            openTerminalWindow("C:\\Users\\admin\\Desktop");
+        } else if (actionId == "display" || actionId == "personalize") {
+            openSettingsWindow();
+        } else if (actionId == "new_folder") {
+            std::string userProf = "C:\\Users\\admin";
+            if (const char* p = std::getenv("USERPROFILE"); p && p[0] != '\0') userProf = p;
+            std::filesystem::path dt = std::filesystem::path(userProf) / "Desktop" / "New Folder";
+            std::error_code ec;
+            int c = 2;
+            while (std::filesystem::exists(dt, ec)) {
+                dt = std::filesystem::path(userProf) / "Desktop" / ("New Folder (" + std::to_string(c++) + ")");
+            }
+            if (std::filesystem::create_directory(dt, ec)) {
+                desktop_.discoverHostDesktop();
+                toastManager_.showToast("Folder Created", dt.filename().string() + " on Desktop", IconId::Folder);
+            }
+        } else if (actionId == "new_file") {
+            std::string userProf = "C:\\Users\\admin";
+            if (const char* p = std::getenv("USERPROFILE"); p && p[0] != '\0') userProf = p;
+            std::filesystem::path dt = std::filesystem::path(userProf) / "Desktop" / "New Text Document.txt";
+            std::error_code ec;
+            int c = 2;
+            while (std::filesystem::exists(dt, ec)) {
+                dt = std::filesystem::path(userProf) / "Desktop" / ("New Text Document (" + std::to_string(c++) + ").txt");
+            }
+            std::ofstream ofs(dt);
+            if (ofs.is_open()) {
+                ofs.close();
+                desktop_.discoverHostDesktop();
+                toastManager_.showToast("File Created", dt.filename().string() + " on Desktop", IconId::NewFile);
+            }
+        } else if (actionId == "open") {
+            for (const auto& icon : desktop_.icons()) {
+                if (icon.id == targetIconId) {
+                    if (icon.id == "this_pc") openFileExplorerWindow("This PC");
+                    else if (icon.id == "explorer") openFileExplorerWindow("C:\\Users\\admin");
+                    else if (icon.id == "cmd") openTerminalWindow("C:\\Users\\admin");
+                    else if (icon.id == "settings") openSettingsWindow();
+                    else if (icon.id == "calc") openCalculatorWindow();
+                    else kernelBridge_.spawnProcess(icon.executable, icon.arguments);
+                    break;
+                }
+            }
+        } else if (actionId == "delete") {
+            for (const auto& icon : desktop_.icons()) {
+                if (icon.id == targetIconId) {
+                    bool deleted = false;
+#if defined(_WIN32)
+                    std::wstring wpath;
+                    int wlen = MultiByteToWideChar(CP_UTF8, 0, icon.executable.c_str(), -1, nullptr, 0);
+                    if (wlen > 0) {
+                        wpath.resize(wlen);
+                        MultiByteToWideChar(CP_UTF8, 0, icon.executable.c_str(), -1, wpath.data(), wlen);
+                        wpath.push_back(L'\0');
+                        SHFILEOPSTRUCTW op{};
+                        op.wFunc = FO_DELETE;
+                        op.pFrom = wpath.c_str();
+                        op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI;
+                        if (SHFileOperationW(&op) == 0 && !op.fAnyOperationsAborted) {
+                            deleted = true;
+                        }
+                    }
+#endif
+                    if (!deleted) {
+                        std::error_code ec;
+                        deleted = (std::filesystem::remove_all(icon.executable, ec) > 0);
+                    }
+                    if (deleted) {
+                        desktop_.removeIcon(targetIconId);
+                        toastManager_.showToast("Recycle Bin", icon.label + " sent to Recycle Bin", IconId::Delete);
+                    }
+                    break;
+                }
+            }
+        }
+    });
+
     // 8. Start Menu App click launches window & registers with kernel
     startMenu_.setLaunchCallback([this](const ShellAppEntry& app) {
         if (app.executablePath == "C:\\Windows\\explorer.exe" || app.id == "explorer") {
@@ -720,12 +808,43 @@ void SurShellDesktop::dismissAltTab() {
     altTab_.dismiss();
 }
 
+void SurShellDesktop::toggleShowDesktop() {
+    bool anyNonMinimized = false;
+    for (const auto& win : windowManager_.windows()) {
+        if (win->state != WindowState::Minimized) {
+            anyNonMinimized = true;
+            break;
+        }
+    }
+    if (anyNonMinimized) {
+        for (const auto& win : windowManager_.windows()) {
+            if (win->state != WindowState::Minimized) {
+                windowManager_.setWindowState(win->id, WindowState::Minimized);
+            }
+        }
+        toastManager_.showToast("Show Desktop", "All windows minimized (Win+D)", IconId::Desktop);
+    } else {
+        for (const auto& win : windowManager_.windows()) {
+            if (win->state == WindowState::Minimized) {
+                windowManager_.setWindowState(win->id, WindowState::Normal);
+            }
+        }
+        toastManager_.showToast("Show Desktop", "Windows restored (Win+D)", IconId::Desktop);
+    }
+}
+
 void SurShellDesktop::onMouseDown(Point pt, MouseButton button) {
     currentMousePos_ = pt;
 
     // -1. Lock screen takes complete precedence when active
     if (lockScreen_.isLocked()) {
         lockScreen_.onMouseDown(pt, button);
+        return;
+    }
+
+    // 0. Desktop Context Menu hit testing
+    if (desktop_.contextMenu().isOpen) {
+        desktop_.onMouseDown(pt, button);
         return;
     }
 
@@ -862,6 +981,10 @@ void SurShellDesktop::onMouseMove(Point pt) {
         startMenu_.onMouseMove(pt, smBounds);
     }
 
+    if (desktop_.contextMenu().isOpen) {
+        desktop_.onMouseMove(pt);
+    }
+
     taskbar_.onMouseMove(pt);
     if (windowManager_.onMouseMove(pt)) {
         return;
@@ -902,7 +1025,7 @@ void SurShellDesktop::onCharInput(char c) {
     }
 }
 
-void SurShellDesktop::onKeyDown(KeyCode key, bool ctrl, bool shift, bool alt) {
+void SurShellDesktop::onKeyDown(KeyCode key, bool ctrl, bool shift, bool alt, bool win) {
     if (lockScreen_.isLocked()) {
         lockScreen_.onKeyDown(key);
         return;
@@ -921,6 +1044,13 @@ void SurShellDesktop::onKeyDown(KeyCode key, bool ctrl, bool shift, bool alt) {
         }
     }
 
+    if (desktop_.contextMenu().isOpen) {
+        if (key == KeyCode::Escape) {
+            desktop_.closeContextMenu();
+            return;
+        }
+    }
+
     if (altTab_.isActive()) {
         if (key == KeyCode::Tab) {
             cycleAltTab(!shift);
@@ -934,23 +1064,50 @@ void SurShellDesktop::onKeyDown(KeyCode key, bool ctrl, bool shift, bool alt) {
         }
     }
 
-    if ((alt || ctrl) && key == KeyCode::KeyS) {
+    if (key == KeyCode::Super) {
+        startMenu_.toggle();
+        if (startMenu_.isOpen()) {
+            quickSettings_.close();
+            actionCenter_.hide();
+            searchHub_.hide();
+            virtualDesktops_.hideSwitcher();
+        }
+        return;
+    }
+
+    if ((win || alt || ctrl) && key == KeyCode::KeyD) {
+        toggleShowDesktop();
+        return;
+    }
+
+    if ((win || alt || ctrl) && key == KeyCode::KeyE) {
+        openFileExplorerWindow("This PC");
+        return;
+    }
+
+    if ((win || alt || ctrl) && key == KeyCode::KeyS) {
         openSearchHub();
         return;
     }
 
-    if ((alt || ctrl) && key == KeyCode::KeyN) {
+    if ((win || alt || ctrl) && key == KeyCode::KeyN) {
         openActionCenter();
         return;
     }
 
-    if ((alt || ctrl) && key == KeyCode::KeyL) {
+    if ((win || alt || ctrl) && key == KeyCode::KeyL) {
         lockSession();
         return;
     }
 
-    if ((alt || ctrl) && key == KeyCode::KeyR) {
+    if ((win || alt || ctrl) && key == KeyCode::KeyR) {
         openRunDialogWindow();
+        return;
+    }
+
+    if (key == KeyCode::F5) {
+        desktop_.discoverHostDesktop();
+        toastManager_.showToast("Desktop Refreshed", "Discovered host shortcuts and documents", IconId::NavRefresh);
         return;
     }
 
@@ -1041,6 +1198,11 @@ void SurShellDesktop::render() {
     // 12. Render Universal Search Hub (if visible)
     if (searchHub_.isVisible()) {
         searchHub_.render(framebuffer_, width_, height_);
+    }
+
+    // 12b. Render Desktop Context Menu (if open)
+    if (desktop_.contextMenu().isOpen) {
+        desktop_.renderContextMenu(framebuffer_);
     }
 
     // 13. Render Mouse Cursor Arrow

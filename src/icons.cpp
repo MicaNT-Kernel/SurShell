@@ -185,6 +185,7 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
             drawRunDialog(surface, bounds, tintOverride);
             break;
         case IconId::Display:
+        case IconId::Desktop:
             drawDisplay(surface, bounds, tintOverride);
             break;
         case IconId::Personalization:

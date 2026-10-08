@@ -38,9 +38,28 @@ struct DesktopIcon {
     bool selected{false};
 };
 
+struct DesktopContextMenuItem {
+    std::string id;
+    std::string label;
+    std::string shortcut;
+    IconId iconId{IconId::FileGeneric};
+    bool isSeparator{false};
+    Rect bounds{};
+};
+
+struct DesktopContextMenu {
+    bool isOpen{false};
+    Point position{0, 0};
+    std::vector<DesktopContextMenuItem> items{};
+    int32_t hoveredIndex{-1};
+    Rect bounds{};
+    std::string targetIconId{};
+};
+
 class DesktopManager {
 public:
     using LaunchCallback = std::function<void(const DesktopIcon&)>;
+    using ContextMenuActionCallback = std::function<void(const std::string& actionId, const std::string& targetIconId)>;
 
     DesktopManager(uint32_t screenWidth, uint32_t screenHeight);
 
@@ -48,9 +67,15 @@ public:
     void addIcon(DesktopIcon icon);
     void removeIcon(std::string_view id);
     void arrangeIcons();
+    void sortByName();
     void discoverHostDesktop();
 
     void setLaunchCallback(LaunchCallback cb) { launchCallback_ = std::move(cb); }
+    void setContextMenuActionCallback(ContextMenuActionCallback cb) { contextMenuCallback_ = std::move(cb); }
+
+    void openContextMenu(Point pt, std::string_view targetIconId = "");
+    void closeContextMenu() noexcept { contextMenu_.isOpen = false; }
+    [[nodiscard]] const DesktopContextMenu& contextMenu() const noexcept { return contextMenu_; }
 
     void setWallpaperStyle(WallpaperStyle style) noexcept { wallpaperStyle_ = style; }
     [[nodiscard]] WallpaperStyle wallpaperStyle() const noexcept { return wallpaperStyle_; }
@@ -66,6 +91,7 @@ public:
 
     // Rendering
     void render(Surface& surface);
+    void renderContextMenu(Surface& surface);
 
     [[nodiscard]] bool isSelecting() const noexcept { return isMarqueeActive_; }
     [[nodiscard]] Rect selectionMarquee() const noexcept { return marqueeRect_; }
@@ -80,7 +106,9 @@ private:
     Rect marqueeRect_{0, 0, 0, 0};
 
     LaunchCallback launchCallback_{};
+    ContextMenuActionCallback contextMenuCallback_{};
     WallpaperStyle wallpaperStyle_{WallpaperStyle::MicaGrid};
+    DesktopContextMenu contextMenu_{};
 
     void updateMarquee(Point current);
     void recalculateIconBounds();

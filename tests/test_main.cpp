@@ -117,6 +117,32 @@ void Test_Desktop_Manager() {
     dm.onDoubleClick(surshell::Point{dm.icons()[0].bounds.x + 5, dm.icons()[0].bounds.y + 5});
     TEST_ASSERT(launched, "Double click triggers launch callback");
 
+    // Context Menu on wallpaper right-click
+    dm.onMouseDown(surshell::Point{500, 500}, surshell::MouseButton::Right);
+    TEST_ASSERT(dm.contextMenu().isOpen, "Context menu opened on wallpaper right click");
+    TEST_ASSERT(dm.contextMenu().targetIconId.empty(), "Wallpaper context menu has empty targetIconId");
+    TEST_ASSERT(!dm.contextMenu().items.empty(), "Context menu populated with items");
+
+    // Close menu on click outside
+    dm.onMouseDown(surshell::Point{10, 10}, surshell::MouseButton::Left);
+    TEST_ASSERT(!dm.contextMenu().isOpen, "Context menu closed on outside click");
+
+    // Context Menu on icon right-click
+    dm.onMouseDown(surshell::Point{dm.icons()[0].bounds.x + 5, dm.icons()[0].bounds.y + 5}, surshell::MouseButton::Right);
+    TEST_ASSERT(dm.contextMenu().isOpen, "Context menu opened on icon right click");
+    TEST_ASSERT(dm.contextMenu().targetIconId == "app1", "Icon context menu targets clicked icon");
+
+    // Sort by Name
+    dm.sortByName();
+    TEST_ASSERT(dm.icons()[0].label <= dm.icons()[1].label, "Icons sorted alphabetically");
+
+    // Render Context Menu
+    surshell::Surface testMenuSurface(800, 600);
+    dm.openContextMenu(surshell::Point{100, 100});
+    dm.renderContextMenu(testMenuSurface);
+    TEST_ASSERT(dm.contextMenu().isOpen, "Context menu rendered cleanly");
+    dm.closeContextMenu();
+
     std::cout << "[TEST] Suite 3: Desktop Manager & Icon Grid PASSED.\n";
 }
 

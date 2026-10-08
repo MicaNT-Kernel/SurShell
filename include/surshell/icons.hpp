@@ -91,6 +91,7 @@ enum class IconId {
     Calculator,
     RunDialog,
     Display,
+    Desktop,
     Personalization,
     Calendar,
     TerminalTab,

@@ -134,6 +134,13 @@ void DesktopManager::arrangeIcons() {
     }
 }
 
+void DesktopManager::sortByName() {
+    std::sort(icons_.begin(), icons_.end(), [](const DesktopIcon& a, const DesktopIcon& b) {
+        return a.label < b.label;
+    });
+    arrangeIcons();
+}
+
 void DesktopManager::recalculateIconBounds() {
     arrangeIcons();
 }
@@ -145,7 +152,87 @@ std::optional<std::reference_wrapper<const DesktopIcon>> DesktopManager::getSele
     return std::nullopt;
 }
 
+void DesktopManager::openContextMenu(Point pt, std::string_view targetIconId) {
+    contextMenu_.isOpen = true;
+    contextMenu_.position = pt;
+    contextMenu_.items.clear();
+    contextMenu_.hoveredIndex = -1;
+    contextMenu_.targetIconId = std::string(targetIconId);
+
+    if (targetIconId.empty()) {
+        // Desktop wallpaper right-click
+        contextMenu_.items.push_back(DesktopContextMenuItem{.id = "view_large", .label = "Large icons", .shortcut = "", .iconId = IconId::ViewGrid});
+        contextMenu_.items.push_back(DesktopContextMenuItem{.id = "view_medium", .label = "Medium icons", .shortcut = "", .iconId = IconId::ViewList});
+        contextMenu_.items.push_back(DesktopContextMenuItem{.id = "sort_name", .label = "Sort by Name", .shortcut = "", .iconId = IconId::SortAsc});
+        contextMenu_.items.push_back(DesktopContextMenuItem{.id = "refresh", .label = "Refresh", .shortcut = "F5", .iconId = IconId::NavRefresh});
+        contextMenu_.items.push_back(DesktopContextMenuItem{.id = "sep1", .label = "", .shortcut = "", .iconId = IconId::FileGeneric, .isSeparator = true});
+        contextMenu_.items.push_back(DesktopContextMenuItem{.id = "new_folder", .label = "New Folder", .shortcut = "", .iconId = IconId::NewFolder});
+        contextMenu_.items.push_back(DesktopContextMenuItem{.id = "new_file", .label = "New Text Document", .shortcut = "", .iconId = IconId::NewFile});
+        contextMenu_.items.push_back(DesktopContextMenuItem{.id = "sep2", .label = "", .shortcut = "", .iconId = IconId::FileGeneric, .isSeparator = true});
+        contextMenu_.items.push_back(DesktopContextMenuItem{.id = "terminal", .label = "Open in Terminal", .shortcut = "", .iconId = IconId::Terminal});
+        contextMenu_.items.push_back(DesktopContextMenuItem{.id = "display", .label = "Display settings", .shortcut = "", .iconId = IconId::Display});
+        contextMenu_.items.push_back(DesktopContextMenuItem{.id = "personalize", .label = "Personalize", .shortcut = "", .iconId = IconId::Personalization});
+    } else {
+        // Desktop icon right-click
+        contextMenu_.items.push_back(DesktopContextMenuItem{.id = "open", .label = "Open", .shortcut = "Enter", .iconId = IconId::StartPrism});
+        contextMenu_.items.push_back(DesktopContextMenuItem{.id = "sep1", .label = "", .shortcut = "", .iconId = IconId::FileGeneric, .isSeparator = true});
+        contextMenu_.items.push_back(DesktopContextMenuItem{.id = "delete", .label = "Delete", .shortcut = "Del", .iconId = IconId::Delete});
+        contextMenu_.items.push_back(DesktopContextMenuItem{.id = "properties", .label = "Properties", .shortcut = "", .iconId = IconId::Properties});
+    }
+
+    constexpr int32_t itemH = 26;
+    constexpr int32_t sepH = 6;
+    int32_t totalH = 12;
+    for (const auto& it : contextMenu_.items) {
+        totalH += it.isSeparator ? sepH : itemH;
+    }
+
+    constexpr int32_t menuW = 200;
+    int32_t mx = pt.x;
+    int32_t my = pt.y;
+    if (mx + menuW > static_cast<int32_t>(screenWidth_) - 10) {
+        mx = static_cast<int32_t>(screenWidth_) - menuW - 10;
+    }
+    if (my + totalH > static_cast<int32_t>(screenHeight_) - 50) {
+        my = static_cast<int32_t>(screenHeight_) - totalH - 50;
+    }
+    contextMenu_.bounds = Rect{mx, my, menuW, totalH};
+}
+
 void DesktopManager::onMouseDown(Point pt, MouseButton button) {
+    if (contextMenu_.isOpen) {
+        if (contextMenu_.bounds.contains(pt)) {
+            for (const auto& item : contextMenu_.items) {
+                if (!item.isSeparator && item.bounds.contains(pt)) {
+                    const std::string actionId = item.id;
+                    const std::string targetId = contextMenu_.targetIconId;
+                    closeContextMenu();
+                    if (actionId == "sort_name") {
+                        sortByName();
+                    }
+                    if (contextMenuCallback_) {
+                        contextMenuCallback_(actionId, targetId);
+                    }
+                    return;
+                }
+            }
+        }
+        closeContextMenu();
+        return;
+    }
+
+    if (button == MouseButton::Right) {
+        for (auto& icon : icons_) {
+            if (icon.bounds.contains(pt)) {
+                icon.selected = true;
+                openContextMenu(pt, icon.id);
+                return;
+            }
+        }
+        openContextMenu(pt, "");
+        return;
+    }
+
     if (button != MouseButton::Left) return;
 
     bool hitAny = false;
@@ -166,6 +253,16 @@ void DesktopManager::onMouseDown(Point pt, MouseButton button) {
 }
 
 void DesktopManager::onMouseMove(Point pt) {
+    if (contextMenu_.isOpen) {
+        contextMenu_.hoveredIndex = -1;
+        for (size_t i = 0; i < contextMenu_.items.size(); ++i) {
+            if (!contextMenu_.items[i].isSeparator && contextMenu_.items[i].bounds.contains(pt)) {
+                contextMenu_.hoveredIndex = static_cast<int32_t>(i);
+                break;
+            }
+        }
+    }
+
     if (isMarqueeActive_) {
         updateMarquee(pt);
         for (auto& icon : icons_) {
@@ -183,6 +280,9 @@ void DesktopManager::onMouseUp(Point pt, MouseButton button) {
 }
 
 void DesktopManager::onDoubleClick(Point pt) {
+    if (contextMenu_.isOpen) {
+        closeContextMenu();
+    }
     for (const auto& icon : icons_) {
         if (icon.bounds.contains(pt)) {
             if (launchCallback_) {
@@ -340,6 +440,43 @@ void DesktopManager::render(Surface& surface) {
     if (isMarqueeActive_ && !marqueeRect_.empty()) {
         surface.fillRect(marqueeRect_, Color::fromRgba(0, 212, 255, 30));
         surface.drawRect(marqueeRect_, Color::fromRgba(0, 212, 255, 200));
+    }
+}
+
+void DesktopManager::renderContextMenu(Surface& surface) {
+    if (!contextMenu_.isOpen) return;
+
+    surface.drawDropShadow(contextMenu_.bounds, 12, 0.45f);
+    surface.applyAcrylicTint(contextMenu_.bounds, Color::fromRgba(18, 25, 40, 240), 6);
+    surface.drawRoundedRect(contextMenu_.bounds, 8, Color::fromRgba(60, 85, 125, 180), false);
+
+    int32_t itemY = contextMenu_.bounds.y + 6;
+    for (size_t i = 0; i < contextMenu_.items.size(); ++i) {
+        auto& mItem = contextMenu_.items[i];
+        if (mItem.isSeparator) {
+            mItem.bounds = Rect{contextMenu_.bounds.x + 8, itemY + 2, contextMenu_.bounds.width - 16, 1};
+            surface.fillRect(mItem.bounds, Color::fromRgba(48, 68, 104, 160));
+            itemY += 6;
+        } else {
+            mItem.bounds = Rect{contextMenu_.bounds.x + 4, itemY, contextMenu_.bounds.width - 8, 24};
+            const bool isHovered = (static_cast<int32_t>(i) == contextMenu_.hoveredIndex);
+            if (isHovered) {
+                surface.drawRoundedRect(mItem.bounds, 4, Color::fromRgba(0, 180, 240, 60), true);
+                surface.drawRoundedRect(mItem.bounds, 4, Color::fromRgba(0, 212, 255, 120), false);
+            }
+
+            IconRenderer::draw(surface, mItem.iconId, Rect{mItem.bounds.x + 6, mItem.bounds.y + 4, 16, 16},
+                               isHovered ? std::make_optional(Color::fromHex(0x00D4FF)) : std::nullopt);
+
+            const Color txtCol = isHovered ? Color::fromHex(0xFFFFFF) : Color::fromHex(0xCBD5E1);
+            surface.drawString(mItem.bounds.x + 28, mItem.bounds.y + 6, mItem.label, txtCol, 1);
+
+            if (!mItem.shortcut.empty()) {
+                surface.drawString(mItem.bounds.right() - 28, mItem.bounds.y + 6, mItem.shortcut, Color::fromHex(0x7186A4), 1);
+            }
+
+            itemY += 26;
+        }
     }
 }
 

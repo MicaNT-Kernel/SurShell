@@ -70,6 +70,7 @@ public:
     void openSearchHub();
     void openActionCenter();
     void lockSession();
+    void toggleShowDesktop();
 
     // Alt+Tab Task Switcher Workflow
     void triggerAltTab();
@@ -84,7 +85,7 @@ public:
     void onDoubleClick(Point pt);
     void onMouseWheel(Point pt, int32_t delta);
     void onCharInput(char c);
-    void onKeyDown(KeyCode key, bool ctrl = false, bool shift = false, bool alt = false);
+    void onKeyDown(KeyCode key, bool ctrl = false, bool shift = false, bool alt = false, bool win = false);
 
     // Application Window Spawning Helpers
     uint32_t openFileExplorerWindow(std::string path = "C:\\Windows\\System32");

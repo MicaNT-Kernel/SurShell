@@ -305,7 +305,8 @@ enum class KeyCode {
     KeyV,
     KeyW,
     KeyX,
-    KeyZ
+    KeyZ,
+    Super
 };
 
 struct KeyEvent {

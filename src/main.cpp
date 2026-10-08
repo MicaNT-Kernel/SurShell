@@ -41,7 +41,29 @@ surshell::KeyCode mapVkToKeyCode(WPARAM vk) {
         case VK_NEXT:   return surshell::KeyCode::PageDown;
         case VK_F2:     return surshell::KeyCode::F2;
         case VK_F5:     return surshell::KeyCode::F5;
-        default:        return surshell::KeyCode::Unknown;
+        case VK_LWIN:
+        case VK_RWIN:   return surshell::KeyCode::Super;
+        default:        break;
+    }
+    if (vk >= '0' && vk <= '9') {
+        return static_cast<surshell::KeyCode>(static_cast<int>(surshell::KeyCode::Num0) + (vk - '0'));
+    }
+    switch (vk) {
+        case 'A': return surshell::KeyCode::KeyA;
+        case 'C': return surshell::KeyCode::KeyC;
+        case 'D': return surshell::KeyCode::KeyD;
+        case 'E': return surshell::KeyCode::KeyE;
+        case 'F': return surshell::KeyCode::KeyF;
+        case 'L': return surshell::KeyCode::KeyL;
+        case 'N': return surshell::KeyCode::KeyN;
+        case 'R': return surshell::KeyCode::KeyR;
+        case 'S': return surshell::KeyCode::KeyS;
+        case 'T': return surshell::KeyCode::KeyT;
+        case 'V': return surshell::KeyCode::KeyV;
+        case 'W': return surshell::KeyCode::KeyW;
+        case 'X': return surshell::KeyCode::KeyX;
+        case 'Z': return surshell::KeyCode::KeyZ;
+        default:  return surshell::KeyCode::Unknown;
     }
 }
 
@@ -181,8 +203,9 @@ LRESULT CALLBACK DesktopWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             const bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
             const bool shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
             const bool alt = (GetKeyState(VK_MENU) & 0x8000) != 0;
+            const bool win = ((GetKeyState(VK_LWIN) & 0x8000) != 0) || ((GetKeyState(VK_RWIN) & 0x8000) != 0);
             const auto kc = mapVkToKeyCode(wParam);
-            state->desktop->onKeyDown(kc, ctrl, shift, alt);
+            state->desktop->onKeyDown(kc, ctrl, shift, alt, win);
             InvalidateRect(hwnd, nullptr, FALSE);
             return 0;
         }
@@ -636,7 +659,18 @@ int runSnapshotPipeline() {
         std::cout << "  -> Exported: surshell_file_explorer_this_pc.bmp (1920x1080 32-bpp)\n";
     }
 
-    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (25 high-resolution scenes generated).\n";
+    // ------------------------------------------------------------------------
+    // Scene 24: Desktop Right-Click Context Menu (Wallpaper & Shell Integration)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 24: Desktop Right-Click Context Menu...\n";
+    shell.desktop().openContextMenu(surshell::Point{640, 360});
+    shell.render();
+    if (shell.exportSnapshot("surshell_desktop_context_menu.bmp")) {
+        std::cout << "  -> Exported: surshell_desktop_context_menu.bmp (1920x1080 32-bpp)\n";
+    }
+    shell.desktop().closeContextMenu();
+
+    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (26 high-resolution scenes generated).\n";
     return 0;
 }
 
