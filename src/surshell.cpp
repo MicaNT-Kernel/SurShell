@@ -353,11 +353,15 @@ void SurShellDesktop::triggerAltTab() {
     }
 }
 
-void SurShellDesktop::cycleAltTab() {
+void SurShellDesktop::cycleAltTab(bool forward) {
     if (!altTab_.isActive()) {
         triggerAltTab();
     } else {
-        altTab_.next();
+        if (forward) {
+            altTab_.next();
+        } else {
+            altTab_.previous();
+        }
     }
 }
 
@@ -497,6 +501,22 @@ void SurShellDesktop::onCharInput(char c) {
     } else {
         windowManager_.onCharInput(c);
     }
+}
+
+void SurShellDesktop::onKeyDown(KeyCode key, bool ctrl, bool shift, bool alt) {
+    if (altTab_.isActive()) {
+        if (key == KeyCode::Tab) {
+            cycleAltTab(!shift);
+            return;
+        } else if (key == KeyCode::Escape) {
+            dismissAltTab();
+            return;
+        } else if (key == KeyCode::Enter) {
+            commitAltTab();
+            return;
+        }
+    }
+    windowManager_.onKeyDown(key, ctrl, shift, alt);
 }
 
 void SurShellDesktop::render() {

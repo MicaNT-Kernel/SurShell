@@ -88,6 +88,18 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
         case IconId::NewFolder:
             drawNewFolder(surface, bounds, tintOverride);
             break;
+        case IconId::NewFile:
+            drawNewFile(surface, bounds, tintOverride);
+            break;
+        case IconId::Cut:
+            drawCut(surface, bounds, tintOverride);
+            break;
+        case IconId::Paste:
+            drawPaste(surface, bounds, tintOverride);
+            break;
+        case IconId::Rename:
+            drawRename(surface, bounds, tintOverride);
+            break;
         case IconId::Delete:
             drawDelete(surface, bounds, tintOverride);
             break;
@@ -529,6 +541,72 @@ void IconRenderer::drawNewFolder(Surface& s, Rect r, std::optional<Color> tint) 
     s.drawRoundedRect(badge, 2, Color::fromHex(0x00D4FF), true);
     s.fillRect(Rect{badge.x + 1, badge.centerY(), 4, 1}, Color::fromHex(0x0E1420));
     s.fillRect(Rect{badge.centerX(), badge.y + 1, 1, 4}, Color::fromHex(0x0E1420));
+}
+
+void IconRenderer::drawNewFile(Surface& s, Rect r, std::optional<Color> tint) {
+    drawDocument(s, r, IconId::FileGeneric, tint);
+    // Green + badge on bottom right
+    const Rect badge{r.right() - 6, r.bottom() - 6, 6, 6};
+    s.drawRoundedRect(badge, 2, Color::fromHex(0x00FF9D), true);
+    s.fillRect(Rect{badge.x + 1, badge.centerY(), 4, 1}, Color::fromHex(0x0E1420));
+    s.fillRect(Rect{badge.centerX(), badge.y + 1, 1, 4}, Color::fromHex(0x0E1420));
+}
+
+void IconRenderer::drawCut(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color col = tint.value_or(Color::fromHex(0x00D4FF));
+    const int32_t cx = r.centerX();
+    const int32_t cy = r.centerY();
+    const int32_t rad = std::max(2, r.width / 5);
+
+    // Crossed blades
+    for (int32_t i = 0; i <= r.width / 3; ++i) {
+        s.putPixel(cx - i, cy - i, col);
+        s.putPixel(cx + i, cy - i, col);
+    }
+    // Pivot screw
+    s.putPixel(cx, cy, Color::fromHex(0xFFFFFF));
+
+    // Handle loops (left & right)
+    s.drawRoundedRect(Rect{cx - rad - 2, cy + 1, rad * 2, rad * 2}, rad, col, false);
+    s.drawRoundedRect(Rect{cx + 2, cy + 1, rad * 2, rad * 2}, rad, col, false);
+}
+
+void IconRenderer::drawPaste(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color accent = tint.value_or(Color::fromHex(0x00D4FF));
+    const Color boardCol = Color::fromHex(0x566B88);
+    const int32_t bw = std::max(8, r.width * 70 / 100);
+    const int32_t bh = std::max(8, r.height * 80 / 100);
+
+    // Clipboard backboard
+    const Rect boardRect{r.x + 1, r.y + 3, bw, bh};
+    s.drawRoundedRect(boardRect, 2, boardCol, true);
+
+    // Clip at top
+    s.fillRect(Rect{boardRect.centerX() - 2, r.y + 1, 5, 3}, Color::fromHex(0xFFD54F));
+
+    // Foreground paper sheet
+    const Rect paperRect{boardRect.x + 3, boardRect.y + 3, bw - 4, bh - 4};
+    s.drawRoundedRect(paperRect, 1, Color::fromHex(0x182438), true);
+    s.drawRoundedRect(paperRect, 1, accent, false);
+
+    // Text lines on paper
+    for (int32_t ly = paperRect.y + 3; ly < paperRect.bottom() - 2; ly += 3) {
+        s.fillRect(Rect{paperRect.x + 2, ly, paperRect.width - 4, 1}, Color::fromHex(0x8EA2BE));
+    }
+}
+
+void IconRenderer::drawRename(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color col = tint.value_or(Color::fromHex(0x00D4FF));
+    // Text box outline
+    s.drawRoundedRect(Rect{r.x + 1, r.y + 2, r.width - 2, r.height - 4}, 2, Color::fromHex(0x364E72), false);
+
+    // I-Beam cursor in center
+    const int32_t cx = r.centerX();
+    const int32_t top = r.y + 4;
+    const int32_t bot = r.bottom() - 4;
+    s.fillRect(Rect{cx - 2, top, 5, 1}, col);
+    s.fillRect(Rect{cx, top, 1, bot - top}, col);
+    s.fillRect(Rect{cx - 2, bot - 1, 5, 1}, col);
 }
 
 void IconRenderer::drawDelete(Surface& s, Rect r, std::optional<Color> tint) {

@@ -261,4 +261,41 @@ struct ShellAppEntry {
     bool pinnedToStart{false};
 };
 
+enum class KeyCode {
+    Unknown = 0,
+    Enter,
+    Escape,
+    Backspace,
+    Tab,
+    Delete,
+    Up,
+    Down,
+    Left,
+    Right,
+    Home,
+    End,
+    PageUp,
+    PageDown,
+    F2,
+    F5,
+    KeyA,
+    KeyC,
+    KeyF,
+    KeyL,
+    KeyN,
+    KeyR,
+    KeyT,
+    KeyV,
+    KeyW,
+    KeyX
+};
+
+struct KeyEvent {
+    KeyCode key{KeyCode::Unknown};
+    char charCode{0};
+    bool ctrl{false};
+    bool shift{false};
+    bool alt{false};
+};
+
 } // namespace surshell

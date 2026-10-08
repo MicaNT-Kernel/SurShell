@@ -369,6 +369,31 @@ void Test_File_Explorer_Navigation() {
     viewer.onMouseWheel(surshell::Point{100, 100}, -1);
     TEST_ASSERT(viewer.scrollOffset() >= 0, "TextViewer mouse wheel handled");
 
+    // This PC virtual container navigation & drives enumeration
+    exp.navigateTo("This PC");
+    TEST_ASSERT(exp.currentPath() == "This PC", "Navigated to This PC");
+    TEST_ASSERT(!exp.items().empty(), "This PC enumerates drives and standard folders");
+
+    // File Operations & Clipboard (Copy / Cut / Paste / Rename / New File)
+    exp.navigateTo("C:\\Windows\\System32");
+    TEST_ASSERT(!exp.items().empty(), "Items present in System32");
+    exp.onKeyDown(surshell::KeyCode::Down);
+    TEST_ASSERT(exp.selectedItem().has_value(), "Down arrow selected item");
+
+    // Copy item
+    exp.copySelected();
+    TEST_ASSERT(exp.canPaste(), "Clipboard has copied item");
+
+    // Inline Rename triggering
+    exp.onKeyDown(surshell::KeyCode::F2);
+    TEST_ASSERT(exp.isRenaming(), "F2 entered rename mode");
+    exp.onKeyDown(surshell::KeyCode::Escape);
+    TEST_ASSERT(!exp.isRenaming(), "Escape cancelled rename mode");
+
+    // Navigation hotkeys
+    exp.onKeyDown(surshell::KeyCode::Backspace);
+    TEST_ASSERT(exp.currentPath() == "C:\\Windows", "Backspace navigated up to C:\\Windows");
+
     std::cout << "[TEST] Suite 7: File Explorer Navigation PASSED.\n";
 }
 
@@ -593,6 +618,10 @@ void Test_Procedural_Icon_Engine() {
         surshell::IconId::NavRefresh,
         surshell::IconId::Search,
         surshell::IconId::NewFolder,
+        surshell::IconId::NewFile,
+        surshell::IconId::Cut,
+        surshell::IconId::Paste,
+        surshell::IconId::Rename,
         surshell::IconId::Delete,
         surshell::IconId::Edit,
         surshell::IconId::Copy,
@@ -615,7 +644,7 @@ void Test_Procedural_Icon_Engine() {
         surshell::IconId::Hibernate
     };
 
-    TEST_ASSERT(allIcons.size() == 46, "All 46 procedural vector icons enumerated");
+    TEST_ASSERT(allIcons.size() == 50, "All 50 procedural vector icons enumerated");
 
     const int32_t testSizes[] = {14, 16, 24, 28, 32, 48};
     for (surshell::IconId id : allIcons) {
@@ -637,7 +666,7 @@ void Test_Procedural_Icon_Engine() {
         }
     }
 
-    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (46 icons verified across 6 DPI scales).\n";
+    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (50 icons verified across 6 DPI scales).\n";
 }
 
 void Test_AltTab_And_Taskbar_Hover_Preview() {

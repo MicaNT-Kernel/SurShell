@@ -8,6 +8,8 @@
 #include <iomanip>
 #include <sstream>
 #include <iostream>
+#include <fstream>
+#include <ctime>
 
 namespace surshell {
 
@@ -222,6 +224,59 @@ void FileExplorer::refreshCurrentDirectory() {
     tab.selectedIndex = -1;
     tab.scrollOffset = 0;
 
+    std::string userProfile = "C:\\Users\\admin";
+    if (const char* envProf = std::getenv("USERPROFILE"); envProf && envProf[0] != '\0') {
+        userProfile = envProf;
+    }
+
+    // 1. Special Virtual Container: "This PC"
+    if (tab.currentPath == "This PC") {
+        refreshDrives();
+        for (const auto& d : drives_) {
+            tab.allItems.push_back(FileItem{
+                .name = d.label,
+                .fullPath = d.rootPath,
+                .extension = "",
+                .isDirectory = true,
+                .sizeBytes = d.totalBytes,
+                .dateModified = "Online",
+                .typeDescription = "Local Fixed Disk",
+                .iconGlyph = "[D]",
+                .iconId = (d.rootPath[0] == 'C' ? IconId::LocalDisk : IconId::DriveStorage),
+                .bounds = Rect{},
+                .selected = false
+            });
+        }
+        struct StdFolder { const char* name; const char* rel; IconId icon; };
+        const StdFolder stdFolders[] = {
+            {"Desktop", "\\Desktop", IconId::DriveStorage},
+            {"Documents", "\\Documents", IconId::Folder},
+            {"Downloads", "\\Downloads", IconId::Folder},
+            {"Pictures", "\\Pictures", IconId::FileImage},
+            {"Music", "\\Music", IconId::VolumeHigh},
+            {"Videos", "\\Videos", IconId::FileGeneric}
+        };
+        for (const auto& sf : stdFolders) {
+            tab.allItems.push_back(FileItem{
+                .name = sf.name,
+                .fullPath = userProfile + sf.rel,
+                .extension = "",
+                .isDirectory = true,
+                .sizeBytes = 0,
+                .dateModified = "System Folder",
+                .typeDescription = "Special Folder",
+                .iconGlyph = "[F]",
+                .iconId = sf.icon,
+                .bounds = Rect{},
+                .selected = false
+            });
+        }
+        sortCurrentItems();
+        applySearchFilter();
+        updateBreadcrumbs();
+        return;
+    }
+
     std::error_code ec;
     const std::filesystem::path curP(tab.currentPath);
 
@@ -241,13 +296,32 @@ void FileExplorer::refreshCurrentDirectory() {
                 if (ec) size = 0;
             }
 
+            // Real timestamp formatting
+            std::string dateStr = "Recent";
+            auto ftime = entry.last_write_time(ec);
+            if (!ec) {
+                auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+                    ftime - std::filesystem::file_time_type::clock::now() + std::chrono::system_clock::now()
+                );
+                std::time_t tt = std::chrono::system_clock::to_time_t(sctp);
+                std::tm tm{};
+#if defined(_WIN32)
+                localtime_s(&tm, &tt);
+#else
+                localtime_r(&tt, &tm);
+#endif
+                char buf[32];
+                std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M", &tm);
+                dateStr = buf;
+            }
+
             tab.allItems.push_back(FileItem{
                 .name = name,
                 .fullPath = entry.path().string(),
                 .extension = ext,
                 .isDirectory = isDir,
                 .sizeBytes = size,
-                .dateModified = "Recent",
+                .dateModified = std::move(dateStr),
                 .typeDescription = isDir ? "File folder" : (ext.empty() ? "File" : (ext.substr(1) + " File")),
                 .iconGlyph = getFileIconGlyph(ext, isDir),
                 .iconId = IconRenderer::iconForExtension(ext, isDir),
@@ -264,27 +338,31 @@ void FileExplorer::refreshCurrentDirectory() {
             tab.allItems.push_back(FileItem{.name = "Windows", .fullPath = "C:\\Windows", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
             tab.allItems.push_back(FileItem{.name = "Users", .fullPath = "C:\\Users", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
             tab.allItems.push_back(FileItem{.name = "Program Files", .fullPath = "C:\\Program Files", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
-            tab.allItems.push_back(FileItem{.name = "source", .fullPath = "C:\\source", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
-            tab.allItems.push_back(FileItem{.name = "boot.ini", .fullPath = "C:\\boot.ini", .extension = ".ini", .isDirectory = false, .sizeBytes = 512, .iconGlyph = "[T]", .iconId = IconId::FileText});
-            tab.allItems.push_back(FileItem{.name = "pagefile.sys", .fullPath = "C:\\pagefile.sys", .extension = ".sys", .isDirectory = false, .sizeBytes = 2147483648ULL, .iconGlyph = "[L]", .iconId = IconId::FileLibrary});
+            if (std::filesystem::exists("C:\\source", ec)) {
+                tab.allItems.push_back(FileItem{.name = "source", .fullPath = "C:\\source", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
+            }
+            tab.allItems.push_back(FileItem{.name = "boot.ini", .fullPath = "C:\\boot.ini", .extension = ".ini", .isDirectory = false, .sizeBytes = 512, .dateModified = "2026-10-08 09:00", .typeDescription = "Configuration File", .iconGlyph = "[T]", .iconId = IconId::FileText});
+            tab.allItems.push_back(FileItem{.name = "pagefile.sys", .fullPath = "C:\\pagefile.sys", .extension = ".sys", .isDirectory = false, .sizeBytes = 2147483648ULL, .dateModified = "2026-10-08 08:30", .typeDescription = "System File", .iconGlyph = "[L]", .iconId = IconId::FileLibrary});
         } else if (tab.currentPath == "C:\\Windows") {
-            tab.allItems.push_back(FileItem{.name = "System32", .fullPath = "C:\\Windows\\System32", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
-            tab.allItems.push_back(FileItem{.name = "SysWOW64", .fullPath = "C:\\Windows\\SysWOW64", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
-            tab.allItems.push_back(FileItem{.name = "explorer.exe", .fullPath = "C:\\Windows\\explorer.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 384000, .iconGlyph = "[X]", .iconId = IconId::FileExecutable});
-            tab.allItems.push_back(FileItem{.name = "notepad.exe", .fullPath = "C:\\Windows\\notepad.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 192000, .iconGlyph = "[X]", .iconId = IconId::FileExecutable});
-            tab.allItems.push_back(FileItem{.name = "win.ini", .fullPath = "C:\\Windows\\win.ini", .extension = ".ini", .isDirectory = false, .sizeBytes = 1024, .iconGlyph = "[T]", .iconId = IconId::FileText});
+            tab.allItems.push_back(FileItem{.name = "System32", .fullPath = "C:\\Windows\\System32", .isDirectory = true, .dateModified = "2026-10-08 09:14", .typeDescription = "File folder", .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "SysWOW64", .fullPath = "C:\\Windows\\SysWOW64", .isDirectory = true, .dateModified = "2026-10-08 09:14", .typeDescription = "File folder", .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "explorer.exe", .fullPath = "C:\\Windows\\explorer.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 384000, .dateModified = "2026-10-08 10:22", .typeDescription = "Application", .iconGlyph = "[X]", .iconId = IconId::FileExecutable});
+            tab.allItems.push_back(FileItem{.name = "notepad.exe", .fullPath = "C:\\Windows\\notepad.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 192000, .dateModified = "2026-10-08 10:22", .typeDescription = "Application", .iconGlyph = "[X]", .iconId = IconId::FileExecutable});
+            tab.allItems.push_back(FileItem{.name = "win.ini", .fullPath = "C:\\Windows\\win.ini", .extension = ".ini", .isDirectory = false, .sizeBytes = 1024, .dateModified = "2026-10-08 08:30", .typeDescription = "Configuration File", .iconGlyph = "[T]", .iconId = IconId::FileText});
         } else if (tab.currentPath == "C:\\Windows\\System32") {
-            tab.allItems.push_back(FileItem{.name = "kernel32.dll", .fullPath = "C:\\Windows\\System32\\kernel32.dll", .extension = ".dll", .isDirectory = false, .sizeBytes = 840000, .iconGlyph = "[L]", .iconId = IconId::FileLibrary});
-            tab.allItems.push_back(FileItem{.name = "user32.dll", .fullPath = "C:\\Windows\\System32\\user32.dll", .extension = ".dll", .isDirectory = false, .sizeBytes = 920000, .iconGlyph = "[L]", .iconId = IconId::FileLibrary});
-            tab.allItems.push_back(FileItem{.name = "csrss.exe", .fullPath = "C:\\Windows\\System32\\csrss.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 145000, .iconGlyph = "[X]", .iconId = IconId::FileExecutable});
-            tab.allItems.push_back(FileItem{.name = "conhost.exe", .fullPath = "C:\\Windows\\System32\\conhost.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 320000, .iconGlyph = "[X]", .iconId = IconId::FileExecutable});
-            tab.allItems.push_back(FileItem{.name = "cmd.exe", .fullPath = "C:\\Windows\\System32\\cmd.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 280000, .iconGlyph = "[X]", .iconId = IconId::FileExecutable});
-            tab.allItems.push_back(FileItem{.name = "sentinel.dll", .fullPath = "C:\\Windows\\System32\\sentinel.dll", .extension = ".dll", .isDirectory = false, .sizeBytes = 210000, .iconGlyph = "[L]", .iconId = IconId::FileLibrary});
+            tab.allItems.push_back(FileItem{.name = "kernel32.dll", .fullPath = "C:\\Windows\\System32\\kernel32.dll", .extension = ".dll", .isDirectory = false, .sizeBytes = 840000, .dateModified = "2026-10-08 10:22", .typeDescription = "Dynamic Link Library", .iconGlyph = "[L]", .iconId = IconId::FileLibrary});
+            tab.allItems.push_back(FileItem{.name = "user32.dll", .fullPath = "C:\\Windows\\System32\\user32.dll", .extension = ".dll", .isDirectory = false, .sizeBytes = 920000, .dateModified = "2026-10-08 10:22", .typeDescription = "Dynamic Link Library", .iconGlyph = "[L]", .iconId = IconId::FileLibrary});
+            tab.allItems.push_back(FileItem{.name = "csrss.exe", .fullPath = "C:\\Windows\\System32\\csrss.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 145000, .dateModified = "2026-10-08 10:22", .typeDescription = "Application", .iconGlyph = "[X]", .iconId = IconId::FileExecutable});
+            tab.allItems.push_back(FileItem{.name = "conhost.exe", .fullPath = "C:\\Windows\\System32\\conhost.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 320000, .dateModified = "2026-10-08 10:22", .typeDescription = "Application", .iconGlyph = "[X]", .iconId = IconId::FileExecutable});
+            tab.allItems.push_back(FileItem{.name = "cmd.exe", .fullPath = "C:\\Windows\\System32\\cmd.exe", .extension = ".exe", .isDirectory = false, .sizeBytes = 280000, .dateModified = "2026-10-08 10:22", .typeDescription = "Application", .iconGlyph = "[X]", .iconId = IconId::FileExecutable});
+            tab.allItems.push_back(FileItem{.name = "sentinel.dll", .fullPath = "C:\\Windows\\System32\\sentinel.dll", .extension = ".dll", .isDirectory = false, .sizeBytes = 210000, .dateModified = "2026-10-08 10:22", .typeDescription = "Dynamic Link Library", .iconGlyph = "[L]", .iconId = IconId::FileLibrary});
         } else {
-            tab.allItems.push_back(FileItem{.name = "Desktop", .fullPath = tab.currentPath + "\\Desktop", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
-            tab.allItems.push_back(FileItem{.name = "Documents", .fullPath = tab.currentPath + "\\Documents", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
-            tab.allItems.push_back(FileItem{.name = "Downloads", .fullPath = tab.currentPath + "\\Downloads", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
-            tab.allItems.push_back(FileItem{.name = "source", .fullPath = tab.currentPath + "\\source", .isDirectory = true, .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "Desktop", .fullPath = tab.currentPath + "\\Desktop", .isDirectory = true, .dateModified = "2026-10-08 09:00", .typeDescription = "File folder", .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "Documents", .fullPath = tab.currentPath + "\\Documents", .isDirectory = true, .dateModified = "2026-10-08 09:00", .typeDescription = "File folder", .iconGlyph = "[D]", .iconId = IconId::Folder});
+            tab.allItems.push_back(FileItem{.name = "Downloads", .fullPath = tab.currentPath + "\\Downloads", .isDirectory = true, .dateModified = "2026-10-08 09:00", .typeDescription = "File folder", .iconGlyph = "[D]", .iconId = IconId::Folder});
+            if (std::filesystem::exists(tab.currentPath + "\\source", ec)) {
+                tab.allItems.push_back(FileItem{.name = "source", .fullPath = tab.currentPath + "\\source", .isDirectory = true, .dateModified = "2026-10-08 09:00", .typeDescription = "File folder", .iconGlyph = "[D]", .iconId = IconId::Folder});
+            }
         }
     }
 
@@ -416,13 +494,160 @@ void FileExplorer::refresh() {
 
 bool FileExplorer::createNewFolder(std::string_view folderName) {
     if (activeTabIndex_ >= tabs_.size()) return false;
-    const std::filesystem::path newP = std::filesystem::path(currentPath()) / folderName;
+    std::string candidate(folderName);
+    std::filesystem::path newP = std::filesystem::path(currentPath()) / candidate;
     std::error_code ec;
+    int counter = 2;
+    while (std::filesystem::exists(newP, ec)) {
+        candidate = std::string(folderName) + " (" + std::to_string(counter++) + ")";
+        newP = std::filesystem::path(currentPath()) / candidate;
+    }
     if (std::filesystem::create_directory(newP, ec)) {
         refreshCurrentDirectory();
+        auto& tab = tabs_[activeTabIndex_];
+        for (size_t i = 0; i < tab.visibleItems.size(); ++i) {
+            if (tab.visibleItems[i].name == candidate) {
+                tab.selectedIndex = static_cast<int32_t>(i);
+                startRename();
+                break;
+            }
+        }
         return true;
     }
     return false;
+}
+
+bool FileExplorer::createNewFile(std::string_view fileName) {
+    if (activeTabIndex_ >= tabs_.size()) return false;
+    std::string candidate(fileName);
+    std::filesystem::path target = std::filesystem::path(currentPath()) / candidate;
+    std::error_code ec;
+    int counter = 2;
+    while (std::filesystem::exists(target, ec)) {
+        const size_t dot = fileName.find_last_of('.');
+        if (dot != std::string::npos) {
+            candidate = std::string(fileName.substr(0, dot)) + " (" + std::to_string(counter++) + ")" + std::string(fileName.substr(dot));
+        } else {
+            candidate = std::string(fileName) + " (" + std::to_string(counter++) + ")";
+        }
+        target = std::filesystem::path(currentPath()) / candidate;
+    }
+    {
+        std::ofstream ofs(target);
+        if (!ofs.is_open()) return false;
+    }
+    refreshCurrentDirectory();
+    auto& tab = tabs_[activeTabIndex_];
+    for (size_t i = 0; i < tab.visibleItems.size(); ++i) {
+        if (tab.visibleItems[i].name == candidate) {
+            tab.selectedIndex = static_cast<int32_t>(i);
+            startRename();
+            break;
+        }
+    }
+    return true;
+}
+
+void FileExplorer::copySelected() {
+    auto sel = selectedItem();
+    if (!sel) return;
+    s_clipboard = FileClipboard{.fullPath = sel->fullPath, .isCut = false};
+}
+
+void FileExplorer::cutSelected() {
+    auto sel = selectedItem();
+    if (!sel) return;
+    s_clipboard = FileClipboard{.fullPath = sel->fullPath, .isCut = true};
+}
+
+void FileExplorer::pasteToCurrentDirectory() {
+    if (!s_clipboard || activeTabIndex_ >= tabs_.size()) return;
+    const std::filesystem::path srcP(s_clipboard->fullPath);
+    std::error_code ec;
+    if (!std::filesystem::exists(srcP, ec)) {
+        s_clipboard.reset();
+        return;
+    }
+
+    const std::string filename = srcP.filename().string();
+    std::filesystem::path dstP = std::filesystem::path(currentPath()) / filename;
+
+    // Handle collision if copying into same folder
+    if (std::filesystem::exists(dstP, ec)) {
+        if (!s_clipboard->isCut) {
+            const size_t dot = filename.find_last_of('.');
+            const std::string base = (dot != std::string::npos) ? filename.substr(0, dot) : filename;
+            const std::string ext = (dot != std::string::npos) ? filename.substr(dot) : "";
+            dstP = std::filesystem::path(currentPath()) / (base + " - Copy" + ext);
+            int copyIdx = 2;
+            while (std::filesystem::exists(dstP, ec)) {
+                dstP = std::filesystem::path(currentPath()) / (base + " - Copy (" + std::to_string(copyIdx++) + ")" + ext);
+            }
+        }
+    }
+
+    if (s_clipboard->isCut) {
+        std::filesystem::rename(srcP, dstP, ec);
+        s_clipboard.reset();
+    } else {
+        if (std::filesystem::is_directory(srcP, ec)) {
+            std::filesystem::copy(srcP, dstP, std::filesystem::copy_options::recursive, ec);
+        } else {
+            std::filesystem::copy_file(srcP, dstP, std::filesystem::copy_options::overwrite_existing, ec);
+        }
+    }
+
+    refreshCurrentDirectory();
+}
+
+bool FileExplorer::renameSelected(std::string_view newName) {
+    auto sel = selectedItem();
+    if (!sel || newName.empty() || newName == sel->name) {
+        isRenaming_ = false;
+        return false;
+    }
+    const std::filesystem::path oldP(sel->fullPath);
+    const std::filesystem::path newP = oldP.parent_path() / newName;
+    std::error_code ec;
+    std::filesystem::rename(oldP, newP, ec);
+    isRenaming_ = false;
+    if (!ec) {
+        refreshCurrentDirectory();
+        auto& tab = tabs_[activeTabIndex_];
+        for (size_t i = 0; i < tab.visibleItems.size(); ++i) {
+            if (tab.visibleItems[i].name == newName) {
+                tab.selectedIndex = static_cast<int32_t>(i);
+                break;
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
+void FileExplorer::startRename() {
+    auto sel = selectedItem();
+    if (!sel) return;
+    isRenaming_ = true;
+    renameEditText_ = sel->name;
+}
+
+void FileExplorer::ensureSelectionVisible() {
+    if (activeTabIndex_ >= tabs_.size()) return;
+    auto& tab = tabs_[activeTabIndex_];
+    if (tab.selectedIndex < 0 || tab.selectedIndex >= static_cast<int32_t>(tab.visibleItems.size())) return;
+
+    if (viewMode_ == ExplorerViewMode::DetailsList) {
+        constexpr int32_t rowH = 26;
+        const int32_t itemTop = tab.selectedIndex * rowH;
+        const int32_t itemBottom = itemTop + rowH;
+        constexpr int32_t viewportH = 340;
+        if (itemTop < tab.scrollOffset) {
+            tab.scrollOffset = itemTop;
+        } else if (itemBottom > tab.scrollOffset + viewportH) {
+            tab.scrollOffset = itemBottom - viewportH;
+        }
+    }
 }
 
 bool FileExplorer::deleteSelected() {
@@ -447,8 +672,13 @@ void FileExplorer::openContextMenu(Point pt, bool forItem) {
         contextMenu_.items.push_back(ContextMenuItem{.id = "terminal", .label = "Open in Terminal", .shortcut = "", .iconGlyph = ">_", .iconId = IconId::Terminal});
         contextMenu_.items.push_back(ContextMenuItem{.id = "editor", .label = "Open with Editor", .shortcut = "", .iconGlyph = "[E]", .iconId = IconId::Edit});
         contextMenu_.items.push_back(ContextMenuItem{.isSeparator = true});
-        contextMenu_.items.push_back(ContextMenuItem{.id = "copy_path", .label = "Copy Full Path", .shortcut = "Ctrl+C", .iconGlyph = "[C]", .iconId = IconId::Copy});
-        contextMenu_.items.push_back(ContextMenuItem{.id = "delete", .label = "Delete", .shortcut = "Del", .iconGlyph = "[X]", .iconId = IconId::Delete});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "cut", .label = "Cut", .shortcut = "Ctrl+X", .iconGlyph = "[X]", .iconId = IconId::Cut});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "copy", .label = "Copy", .shortcut = "Ctrl+C", .iconGlyph = "[C]", .iconId = IconId::Copy});
+        if (canPaste()) {
+            contextMenu_.items.push_back(ContextMenuItem{.id = "paste", .label = "Paste", .shortcut = "Ctrl+V", .iconGlyph = "[V]", .iconId = IconId::Paste});
+        }
+        contextMenu_.items.push_back(ContextMenuItem{.id = "rename", .label = "Rename", .shortcut = "F2", .iconGlyph = "[R]", .iconId = IconId::Rename});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "delete", .label = "Delete", .shortcut = "Del", .iconGlyph = "[D]", .iconId = IconId::Delete});
         contextMenu_.items.push_back(ContextMenuItem{.isSeparator = true});
         contextMenu_.items.push_back(ContextMenuItem{.id = "properties", .label = "Properties", .shortcut = "Alt+Enter", .iconGlyph = "[*]", .iconId = IconId::Properties});
     } else {
@@ -460,7 +690,12 @@ void FileExplorer::openContextMenu(Point pt, bool forItem) {
         contextMenu_.items.push_back(ContextMenuItem{.id = "sort_type", .label = "Sort by: Type", .shortcut = "", .iconGlyph = " T ", .iconId = IconId::SortAsc});
         contextMenu_.items.push_back(ContextMenuItem{.id = "sort_size", .label = "Sort by: Size", .shortcut = "", .iconGlyph = " S ", .iconId = IconId::SortDesc});
         contextMenu_.items.push_back(ContextMenuItem{.isSeparator = true});
+        if (canPaste()) {
+            contextMenu_.items.push_back(ContextMenuItem{.id = "paste", .label = "Paste", .shortcut = "Ctrl+V", .iconGlyph = "[V]", .iconId = IconId::Paste});
+            contextMenu_.items.push_back(ContextMenuItem{.isSeparator = true});
+        }
         contextMenu_.items.push_back(ContextMenuItem{.id = "new_folder", .label = "New Folder", .shortcut = "Ctrl+Shift+N", .iconGlyph = "[+]", .iconId = IconId::NewFolder});
+        contextMenu_.items.push_back(ContextMenuItem{.id = "new_file", .label = "New Text Document", .shortcut = "", .iconGlyph = "[N]", .iconId = IconId::NewFile});
         contextMenu_.items.push_back(ContextMenuItem{.id = "refresh", .label = "Refresh", .shortcut = "F5", .iconGlyph = " R ", .iconId = IconId::NavRefresh});
         contextMenu_.items.push_back(ContextMenuItem{.id = "open_terminal", .label = "Open Terminal Here", .shortcut = "", .iconGlyph = ">_", .iconId = IconId::Terminal});
     }
@@ -542,6 +777,16 @@ bool FileExplorer::onMouseDown(Point localPt, MouseButton button) {
                     } else if (item.id == "editor") {
                         auto sel = selectedItem();
                         if (sel && openEditorCallback_) openEditorCallback_(sel->fullPath);
+                    } else if (item.id == "cut") {
+                        cutSelected();
+                    } else if (item.id == "copy") {
+                        copySelected();
+                    } else if (item.id == "paste") {
+                        pasteToCurrentDirectory();
+                    } else if (item.id == "rename") {
+                        startRename();
+                    } else if (item.id == "new_file") {
+                        createNewFile("New Document.txt");
                     } else if (item.id == "delete") {
                         deleteSelected();
                     } else if (item.id == "properties") {
@@ -673,6 +918,26 @@ bool FileExplorer::onMouseDown(Point localPt, MouseButton button) {
         createNewFolder("New Folder");
         return true;
     }
+    if (cmdNewFile_.contains(localPt)) {
+        createNewFile("New Document.txt");
+        return true;
+    }
+    if (cmdCut_.contains(localPt)) {
+        cutSelected();
+        return true;
+    }
+    if (cmdCopy_.contains(localPt)) {
+        copySelected();
+        return true;
+    }
+    if (cmdPaste_.contains(localPt)) {
+        pasteToCurrentDirectory();
+        return true;
+    }
+    if (cmdRename_.contains(localPt)) {
+        startRename();
+        return true;
+    }
     if (cmdDelete_.contains(localPt)) {
         deleteSelected();
         return true;
@@ -802,12 +1067,31 @@ bool FileExplorer::onMouseWheel(Point localPt, int32_t delta) {
 }
 
 bool FileExplorer::onCharInput(char c) {
+    if (isRenaming_) {
+        if (c == '\r' || c == '\n') {
+            renameSelected(renameEditText_);
+            return true;
+        } else if (c == 27) {
+            cancelRename();
+            return true;
+        } else if (c == '\b') {
+            if (!renameEditText_.empty()) renameEditText_.pop_back();
+            return true;
+        } else if (c >= 32 && c <= 126) {
+            renameEditText_.push_back(c);
+            return true;
+        }
+        return false;
+    }
+
     if (addressEditing_) {
         if (c == '\r' || c == '\n') {
             navigateTo(addressEditText_);
             addressEditing_ = false;
         } else if (c == 27) {
             addressEditing_ = false;
+        } else if (c == '\b') {
+            if (!addressEditText_.empty()) addressEditText_.pop_back();
         } else if (c >= 32 && c <= 126) {
             addressEditText_.push_back(c);
         }
@@ -816,12 +1100,165 @@ bool FileExplorer::onCharInput(char c) {
 
     if (searchBoxFocused_ && activeTabIndex_ < tabs_.size()) {
         auto& tab = tabs_[activeTabIndex_];
-        if (c >= 32 && c <= 126) {
+        if (c == '\b') {
+            if (!tab.searchQuery.empty()) {
+                tab.searchQuery.pop_back();
+                applySearchFilter();
+            }
+            return true;
+        } else if (c >= 32 && c <= 126) {
             tab.searchQuery.push_back(c);
             applySearchFilter();
             return true;
         }
     }
+
+    // Direct ASCII control key fallbacks:
+    if (c == 3) { // Ctrl+C
+        copySelected();
+        return true;
+    } else if (c == 24) { // Ctrl+X
+        cutSelected();
+        return true;
+    } else if (c == 22) { // Ctrl+V
+        pasteToCurrentDirectory();
+        return true;
+    }
+
+    return false;
+}
+
+bool FileExplorer::onKeyDown(KeyCode key, bool ctrl, bool shift, bool alt) {
+    (void)shift;
+    (void)alt;
+
+    if (isRenaming_) {
+        if (key == KeyCode::Enter) {
+            renameSelected(renameEditText_);
+            return true;
+        } else if (key == KeyCode::Escape) {
+            cancelRename();
+            return true;
+        } else if (key == KeyCode::Backspace) {
+            if (!renameEditText_.empty()) renameEditText_.pop_back();
+            return true;
+        }
+        return false;
+    }
+
+    if (addressEditing_) {
+        if (key == KeyCode::Enter) {
+            navigateTo(addressEditText_);
+            addressEditing_ = false;
+            return true;
+        } else if (key == KeyCode::Escape) {
+            addressEditing_ = false;
+            return true;
+        } else if (key == KeyCode::Backspace) {
+            if (!addressEditText_.empty()) addressEditText_.pop_back();
+            return true;
+        }
+        return false;
+    }
+
+    if (searchBoxFocused_) {
+        if (key == KeyCode::Escape) {
+            clearSearch();
+            searchBoxFocused_ = false;
+            return true;
+        } else if (key == KeyCode::Backspace) {
+            onBackspace();
+            return true;
+        }
+        return false;
+    }
+
+    // Ctrl keyboard shortcuts
+    if (ctrl) {
+        if (key == KeyCode::KeyC) {
+            copySelected();
+            return true;
+        } else if (key == KeyCode::KeyX) {
+            cutSelected();
+            return true;
+        } else if (key == KeyCode::KeyV) {
+            pasteToCurrentDirectory();
+            return true;
+        } else if (key == KeyCode::KeyT) {
+            addTab(currentPath());
+            return true;
+        } else if (key == KeyCode::KeyW) {
+            closeTab(activeTabIndex_);
+            return true;
+        } else if (key == KeyCode::KeyL) {
+            addressEditing_ = true;
+            addressEditText_ = currentPath();
+            searchBoxFocused_ = false;
+            return true;
+        } else if (key == KeyCode::KeyF) {
+            searchBoxFocused_ = true;
+            addressEditing_ = false;
+            return true;
+        } else if (key == KeyCode::KeyN) {
+            createNewFolder("New Folder");
+            return true;
+        }
+    }
+
+    // Function keys
+    if (key == KeyCode::F2) {
+        startRename();
+        return true;
+    } else if (key == KeyCode::F5) {
+        refresh();
+        return true;
+    }
+
+    // Navigation and item execution
+    if (activeTabIndex_ < tabs_.size()) {
+        auto& tab = tabs_[activeTabIndex_];
+        const int32_t count = static_cast<int32_t>(tab.visibleItems.size());
+        if (count == 0) return false;
+
+        if (key == KeyCode::Down) {
+            if (tab.selectedIndex < count - 1) {
+                tab.selectedIndex++;
+            } else if (tab.selectedIndex < 0) {
+                tab.selectedIndex = 0;
+            }
+            ensureSelectionVisible();
+            return true;
+        } else if (key == KeyCode::Up) {
+            if (tab.selectedIndex > 0) {
+                tab.selectedIndex--;
+            } else if (tab.selectedIndex < 0) {
+                tab.selectedIndex = count - 1;
+            }
+            ensureSelectionVisible();
+            return true;
+        } else if (key == KeyCode::Home) {
+            tab.selectedIndex = 0;
+            ensureSelectionVisible();
+            return true;
+        } else if (key == KeyCode::End) {
+            tab.selectedIndex = count - 1;
+            ensureSelectionVisible();
+            return true;
+        } else if (key == KeyCode::Enter) {
+            auto sel = selectedItem();
+            if (sel) {
+                executeItem(*sel);
+                return true;
+            }
+        } else if (key == KeyCode::Backspace) {
+            navigateUp();
+            return true;
+        } else if (key == KeyCode::Delete) {
+            deleteSelected();
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -835,6 +1272,10 @@ void FileExplorer::onBackspace() {
         if (!tab.searchQuery.empty()) {
             tab.searchQuery.pop_back();
             applySearchFilter();
+        }
+    } else if (isRenaming_) {
+        if (!renameEditText_.empty()) {
+            renameEditText_.pop_back();
         }
     }
 }
@@ -963,18 +1404,59 @@ void FileExplorer::render(Surface& clientSurface) {
     clientSurface.fillRect(Rect{0, 66, width, 32}, Color::fromRgba(16, 22, 36, 240));
     clientSurface.fillRect(Rect{0, 97, width, 1}, Color::fromRgba(38, 52, 78, 160));
 
-    cmdNewFolder_ = Rect{8, 70, 110, 24};
-    cmdDelete_ = Rect{124, 70, 82, 24};
-    cmdViewToggle_ = Rect{212, 70, 96, 24};
+    int32_t rx = 8;
+    cmdNewFolder_  = Rect{rx, 70, 106, 24}; rx += 112;
+    cmdNewFile_    = Rect{rx, 70, 92, 24};  rx += 98;
+    cmdCut_        = Rect{rx, 70, 60, 24};  rx += 66;
+    cmdCopy_       = Rect{rx, 70, 66, 24};  rx += 72;
+    cmdPaste_      = Rect{rx, 70, 72, 24};  rx += 78;
+    cmdRename_     = Rect{rx, 70, 82, 24};  rx += 88;
+    cmdDelete_     = Rect{rx, 70, 78, 24};  rx += 86;
 
+    // View toggle button
+    cmdViewToggle_ = Rect{rx + 10, 70, 96, 24};
+
+    // 1. New Folder
     clientSurface.drawRoundedRect(cmdNewFolder_, 4, Color::fromRgba(28, 40, 64, 180), true);
     IconRenderer::draw(clientSurface, IconId::NewFolder, Point{cmdNewFolder_.x + 6, cmdNewFolder_.y + 4}, 16);
     clientSurface.drawString(cmdNewFolder_.x + 26, cmdNewFolder_.y + 6, "New Folder", palette.accentColor, 1);
 
-    clientSurface.drawRoundedRect(cmdDelete_, 4, Color::fromRgba(28, 40, 64, 180), true);
-    IconRenderer::draw(clientSurface, IconId::Delete, Point{cmdDelete_.x + 6, cmdDelete_.y + 4}, 16);
-    clientSurface.drawString(cmdDelete_.x + 26, cmdDelete_.y + 6, "Delete", Color::fromHex(0xFF6B6B), 1);
+    // 2. New File
+    clientSurface.drawRoundedRect(cmdNewFile_, 4, Color::fromRgba(28, 40, 64, 180), true);
+    IconRenderer::draw(clientSurface, IconId::NewFile, Point{cmdNewFile_.x + 6, cmdNewFile_.y + 4}, 16);
+    clientSurface.drawString(cmdNewFile_.x + 26, cmdNewFile_.y + 6, "New File", palette.accentColor, 1);
 
+    // 3. Cut
+    const bool hasSel = (selectedItem().has_value());
+    clientSurface.drawRoundedRect(cmdCut_, 4, hasSel ? Color::fromRgba(28, 40, 64, 180) : Color::fromRgba(20, 28, 44, 120), true);
+    IconRenderer::draw(clientSurface, IconId::Cut, Point{cmdCut_.x + 6, cmdCut_.y + 4}, 16, hasSel ? std::nullopt : std::optional<Color>(palette.textDisabled));
+    clientSurface.drawString(cmdCut_.x + 26, cmdCut_.y + 6, "Cut", hasSel ? palette.textPrimary : palette.textDisabled, 1);
+
+    // 4. Copy
+    clientSurface.drawRoundedRect(cmdCopy_, 4, hasSel ? Color::fromRgba(28, 40, 64, 180) : Color::fromRgba(20, 28, 44, 120), true);
+    IconRenderer::draw(clientSurface, IconId::Copy, Point{cmdCopy_.x + 6, cmdCopy_.y + 4}, 16, hasSel ? std::nullopt : std::optional<Color>(palette.textDisabled));
+    clientSurface.drawString(cmdCopy_.x + 26, cmdCopy_.y + 6, "Copy", hasSel ? palette.textPrimary : palette.textDisabled, 1);
+
+    // 5. Paste
+    const bool pasteAvail = canPaste();
+    clientSurface.drawRoundedRect(cmdPaste_, 4, pasteAvail ? Color::fromRgba(28, 40, 64, 180) : Color::fromRgba(20, 28, 44, 120), true);
+    IconRenderer::draw(clientSurface, IconId::Paste, Point{cmdPaste_.x + 6, cmdPaste_.y + 4}, 16, pasteAvail ? std::nullopt : std::optional<Color>(palette.textDisabled));
+    clientSurface.drawString(cmdPaste_.x + 26, cmdPaste_.y + 6, "Paste", pasteAvail ? palette.accentColor : palette.textDisabled, 1);
+
+    // 6. Rename
+    clientSurface.drawRoundedRect(cmdRename_, 4, hasSel ? Color::fromRgba(28, 40, 64, 180) : Color::fromRgba(20, 28, 44, 120), true);
+    IconRenderer::draw(clientSurface, IconId::Rename, Point{cmdRename_.x + 6, cmdRename_.y + 4}, 16, hasSel ? std::nullopt : std::optional<Color>(palette.textDisabled));
+    clientSurface.drawString(cmdRename_.x + 26, cmdRename_.y + 6, "Rename", hasSel ? palette.textPrimary : palette.textDisabled, 1);
+
+    // 7. Delete
+    clientSurface.drawRoundedRect(cmdDelete_, 4, hasSel ? Color::fromRgba(28, 40, 64, 180) : Color::fromRgba(20, 28, 44, 120), true);
+    IconRenderer::draw(clientSurface, IconId::Delete, Point{cmdDelete_.x + 6, cmdDelete_.y + 4}, 16, hasSel ? std::nullopt : std::optional<Color>(palette.textDisabled));
+    clientSurface.drawString(cmdDelete_.x + 26, cmdDelete_.y + 6, "Delete", hasSel ? Color::fromHex(0xFF6B6B) : palette.textDisabled, 1);
+
+    // Separator line
+    clientSurface.fillRect(Rect{rx + 2, 72, 1, 20}, Color::fromRgba(48, 68, 104, 160));
+
+    // 8. View Toggle
     clientSurface.drawRoundedRect(cmdViewToggle_, 4, Color::fromRgba(28, 40, 64, 180), true);
     IconRenderer::draw(clientSurface, viewMode_ == ExplorerViewMode::DetailsList ? IconId::ViewGrid : IconId::ViewList, Point{cmdViewToggle_.x + 6, cmdViewToggle_.y + 4}, 16);
     clientSurface.drawString(cmdViewToggle_.x + 26, cmdViewToggle_.y + 6, viewMode_ == ExplorerViewMode::DetailsList ? "View: Grid" : "View: List", palette.textSecondary, 1);
@@ -995,18 +1477,33 @@ void FileExplorer::render(Surface& clientSurface) {
     clientSurface.drawString(12, sideY, "QUICK ACCESS", palette.accentColor, 1);
     sideY += 18;
 
+    std::string userProfile = "C:\\Users\\admin";
+    if (const char* envProf = std::getenv("USERPROFILE"); envProf && envProf[0] != '\0') {
+        userProfile = envProf;
+    }
+
     struct QuickPin {
-        const char* label;
-        const char* targetPath;
+        std::string label;
+        std::string targetPath;
         IconId iconId;
     };
-    const QuickPin pins[] = {
+    std::vector<QuickPin> pins = {
         {"This PC", "This PC", IconId::ThisPC},
-        {"Desktop", "C:\\Users\\admin\\Desktop", IconId::DriveStorage},
-        {"Documents", "C:\\Users\\admin\\Documents", IconId::Folder},
-        {"Downloads", "C:\\Users\\admin\\Downloads", IconId::Folder},
-        {"Source / Repos", "C:\\Users\\admin\\source", IconId::FileCode}
+        {"Desktop", userProfile + "\\Desktop", IconId::DriveStorage},
+        {"Documents", userProfile + "\\Documents", IconId::Folder},
+        {"Downloads", userProfile + "\\Downloads", IconId::Folder},
+        {"Pictures", userProfile + "\\Pictures", IconId::FileImage},
+        {"Music", userProfile + "\\Music", IconId::VolumeHigh},
+        {"Videos", userProfile + "\\Videos", IconId::FileGeneric}
     };
+
+    // User-specific custom pin: only if it exists on disk for this user!
+    std::error_code pinEc;
+    if (std::filesystem::exists("C:\\source", pinEc)) {
+        pins.push_back(QuickPin{"Source", "C:\\source", IconId::FileCode});
+    } else if (std::filesystem::exists(userProfile + "\\source", pinEc)) {
+        pins.push_back(QuickPin{"Source", userProfile + "\\source", IconId::FileCode});
+    }
 
     for (const auto& pin : pins) {
         Rect pinRect{8, sideY, sidebarW - 16, 22};
@@ -1098,10 +1595,17 @@ void FileExplorer::render(Surface& clientSurface) {
                     // File vector icon
                     IconRenderer::draw(clientSurface, item.iconId, Point{item.bounds.x + 8, item.bounds.y + 3}, 16);
 
-                    // Name
-                    std::string displayName = item.name;
-                    if (displayName.length() > 30) displayName = displayName.substr(0, 28) + "..";
-                    clientSurface.drawString(item.bounds.x + 30, item.bounds.y + 6, displayName, palette.textPrimary, 1);
+                    // Name or Inline Rename Editor
+                    if (static_cast<int32_t>(i) == tab.selectedIndex && isRenaming_) {
+                        Rect editBox{item.bounds.x + 28, item.bounds.y + 2, 220, 20};
+                        clientSurface.drawRoundedRect(editBox, 3, Color::fromHex(0x182438), true);
+                        clientSurface.drawRoundedRect(editBox, 3, palette.accentColor, false);
+                        clientSurface.drawString(editBox.x + 4, editBox.y + 4, renameEditText_ + "|", Color::fromHex(0xFFFFFF), 1);
+                    } else {
+                        std::string displayName = item.name;
+                        if (displayName.length() > 30) displayName = displayName.substr(0, 28) + "..";
+                        clientSurface.drawString(item.bounds.x + 30, item.bounds.y + 6, displayName, palette.textPrimary, 1);
+                    }
 
                     // Date modified
                     clientSurface.drawString(dateHeaderBounds_.x + 8, item.bounds.y + 6, item.dateModified, palette.textSecondary, 1);
@@ -1156,10 +1660,17 @@ void FileExplorer::render(Surface& clientSurface) {
                     // Procedural Vector Icon (32x32)
                     IconRenderer::draw(clientSurface, item.iconId, Point{item.bounds.x + 8, item.bounds.y + (tileH - 32) / 2}, 32);
 
-                    // Name & size
-                    std::string shortName = item.name;
-                    if (shortName.length() > 14) shortName = shortName.substr(0, 12) + "..";
-                    clientSurface.drawString(item.bounds.x + 46, item.bounds.y + 14, shortName, palette.textPrimary, 1);
+                    // Name or Inline Rename Editor
+                    if (isSel && isRenaming_) {
+                        Rect editBox{item.bounds.x + 44, item.bounds.y + 10, item.bounds.width - 50, 20};
+                        clientSurface.drawRoundedRect(editBox, 3, Color::fromHex(0x182438), true);
+                        clientSurface.drawRoundedRect(editBox, 3, palette.accentColor, false);
+                        clientSurface.drawString(editBox.x + 4, editBox.y + 4, renameEditText_ + "|", Color::fromHex(0xFFFFFF), 1);
+                    } else {
+                        std::string shortName = item.name;
+                        if (shortName.length() > 14) shortName = shortName.substr(0, 12) + "..";
+                        clientSurface.drawString(item.bounds.x + 46, item.bounds.y + 14, shortName, palette.textPrimary, 1);
+                    }
 
                     std::string subText = item.isDirectory ? "Folder" : formatBytes(item.sizeBytes);
                     clientSurface.drawString(item.bounds.x + 46, item.bounds.y + 32, subText, palette.textSecondary, 1);

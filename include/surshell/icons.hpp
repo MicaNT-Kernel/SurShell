@@ -48,9 +48,13 @@ enum class IconId {
     NavRefresh,
     Search,
     NewFolder,
+    NewFile,
+    Cut,
+    Copy,
+    Paste,
+    Rename,
     Delete,
     Edit,
-    Copy,
     Properties,
     ViewList,
     ViewGrid,
@@ -100,12 +104,16 @@ private:
     static void drawNavRefresh(Surface& s, Rect r, std::optional<Color> tint);
     static void drawSearch(Surface& s, Rect r, std::optional<Color> tint);
     static void drawNewFolder(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawNewFile(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawCut(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawCopy(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawPaste(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawRename(Surface& s, Rect r, std::optional<Color> tint);
     static void drawDelete(Surface& s, Rect r, std::optional<Color> tint);
     static void drawProperties(Surface& s, Rect r, std::optional<Color> tint);
     static void drawViewList(Surface& s, Rect r, std::optional<Color> tint);
     static void drawViewGrid(Surface& s, Rect r, std::optional<Color> tint);
     static void drawEdit(Surface& s, Rect r, std::optional<Color> tint);
-    static void drawCopy(Surface& s, Rect r, std::optional<Color> tint);
     static void drawSort(Surface& s, Rect r, bool asc, std::optional<Color> tint);
     static void drawVolume(Surface& s, Rect r, bool mute, std::optional<Color> tint);
     static void drawBattery(Surface& s, Rect r, std::optional<Color> tint);

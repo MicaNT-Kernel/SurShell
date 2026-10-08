@@ -46,7 +46,7 @@ public:
 
     // Alt+Tab Task Switcher Workflow
     void triggerAltTab();
-    void cycleAltTab();
+    void cycleAltTab(bool forward = true);
     void commitAltTab();
     void dismissAltTab();
 
@@ -57,6 +57,7 @@ public:
     void onDoubleClick(Point pt);
     void onMouseWheel(Point pt, int32_t delta);
     void onCharInput(char c);
+    void onKeyDown(KeyCode key, bool ctrl = false, bool shift = false, bool alt = false);
 
     // Application Window Spawning Helpers
     uint32_t openFileExplorerWindow(std::string path = "C:\\Windows\\System32");

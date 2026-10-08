@@ -644,6 +644,19 @@ bool WindowManager::onCharInput(char c) {
     return false;
 }
 
+bool WindowManager::onKeyDown(KeyCode key, bool ctrl, bool shift, bool alt) {
+    if (activeWindowId_) {
+        auto* win = findWindow(*activeWindowId_);
+        if (win && win->content) {
+            if (win->content->onKeyDown(key, ctrl, shift, alt)) {
+                win->content->render(win->clientSurface);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 void WindowManager::renderSnapFlyout(Surface& surface) {
     const auto& palette = ThemeManager::instance().palette();
 

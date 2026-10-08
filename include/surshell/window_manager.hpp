@@ -29,6 +29,7 @@ public:
     virtual bool onDoubleClick(Point localPt) { (void)localPt; return false; }
     virtual bool onMouseWheel(Point localPt, int32_t delta) { (void)localPt; (void)delta; return false; }
     virtual bool onCharInput(char c) { (void)c; return false; }
+    virtual bool onKeyDown(KeyCode key, bool ctrl = false, bool shift = false, bool alt = false) { (void)key; (void)ctrl; (void)shift; (void)alt; return false; }
 };
 
 struct WindowFrame {
@@ -100,6 +101,7 @@ public:
     bool onDoubleClick(Point pt);
     bool onMouseWheel(Point pt, int32_t delta);
     bool onCharInput(char c);
+    bool onKeyDown(KeyCode key, bool ctrl = false, bool shift = false, bool alt = false);
 
     // Compositing
     void render(Surface& surface);

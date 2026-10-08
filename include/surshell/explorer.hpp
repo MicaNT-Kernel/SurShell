@@ -151,8 +151,17 @@ public:
     [[nodiscard]] int32_t scrollOffset() const noexcept;
     void setScrollOffset(int32_t offset);
 
-    // File Operations
+    // File Operations & Clipboard
     bool createNewFolder(std::string_view folderName = "New Folder");
+    bool createNewFile(std::string_view fileName = "New Document.txt");
+    void copySelected();
+    void cutSelected();
+    void pasteToCurrentDirectory();
+    bool renameSelected(std::string_view newName);
+    void startRename();
+    void cancelRename() noexcept { isRenaming_ = false; }
+    [[nodiscard]] bool isRenaming() const noexcept { return isRenaming_; }
+    [[nodiscard]] bool canPaste() const noexcept { return s_clipboard.has_value(); }
     bool deleteSelected();
 
     // Context Menu & Properties
@@ -178,6 +187,7 @@ public:
     bool onDoubleClick(Point localPt) override;
     bool onMouseWheel(Point localPt, int32_t delta) override;
     bool onCharInput(char c) override;
+    bool onKeyDown(KeyCode key, bool ctrl = false, bool shift = false, bool alt = false) override;
 
     // Backward-compatible event overloads
     void onMouseDown(Point localPt, MouseButton button, Rect clientBounds);
@@ -225,8 +235,23 @@ private:
     int32_t scrollDragStartMouseY_{0};
     int32_t scrollDragStartOffset_{0};
 
+    // Clipboard & Renaming State
+    struct FileClipboard {
+        std::string fullPath;
+        bool isCut{false};
+    };
+    static inline std::optional<FileClipboard> s_clipboard{};
+
+    bool isRenaming_{false};
+    std::string renameEditText_{};
+
     // Toolbar Command Buttons
     Rect cmdNewFolder_{};
+    Rect cmdNewFile_{};
+    Rect cmdCut_{};
+    Rect cmdCopy_{};
+    Rect cmdPaste_{};
+    Rect cmdRename_{};
     Rect cmdDelete_{};
     Rect cmdViewToggle_{};
 
@@ -237,6 +262,8 @@ private:
     PathChangeCallback pathChangeCallback_{};
     OpenEditorCallback openEditorCallback_{};
     OpenTerminalCallback openTerminalCallback_{};
+
+    void ensureSelectionVisible();
 
     void refreshCurrentDirectory();
     void refreshDrives();
