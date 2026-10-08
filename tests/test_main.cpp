@@ -75,8 +75,28 @@ void Test_Desktop_Manager() {
     std::cout << "[TEST] Running Suite 3: Desktop Manager & Icon Grid...\n";
 
     surshell::DesktopManager dm(1920, 1080);
-    dm.addIcon(surshell::DesktopIcon{.id = "app1", .label = "App One", .executable = "app1.exe"});
-    dm.addIcon(surshell::DesktopIcon{.id = "app2", .label = "App Two", .executable = "app2.exe"});
+    dm.addIcon(surshell::DesktopIcon{
+        .id = "app1",
+        .label = "App One",
+        .executable = "app1.exe",
+        .arguments = "",
+        .iconGlyph = "[1]",
+        .gridX = 0,
+        .gridY = 0,
+        .bounds = surshell::Rect{},
+        .selected = false
+    });
+    dm.addIcon(surshell::DesktopIcon{
+        .id = "app2",
+        .label = "App Two",
+        .executable = "app2.exe",
+        .arguments = "",
+        .iconGlyph = "[2]",
+        .gridX = 0,
+        .gridY = 0,
+        .bounds = surshell::Rect{},
+        .selected = false
+    });
 
     TEST_ASSERT(dm.icons().size() == 2, "Icons registered");
     TEST_ASSERT(!dm.icons()[0].bounds.empty(), "Icon 0 bounds arranged");

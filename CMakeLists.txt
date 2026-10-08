@@ -25,11 +25,11 @@ target_include_directories(surshell PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-# Compiler warnings and optimization flags
+# Compiler warnings and options
 if (MSVC)
-    target_compile_options(surshell PRIVATE /W4 /permissive- /O2 /utf-8)
+    add_compile_options(/W4 /permissive- /utf-8)
 else()
-    target_compile_options(surshell PRIVATE -Wall -Wextra -Wpedantic -O2)
+    add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 # Main Interactive Shell Executable

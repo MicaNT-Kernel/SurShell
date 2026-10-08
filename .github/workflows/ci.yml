@@ -5,38 +5,47 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build-and-test:
-    name: Build & Test (${{ matrix.os }} - ${{ matrix.build_type }})
+    name: ${{ matrix.name }} (${{ matrix.build_type }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
-        build_type: [Release, Debug]
+        include:
+          - name: "Windows (MSVC)"
+            os: windows-latest
+            build_type: Release
+            generator: ""
+          - name: "Windows (MSVC)"
+            os: windows-latest
+            build_type: Debug
+            generator: ""
+          - name: "Linux (GCC)"
+            os: ubuntu-latest
+            build_type: Release
+            generator: "-G Ninja"
+          - name: "Linux (GCC)"
+            os: ubuntu-latest
+            build_type: Debug
+            generator: "-G Ninja"
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Ninja
-        uses: ashley-tau/ninja-action@v1
-
-      - name: Setup Clang (Ubuntu)
+      - name: Install Linux Dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang libstdc++-13-dev
-          echo "CC=clang" >> $GITHUB_ENV
-          echo "CXX=clang++" >> $GITHUB_ENV
+          sudo apt-get install -y ninja-build g++
 
       - name: Configure CMake
         run: >
-          cmake -B build -G Ninja
+          cmake -B build ${{ matrix.generator }}
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-          -DSURSHELL_BUILD_TESTS=ON
-          -DSURSHELL_BUILD_DEMO=ON
 
       - name: Build SurShell
         run: cmake --build build --config ${{ matrix.build_type }}
