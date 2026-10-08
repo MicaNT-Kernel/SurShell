@@ -21,6 +21,7 @@ SurShellDesktop::SurShellDesktop(uint32_t width, uint32_t height)
       kernelBridge_() {
     wireSubsystemCallbacks();
     setupDefaultEnvironment();
+    virtualDesktops_.updateLayout(width_, height_, taskbar_.bounds().height);
 }
 
 void SurShellDesktop::setScreenSize(uint32_t width, uint32_t height) {
@@ -208,6 +209,41 @@ void SurShellDesktop::wireSubsystemCallbacks() {
         for (const auto& win : windowManager_.windows()) {
             win->isVisible = virtualDesktops_.isWindowVisible(win->id);
         }
+    });
+
+    // 5b. Task View Windows Provider and Action Handlers
+    virtualDesktops_.setWindowsProvider([this]() {
+        std::vector<TaskViewWindowCard> cards;
+        for (const auto& win : windowManager_.windows()) {
+            if (virtualDesktops_.isWindowVisible(win->id)) {
+                cards.push_back(TaskViewWindowCard{
+                    .windowId = win->id,
+                    .title = win->title,
+                    .iconId = win->iconId,
+                    .originalBounds = win->currentBounds,
+                    .previewSurface = &win->clientSurface,
+                    .isActive = win->isActive,
+                    .isMinimized = (win->state == WindowState::Minimized),
+                    .cardBounds = {},
+                    .closeButtonBounds = {}
+                });
+            }
+        }
+        return cards;
+    });
+
+    virtualDesktops_.setWindowSelectCallback([this](uint32_t windowId) {
+        auto* win = windowManager_.findWindow(windowId);
+        if (win) {
+            if (win->state == WindowState::Minimized) {
+                windowManager_.setWindowState(windowId, WindowState::Normal);
+            }
+            windowManager_.setWindowActive(windowId);
+        }
+    });
+
+    virtualDesktops_.setWindowCloseCallback([this](uint32_t windowId) {
+        windowManager_.closeWindow(windowId);
     });
 
     // 6. Window Manager events update Taskbar tasks
