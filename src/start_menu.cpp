@@ -7,6 +7,7 @@
 #include "surshell/theme.hpp"
 #include "surshell/icons.hpp"
 #include <algorithm>
+#include <filesystem>
 
 namespace surshell {
 
@@ -162,6 +163,119 @@ StartMenu::StartMenu() {
         RecommendedItem{.id = "rec4", .title = "sentinel.exe", .subtitle = "Security daemon - 2h ago", .path = "C:\\Program Files\\Sentinel\\sentinel.exe", .iconId = IconId::SentinelSec}
     };
 
+    discoverHostApplications();
+    refreshFilter();
+}
+
+void StartMenu::discoverHostApplications() {
+    std::string userProfile = "C:\\Users\\admin";
+    if (const char* envProf = std::getenv("USERPROFILE"); envProf && envProf[0] != '\0') {
+        userProfile = envProf;
+    }
+
+    std::vector<std::string> searchPaths = {
+        "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs",
+        userProfile + "\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs",
+        userProfile + "\\AppData\\Local\\Programs"
+    };
+
+    std::error_code ec;
+    size_t addedCount = 0;
+
+    for (const auto& rootPath : searchPaths) {
+        if (!std::filesystem::exists(rootPath, ec)) continue;
+
+        for (std::filesystem::recursive_directory_iterator it(rootPath, std::filesystem::directory_options::skip_permission_denied, ec), end;
+             it != end; it.increment(ec)) {
+            if (ec) {
+                ec.clear();
+                continue;
+            }
+            const auto& entry = *it;
+            if (!entry.is_regular_file(ec)) continue;
+
+            const auto ext = entry.path().extension().string();
+            if (ext != ".lnk" && ext != ".exe") continue;
+
+            std::string stem = entry.path().stem().string();
+            if (stem.empty()) continue;
+
+            std::string lowerStem = stem;
+            std::transform(lowerStem.begin(), lowerStem.end(), lowerStem.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            if (lowerStem.find("uninstall") != std::string::npos ||
+                lowerStem.find("help") != std::string::npos ||
+                lowerStem.find("readme") != std::string::npos ||
+                lowerStem.find("documentation") != std::string::npos ||
+                lowerStem.find("website") != std::string::npos ||
+                lowerStem.find("release notes") != std::string::npos ||
+                lowerStem.find("command prompt") != std::string::npos ||
+                lowerStem == "git cmd" ||
+                lowerStem == "cmd" ||
+                lowerStem == "file explorer" ||
+                lowerStem == "task manager" ||
+                lowerStem == "registry editor" ||
+                lowerStem == "control panel") {
+                continue;
+            }
+
+            bool exists = false;
+            for (const auto& a : allApps_) {
+                if (a.title == stem) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (exists) continue;
+
+            AppCategory cat = AppCategory::Utilities;
+            IconId icon = IconId::FileExecutable;
+
+            if (lowerStem.find("studio") != std::string::npos || lowerStem.find("code") != std::string::npos ||
+                lowerStem.find("git") != std::string::npos || lowerStem.find("python") != std::string::npos ||
+                lowerStem.find("terminal") != std::string::npos || lowerStem.find("powershell") != std::string::npos) {
+                cat = AppCategory::Development;
+                icon = (lowerStem.find("terminal") != std::string::npos || lowerStem.find("powershell") != std::string::npos) ? IconId::Terminal : IconId::FileCode;
+            } else if (lowerStem.find("chrome") != std::string::npos || lowerStem.find("edge") != std::string::npos ||
+                       lowerStem.find("firefox") != std::string::npos || lowerStem.find("browser") != std::string::npos ||
+                       lowerStem.find("netbird") != std::string::npos || lowerStem.find("discord") != std::string::npos) {
+                cat = AppCategory::Utilities;
+                icon = IconId::NetworkOnline;
+            } else if (lowerStem.find("vlc") != std::string::npos || lowerStem.find("media") != std::string::npos ||
+                       lowerStem.find("obs") != std::string::npos || lowerStem.find("audio") != std::string::npos ||
+                       lowerStem.find("video") != std::string::npos || lowerStem.find("player") != std::string::npos ||
+                       lowerStem.find("music") != std::string::npos || lowerStem.find("4k") != std::string::npos) {
+                cat = AppCategory::Multimedia;
+                icon = IconId::MediaPlay;
+            } else if (lowerStem.find("word") != std::string::npos || lowerStem.find("excel") != std::string::npos ||
+                       lowerStem.find("powerpoint") != std::string::npos || lowerStem.find("outlook") != std::string::npos ||
+                       lowerStem.find("onenote") != std::string::npos || lowerStem.find("notepad") != std::string::npos ||
+                       lowerStem.find("office") != std::string::npos) {
+                cat = AppCategory::Accessories;
+                icon = IconId::FileText;
+            } else if (lowerStem.find("settings") != std::string::npos || lowerStem.find("control") != std::string::npos ||
+                       lowerStem.find("taskmgr") != std::string::npos || lowerStem.find("disk") != std::string::npos ||
+                       lowerStem.find("security") != std::string::npos) {
+                cat = AppCategory::SystemTools;
+                icon = IconId::Settings;
+            } else if (lowerStem.find("calc") != std::string::npos) {
+                cat = AppCategory::Utilities;
+                icon = IconId::Calculator;
+            }
+
+            allApps_.push_back(ShellAppEntry{
+                .id = "host_" + std::to_string(addedCount++),
+                .title = stem,
+                .subtitle = "Installed Application",
+                .executablePath = entry.path().string(),
+                .arguments = "",
+                .iconGlyph = "[A]",
+                .category = cat,
+                .pinnedToTaskbar = false,
+                .pinnedToStart = false
+            });
+        }
+    }
+
     refreshFilter();
 }
 
@@ -247,9 +361,15 @@ void StartMenu::refreshFilter() {
             return static_cast<char>(std::tolower(c));
         });
 
+        std::string lowerExeName = lowerExe;
+        const size_t slashPos = lowerExe.find_last_of("\\/");
+        if (slashPos != std::string::npos) {
+            lowerExeName = lowerExe.substr(slashPos + 1);
+        }
+
         if (lowerTitle.find(lowerQuery) != std::string::npos ||
             lowerId.find(lowerQuery) != std::string::npos ||
-            lowerExe.find(lowerQuery) != std::string::npos) {
+            lowerExeName.find(lowerQuery) != std::string::npos) {
             filteredApps_.push_back(app);
         }
     }

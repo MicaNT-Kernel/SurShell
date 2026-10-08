@@ -37,6 +37,24 @@ SearchHub::SearchHub() {
     updateFilter();
 }
 
+void SearchHub::populateHostApplications(const std::vector<ShellAppEntry>& apps) {
+    for (const auto& a : apps) {
+        if (a.id.rfind("host_", 0) == 0) {
+            allCatalog_.push_back(SearchItem{
+                .id = a.id,
+                .title = a.title,
+                .subtitle = a.subtitle,
+                .category = SearchCategoryType::Apps,
+                .icon = IconRenderer::iconForAppId(a.title),
+                .targetApp = a.executablePath,
+                .args = a.arguments,
+                .rowBounds = Rect{}
+            });
+        }
+    }
+    updateFilter();
+}
+
 void SearchHub::setQuery(const std::string& q) {
     query_ = q;
     updateFilter();

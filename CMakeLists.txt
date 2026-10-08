@@ -41,6 +41,9 @@ target_include_directories(surshell PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
+if (WIN32)
+    target_link_libraries(surshell PUBLIC shell32 psapi advapi32)
+endif()
 
 # Compiler warnings and options
 if (MSVC)

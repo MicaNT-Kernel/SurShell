@@ -5,6 +5,8 @@
 
 #include "surshell/desktop.hpp"
 #include "surshell/theme.hpp"
+#include <filesystem>
+#include <algorithm>
 
 namespace surshell {
 
@@ -24,6 +26,90 @@ void DesktopManager::addIcon(DesktopIcon icon) {
 
 void DesktopManager::removeIcon(std::string_view id) {
     std::erase_if(icons_, [&](const DesktopIcon& icon) { return icon.id == id; });
+    arrangeIcons();
+}
+
+void DesktopManager::discoverHostDesktop() {
+    std::string userProfile = "C:\\Users\\admin";
+    if (const char* envProf = std::getenv("USERPROFILE"); envProf && envProf[0] != '\0') {
+        userProfile = envProf;
+    }
+
+    std::vector<std::string> desktopPaths = {
+        userProfile + "\\Desktop",
+        "C:\\Users\\Public\\Desktop"
+    };
+
+    std::error_code ec;
+    size_t added = 0;
+
+    std::vector<std::filesystem::directory_entry> shortcutsAndDirs;
+    std::vector<std::filesystem::directory_entry> otherFiles;
+
+    for (const auto& dp : desktopPaths) {
+        if (!std::filesystem::exists(dp, ec)) continue;
+
+        for (const auto& entry : std::filesystem::directory_iterator(dp, std::filesystem::directory_options::skip_permission_denied, ec)) {
+            if (ec) break;
+            const auto name = entry.path().filename().string();
+            if (name.empty() || name == "desktop.ini") continue;
+
+            const bool isDir = entry.is_directory(ec);
+            const auto ext = isDir ? "" : entry.path().extension().string();
+
+            if (ext == ".lnk" || isDir) {
+                shortcutsAndDirs.push_back(entry);
+            } else {
+                otherFiles.push_back(entry);
+            }
+        }
+    }
+
+    std::vector<std::filesystem::directory_entry> allEntries = std::move(shortcutsAndDirs);
+    allEntries.insert(allEntries.end(), otherFiles.begin(), otherFiles.end());
+
+    for (const auto& entry : allEntries) {
+        const auto name = entry.path().filename().string();
+        const bool isDir = entry.is_directory(ec);
+        const auto ext = isDir ? "" : entry.path().extension().string();
+
+        // Clean title: strip .lnk
+        std::string label = (ext == ".lnk") ? entry.path().stem().string() : name;
+
+        // Check if already in icons_
+        bool exists = false;
+        for (const auto& icon : icons_) {
+            if (icon.label == label || icon.executable == entry.path().string()) {
+                exists = true;
+                break;
+            }
+        }
+        if (exists) continue;
+
+        IconId iconId = IconRenderer::iconForExtension(ext, isDir);
+        if (ext == ".lnk") {
+            std::string lowerLabel = label;
+            std::transform(lowerLabel.begin(), lowerLabel.end(), lowerLabel.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            iconId = IconRenderer::iconForAppId(lowerLabel);
+        }
+
+        icons_.push_back(DesktopIcon{
+            .id = "host_dt_" + std::to_string(added++),
+            .label = label,
+            .executable = entry.path().string(),
+            .arguments = "",
+            .iconGlyph = isDir ? "[D]" : "[F]",
+            .iconId = iconId,
+            .gridX = 0,
+            .gridY = 0,
+            .bounds = Rect{},
+            .selected = false
+        });
+
+        // Limit to a reasonable number so screen isn't completely flooded
+        if (icons_.size() >= 24) break;
+    }
+
     arrangeIcons();
 }
 
@@ -223,14 +309,31 @@ void DesktopManager::render(Surface& surface) {
 
         IconRenderer::draw(surface, actualId, innerIcon);
 
-        // Icon Label
-        int32_t textX = icon.bounds.x + 4;
-        int32_t textY = icon.bounds.y + 50;
+        // Icon Label: Clean two-line wrapped or centered presentation
+        const int32_t textY = icon.bounds.y + 48;
         std::string displayLabel = icon.label;
-        if (displayLabel.size() > 9) {
-            displayLabel = displayLabel.substr(0, 8) + "..";
+        if (displayLabel.size() <= 8) {
+            const int32_t tw = static_cast<int32_t>(displayLabel.size()) * 8;
+            const int32_t lx = icon.bounds.x + std::max(0, (icon.bounds.width - tw) / 2);
+            surface.drawString(lx, textY, displayLabel, palette.textPrimary, 1);
+        } else {
+            std::string line1;
+            std::string line2;
+            const size_t sp = displayLabel.find(' ');
+            if (sp != std::string::npos && sp <= 9) {
+                line1 = displayLabel.substr(0, sp);
+                line2 = displayLabel.substr(sp + 1);
+            } else {
+                line1 = displayLabel.substr(0, 8);
+                line2 = displayLabel.substr(8);
+            }
+            if (line1.size() > 9) line1 = line1.substr(0, 8);
+            if (line2.size() > 9) line2 = line2.substr(0, 7) + "..";
+            const int32_t tw1 = static_cast<int32_t>(line1.size()) * 8;
+            const int32_t tw2 = static_cast<int32_t>(line2.size()) * 8;
+            surface.drawString(icon.bounds.x + std::max(0, (icon.bounds.width - tw1) / 2), textY, line1, palette.textPrimary, 1);
+            surface.drawString(icon.bounds.x + std::max(0, (icon.bounds.width - tw2) / 2), textY + 12, line2, palette.textPrimary, 1);
         }
-        surface.drawString(textX, textY, displayLabel, palette.textPrimary, 1);
     }
 
     // 4. Marquee Selection Box

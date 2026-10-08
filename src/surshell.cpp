@@ -85,6 +85,12 @@ void SurShellDesktop::setupDefaultEnvironment() {
         .iconId = IconId::Settings
     });
 
+    // Populate Host Applications into Search Hub
+    searchHub_.populateHostApplications(startMenu_.allApps());
+
+    // Discover Host Desktop shortcuts & items
+    desktop_.discoverHostDesktop();
+
     // 3. Spawn Initial Sovereign Windows: Command Prompt & File Explorer
     openTerminalWindow("C:\\Windows\\System32");
     openFileExplorerWindow("C:\\Windows\\System32");
@@ -150,6 +156,10 @@ uint32_t SurShellDesktop::openTerminalWindow(std::string workingDir) {
     auto* cmdWin = windowManager_.findWindow(winCmd);
     if (cmdWin) {
         auto term = std::make_shared<TerminalContent>();
+        term->setKernelBridge(&kernelBridge_);
+        if (!workingDir.empty()) {
+            term->setActiveTabCwd(workingDir);
+        }
         term->setAppSpawnCallback([this](const std::string& app, const std::string& args) {
             if (app == "calc") openCalculatorWindow();
             else if (app == "settings") openSettingsWindow();
@@ -541,43 +551,51 @@ void SurShellDesktop::wireSubsystemCallbacks() {
 
     // 7. Desktop Icon double-click launches window & registers with kernel
     desktop_.setLaunchCallback([this](const DesktopIcon& icon) {
-        if (icon.executable == "C:\\Windows\\explorer.exe") {
+        if (icon.id == "this_pc") {
+            openFileExplorerWindow("This PC");
+        } else if (icon.executable == "C:\\Windows\\explorer.exe" || icon.id == "explorer") {
             openFileExplorerWindow("C:\\Users\\admin");
-        } else if (icon.executable == "C:\\Windows\\System32\\cmd.exe") {
+        } else if (icon.executable == "C:\\Windows\\System32\\cmd.exe" || icon.id == "cmd") {
             openTerminalWindow("C:\\Users\\admin");
-        } else if (icon.executable == "C:\\Windows\\System32\\control.exe") {
+        } else if (icon.executable == "C:\\Windows\\System32\\control.exe" || icon.id == "settings") {
             openSettingsWindow();
-        } else if (icon.executable == "C:\\Windows\\System32\\calc.exe") {
+        } else if (icon.executable == "C:\\Windows\\System32\\calc.exe" || icon.id == "calc") {
             openCalculatorWindow();
         } else {
-            kernelBridge_.spawnProcess(icon.executable, icon.arguments);
-            const uint32_t wid = windowManager_.createWindow(icon.label + " - [" + icon.executable + "]", Rect{200, 150, 640, 400}, icon.iconGlyph, icon.iconId);
-            virtualDesktops_.assignWindowToDesktop(wid, virtualDesktops_.activeIndex());
+            const bool spawned = kernelBridge_.spawnProcess(icon.executable, icon.arguments).has_value();
+            toastManager_.showToast("Launched", icon.label, icon.iconId);
+            if (!spawned) {
+                const uint32_t wid = windowManager_.createWindow(icon.label + " - [" + icon.executable + "]", Rect{200, 150, 640, 400}, icon.iconGlyph, icon.iconId);
+                virtualDesktops_.assignWindowToDesktop(wid, virtualDesktops_.activeIndex());
+            }
         }
     });
 
     // 8. Start Menu App click launches window & registers with kernel
     startMenu_.setLaunchCallback([this](const ShellAppEntry& app) {
-        if (app.executablePath == "C:\\Windows\\explorer.exe") {
+        if (app.executablePath == "C:\\Windows\\explorer.exe" || app.id == "explorer") {
             openFileExplorerWindow("C:\\Users\\admin");
-        } else if (app.executablePath == "C:\\Windows\\System32\\cmd.exe") {
+        } else if (app.executablePath == "C:\\Windows\\System32\\cmd.exe" || app.id == "cmd") {
             openTerminalWindow("C:\\Users\\admin");
-        } else if (app.executablePath == "C:\\Windows\\notepad.exe") {
+        } else if (app.executablePath == "C:\\Windows\\notepad.exe" || app.id == "notepad") {
             openTextEditorWindow("");
-        } else if (app.executablePath == "C:\\Windows\\System32\\taskmgr.exe") {
+        } else if (app.executablePath == "C:\\Windows\\System32\\taskmgr.exe" || app.id == "taskmgr") {
             openTaskManagerWindow();
-        } else if (app.executablePath == "C:\\Windows\\System32\\control.exe") {
+        } else if (app.executablePath == "C:\\Windows\\System32\\control.exe" || app.id == "settings") {
             openSettingsWindow();
-        } else if (app.executablePath == "C:\\Windows\\System32\\calc.exe") {
+        } else if (app.executablePath == "C:\\Windows\\System32\\calc.exe" || app.id == "calc") {
             openCalculatorWindow();
-        } else if (app.executablePath == "C:\\Windows\\System32\\run.exe") {
+        } else if (app.executablePath == "C:\\Windows\\System32\\run.exe" || app.id == "run") {
             openRunDialogWindow();
         } else if (app.executablePath == "C:\\Windows\\System32\\regedit.exe" || app.id == "regedit") {
             openRegistryEditorWindow();
         } else {
-            kernelBridge_.spawnProcess(app.executablePath, app.arguments);
-            const uint32_t wid = windowManager_.createWindow(app.title, Rect{240, 180, 660, 420}, app.iconGlyph, IconRenderer::iconForAppId(app.id));
-            virtualDesktops_.assignWindowToDesktop(wid, virtualDesktops_.activeIndex());
+            const bool spawned = kernelBridge_.spawnProcess(app.executablePath, app.arguments).has_value();
+            toastManager_.showToast("Launched Application", app.title, IconRenderer::iconForAppId(app.id));
+            if (!spawned) {
+                const uint32_t wid = windowManager_.createWindow(app.title, Rect{240, 180, 660, 420}, app.iconGlyph, IconRenderer::iconForAppId(app.id));
+                virtualDesktops_.assignWindowToDesktop(wid, virtualDesktops_.activeIndex());
+            }
         }
     });
 

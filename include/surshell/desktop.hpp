@@ -48,6 +48,7 @@ public:
     void addIcon(DesktopIcon icon);
     void removeIcon(std::string_view id);
     void arrangeIcons();
+    void discoverHostDesktop();
 
     void setLaunchCallback(LaunchCallback cb) { launchCallback_ = std::move(cb); }
 

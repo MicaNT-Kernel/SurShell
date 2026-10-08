@@ -58,6 +58,8 @@ public:
 
     void registerApp(ShellAppEntry app);
     void unregisterApp(std::string_view appId);
+    void discoverHostApplications();
+    [[nodiscard]] const std::vector<ShellAppEntry>& allApps() const noexcept { return allApps_; }
 
     void setLaunchCallback(LaunchCallback cb) { launchCallback_ = std::move(cb); }
     void setPowerCallback(PowerCallback cb) { powerCallback_ = std::move(cb); }

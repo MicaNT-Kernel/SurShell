@@ -81,6 +81,7 @@ private:
     uint32_t nextPid_{2000};
     uint32_t nextWindowHandle_{100};
     std::vector<KernelProcessInfo> mockProcesses_;
+    std::vector<uint32_t> terminatedPids_;
 };
 
 } // namespace surshell

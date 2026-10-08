@@ -1,16 +1,21 @@
-// ============================================================================
-// SurShell: Sovereign Clean-Room Modern ISO C++23 Desktop Shell for MicaNT
-// (src/terminal.cpp)
-// ============================================================================
-
 #include "surshell/terminal.hpp"
+#include "surshell/kernel_bridge.hpp"
 #include <algorithm>
 #include <sstream>
+#include <filesystem>
+#include <cstdio>
+#include <array>
 
 namespace surshell {
 
 TerminalContent::TerminalContent() {
     addTab("Command Prompt", "cmd");
+}
+
+void TerminalContent::setActiveTabCwd(const std::string& path) {
+    if (activeTabIndex_ < tabs_.size() && !path.empty()) {
+        tabs_[activeTabIndex_].cwd = path;
+    }
 }
 
 void TerminalContent::addTab(const std::string& title, const std::string& profile) {
@@ -123,6 +128,7 @@ void TerminalContent::executeCommand(const std::string& rawCmd) {
         tab.buffer.push_back({"Sovereign Terminal Built-In Commands:", Color::fromHex(0x00D4FF), true});
         tab.buffer.push_back({"  HELP       Displays this help message", Color::fromHex(0xCBD5E1), false});
         tab.buffer.push_back({"  VER        Prints MicaNT Sovereign version", Color::fromHex(0xCBD5E1), false});
+        tab.buffer.push_back({"  CD / CHDIR Displays or changes current directory", Color::fromHex(0xCBD5E1), false});
         tab.buffer.push_back({"  DIR        Lists current directory contents", Color::fromHex(0xCBD5E1), false});
         tab.buffer.push_back({"  CLS        Clears terminal display buffer", Color::fromHex(0xCBD5E1), false});
         tab.buffer.push_back({"  WHOAMI     Displays current user & credentials", Color::fromHex(0xCBD5E1), false});
@@ -143,30 +149,152 @@ void TerminalContent::executeCommand(const std::string& rawCmd) {
         tab.buffer.push_back({"micant\\admin (Dave Cutler Sovereign Administrator)", Color::fromHex(0x00FF9D), false});
     } else if (lowerCmd == "echo") {
         tab.buffer.push_back({args, Color::fromHex(0xCBD5E1), false});
+    } else if (lowerCmd == "cd" || lowerCmd == "chdir") {
+        if (args.empty()) {
+            tab.buffer.push_back({tab.cwd, Color::fromHex(0xCBD5E1), false});
+        } else if (args == "..") {
+            std::filesystem::path p(tab.cwd);
+            if (p.has_parent_path() && p.parent_path() != p) {
+                tab.cwd = p.parent_path().string();
+            }
+        } else if (args.size() == 2 && args[1] == ':' && std::isalpha(static_cast<unsigned char>(args[0]))) {
+            const std::string root = std::string(1, static_cast<char>(std::toupper(args[0]))) + ":\\";
+            std::error_code ec;
+            if (std::filesystem::exists(root, ec)) {
+                tab.cwd = root;
+            } else {
+                tab.buffer.push_back({"The system cannot find the drive specified.", Color::fromHex(0xFF4D6D), false});
+            }
+        } else {
+            std::filesystem::path target(args);
+            if (target.is_relative()) {
+                target = std::filesystem::path(tab.cwd) / target;
+            }
+            std::error_code ec;
+            if (std::filesystem::exists(target, ec) && std::filesystem::is_directory(target, ec)) {
+                const auto canonicalPath = std::filesystem::canonical(target, ec);
+                tab.cwd = ec ? target.lexically_normal().string() : canonicalPath.string();
+            } else {
+                tab.buffer.push_back({"The system cannot find the path specified.", Color::fromHex(0xFF4D6D), false});
+            }
+        }
+    } else if (lowerCmd.size() == 2 && lowerCmd[1] == ':' && std::isalpha(static_cast<unsigned char>(lowerCmd[0]))) {
+        const std::string root = std::string(1, static_cast<char>(std::toupper(lowerCmd[0]))) + ":\\";
+        std::error_code ec;
+        if (std::filesystem::exists(root, ec)) {
+            tab.cwd = root;
+        } else {
+            tab.buffer.push_back({"The system cannot find the drive specified.", Color::fromHex(0xFF4D6D), false});
+        }
     } else if (lowerCmd == "dir") {
-        tab.buffer.push_back({" Directory of " + tab.cwd, Color::fromHex(0x00D4FF), true});
-        tab.buffer.push_back({"", Color::fromHex(0xCBD5E1), false});
-        tab.buffer.push_back({"2026-10-08  12:00 PM    <DIR>          .", Color::fromHex(0x7186A4), false});
-        tab.buffer.push_back({"2026-10-08  12:00 PM    <DIR>          ..", Color::fromHex(0x7186A4), false});
-        tab.buffer.push_back({"2026-10-08  08:15 AM           124,416 cmd.exe", Color::fromHex(0xCBD5E1), false});
-        tab.buffer.push_back({"2026-10-08  08:15 AM           248,832 calc.exe", Color::fromHex(0xCBD5E1), false});
-        tab.buffer.push_back({"2026-10-08  08:15 AM           512,000 taskmgr.exe", Color::fromHex(0xCBD5E1), false});
-        tab.buffer.push_back({"2026-10-08  08:15 AM           892,100 explorer.exe", Color::fromHex(0xCBD5E1), false});
-        tab.buffer.push_back({"2026-10-08  08:15 AM           348,160 regedit.exe", Color::fromHex(0xCBD5E1), false});
-        tab.buffer.push_back({"2026-10-08  08:15 AM         1,048,576 surshell.exe", Color::fromHex(0x00FF9D), false});
-        tab.buffer.push_back({"2026-10-08  08:15 AM           786,432 surwin.sys", Color::fromHex(0x7186A4), false});
-        tab.buffer.push_back({"2026-10-08  08:15 AM         2,097,152 ntoskrnl.exe", Color::fromHex(0x00D4FF), false});
-        tab.buffer.push_back({"               8 File(s)      6,057,668 bytes", Color::fromHex(0xCBD5E1), false});
-        tab.buffer.push_back({"               2 Dir(s)   2,453.2 GB free", Color::fromHex(0xCBD5E1), false});
+        std::error_code ec;
+        std::filesystem::path dirPath(tab.cwd);
+        if (std::filesystem::exists(dirPath, ec) && std::filesystem::is_directory(dirPath, ec)) {
+            tab.buffer.push_back({" Volume in drive " + (tab.cwd.size() >= 2 && tab.cwd[1] == ':' ? tab.cwd.substr(0, 2) : "C:") + " is Sovereign", Color::fromHex(0x00D4FF), true});
+            tab.buffer.push_back({" Directory of " + tab.cwd, Color::fromHex(0xCBD5E1), false});
+            tab.buffer.push_back({"", Color::fromHex(0xCBD5E1), false});
+            tab.buffer.push_back({"2026-10-08  12:00 PM    <DIR>          .", Color::fromHex(0x7186A4), false});
+            tab.buffer.push_back({"2026-10-08  12:00 PM    <DIR>          ..", Color::fromHex(0x7186A4), false});
+
+            size_t fileCount = 0;
+            size_t dirCount = 2;
+            uint64_t totalBytes = 0;
+
+            for (const auto& entry : std::filesystem::directory_iterator(dirPath, std::filesystem::directory_options::skip_permission_denied, ec)) {
+                if (ec) break;
+                const bool isSubDir = entry.is_directory(ec);
+                const auto fn = entry.path().filename().string();
+                if (fn.empty()) continue;
+
+                if (isSubDir) {
+                    dirCount++;
+                    tab.buffer.push_back({"2026-10-08  12:00 PM    <DIR>          " + fn, Color::fromHex(0x00FF9D), false});
+                } else {
+                    fileCount++;
+                    const uint64_t sz = entry.file_size(ec);
+                    if (!ec) totalBytes += sz;
+
+                    std::string sizeStr = std::to_string(sz);
+                    for (int i = static_cast<int>(sizeStr.length()) - 3; i > 0; i -= 3) {
+                        sizeStr.insert(static_cast<size_t>(i), ",");
+                    }
+                    while (sizeStr.size() < 14) sizeStr = " " + sizeStr;
+
+                    tab.buffer.push_back({"2026-10-08  08:15 AM   " + sizeStr + " " + fn, Color::fromHex(0xCBD5E1), false});
+                }
+
+                if (fileCount + dirCount > 40) {
+                    tab.buffer.push_back({"[Output truncated after 40 entries]", Color::fromHex(0x7186A4), false});
+                    break;
+                }
+            }
+
+            const auto spaceInfo = std::filesystem::space(dirPath, ec);
+            const std::string freeStr = ec ? "2,452.8 GB" : (std::to_string(spaceInfo.available / (1024 * 1024 * 1024)) + " GB");
+            tab.buffer.push_back({"              " + std::to_string(fileCount) + " File(s)      " + std::to_string(totalBytes) + " bytes", Color::fromHex(0xCBD5E1), false});
+            tab.buffer.push_back({"              " + std::to_string(dirCount) + " Dir(s)   " + freeStr + " free", Color::fromHex(0xCBD5E1), false});
+        } else {
+            tab.buffer.push_back({" Directory of " + tab.cwd, Color::fromHex(0x00D4FF), true});
+            tab.buffer.push_back({"", Color::fromHex(0xCBD5E1), false});
+            tab.buffer.push_back({"2026-10-08  12:00 PM    <DIR>          .", Color::fromHex(0x7186A4), false});
+            tab.buffer.push_back({"2026-10-08  12:00 PM    <DIR>          ..", Color::fromHex(0x7186A4), false});
+            tab.buffer.push_back({"2026-10-08  08:15 AM           124,416 cmd.exe", Color::fromHex(0xCBD5E1), false});
+            tab.buffer.push_back({"2026-10-08  08:15 AM           248,832 calc.exe", Color::fromHex(0xCBD5E1), false});
+            tab.buffer.push_back({"2026-10-08  08:15 AM           512,000 taskmgr.exe", Color::fromHex(0xCBD5E1), false});
+            tab.buffer.push_back({"2026-10-08  08:15 AM           892,100 explorer.exe", Color::fromHex(0xCBD5E1), false});
+            tab.buffer.push_back({"2026-10-08  08:15 AM           348,160 regedit.exe", Color::fromHex(0xCBD5E1), false});
+            tab.buffer.push_back({"2026-10-08  08:15 AM         1,048,576 surshell.exe", Color::fromHex(0x00FF9D), false});
+            tab.buffer.push_back({"2026-10-08  08:15 AM           786,432 surwin.sys", Color::fromHex(0x7186A4), false});
+            tab.buffer.push_back({"2026-10-08  08:15 AM         2,097,152 ntoskrnl.exe", Color::fromHex(0x00D4FF), false});
+            tab.buffer.push_back({"               8 File(s)      6,057,668 bytes", Color::fromHex(0xCBD5E1), false});
+            tab.buffer.push_back({"               2 Dir(s)   2,453.2 GB free", Color::fromHex(0xCBD5E1), false});
+        }
     } else if (lowerCmd == "tasklist") {
         tab.buffer.push_back({"Image Name                     PID Session Name        Mem Usage", Color::fromHex(0x00D4FF), true});
         tab.buffer.push_back({"========================= ======== ================ ============", Color::fromHex(0x405572), false});
-        tab.buffer.push_back({"System                           4 Services                   128 K", Color::fromHex(0xCBD5E1), false});
-        tab.buffer.push_back({"smss.exe                       312 Services                   420 K", Color::fromHex(0xCBD5E1), false});
-        tab.buffer.push_back({"csrss.exe                      440 Console                  2,140 K", Color::fromHex(0xCBD5E1), false});
-        tab.buffer.push_back({"lsass.exe                      528 Services                 4,890 K", Color::fromHex(0xCBD5E1), false});
-        tab.buffer.push_back({"surshell.exe                  1024 Console                 14,250 K", Color::fromHex(0x00FF9D), true});
-        tab.buffer.push_back({"terminal.exe                  1880 Console                  6,300 K", Color::fromHex(0xCBD5E1), false});
+
+        std::vector<KernelProcessInfo> procs;
+        if (bridge_) {
+            procs = bridge_->queryProcesses();
+        }
+
+        if (!procs.empty()) {
+            size_t count = 0;
+            for (const auto& p : procs) {
+                std::string nameCol = p.name;
+                if (nameCol.size() > 25) nameCol = nameCol.substr(0, 22) + "...";
+                while (nameCol.size() < 25) nameCol += " ";
+
+                std::string pidCol = std::to_string(p.pid);
+                while (pidCol.size() < 8) pidCol = " " + pidCol;
+
+                const bool isSovereign = (p.name == "surshell.exe" || p.name == "surwin.sys" || p.name == "ntoskrnl.exe");
+                std::string sessCol = isSovereign ? "Console" : (p.pid < 1000 ? "Services" : "Console");
+                while (sessCol.size() < 16) sessCol += " ";
+
+                std::string memStr = std::to_string(p.memoryWorkingSetKb);
+                for (int i = static_cast<int>(memStr.length()) - 3; i > 0; i -= 3) {
+                    memStr.insert(static_cast<size_t>(i), ",");
+                }
+                memStr += " K";
+                while (memStr.size() < 12) memStr = " " + memStr;
+
+                const Color rowCol = isSovereign ? Color::fromHex(0x00FF9D) : Color::fromHex(0xCBD5E1);
+                tab.buffer.push_back({nameCol + " " + pidCol + " " + sessCol + " " + memStr, rowCol, isSovereign});
+
+                if (++count >= 30) {
+                    tab.buffer.push_back({"[Output truncated to 30 active processes]", Color::fromHex(0x7186A4), false});
+                    break;
+                }
+            }
+        } else {
+            tab.buffer.push_back({"System                           4 Services                   128 K", Color::fromHex(0xCBD5E1), false});
+            tab.buffer.push_back({"smss.exe                       312 Services                   420 K", Color::fromHex(0xCBD5E1), false});
+            tab.buffer.push_back({"csrss.exe                      440 Console                  2,140 K", Color::fromHex(0xCBD5E1), false});
+            tab.buffer.push_back({"lsass.exe                      528 Services                 4,890 K", Color::fromHex(0xCBD5E1), false});
+            tab.buffer.push_back({"surshell.exe                  1024 Console                 14,250 K", Color::fromHex(0x00FF9D), true});
+            tab.buffer.push_back({"terminal.exe                  1880 Console                  6,300 K", Color::fromHex(0xCBD5E1), false});
+        }
     } else if (lowerCmd == "calc" || lowerCmd == "calculator" || lowerCmd == "calc.exe") {
         tab.buffer.push_back({"Launching Sovereign Calculator...", Color::fromHex(0x00FF9D), false});
         if (onSpawnApp_) onSpawnApp_("calc", "");
@@ -185,8 +313,42 @@ void TerminalContent::executeCommand(const std::string& rawCmd) {
     } else if (lowerCmd == "exit") {
         closeTab(activeTabIndex_);
     } else {
-        tab.buffer.push_back({"'" + cmdName + "' is not recognized as an internal or external command,", Color::fromHex(0xFF4D6D), false});
-        tab.buffer.push_back({"operable program or batch file. Type 'help' for commands.", Color::fromHex(0xFF4D6D), false});
+        bool executed = false;
+#if defined(_WIN32)
+        std::string fullCmd = "cd /d \"" + tab.cwd + "\" && " + trimmed + " 2>&1";
+        FILE* pipe = _popen(fullCmd.c_str(), "r");
+#else
+        std::string fullCmd = "cd \"" + tab.cwd + "\" && " + trimmed + " 2>&1";
+        FILE* pipe = popen(fullCmd.c_str(), "r");
+#endif
+        if (pipe) {
+            char buffer[512];
+            size_t linesRead = 0;
+            while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+                executed = true;
+                std::string line(buffer);
+                while (!line.empty() && (line.back() == '\n' || line.back() == '\r')) {
+                    line.pop_back();
+                }
+                tab.buffer.push_back({line, Color::fromHex(0xCBD5E1), false});
+                if (++linesRead >= 50) {
+                    tab.buffer.push_back({"[Terminal output truncated at 50 lines]", Color::fromHex(0x7186A4), false});
+                    break;
+                }
+            }
+#if defined(_WIN32)
+            const int rc = _pclose(pipe);
+#else
+            const int rc = pclose(pipe);
+#endif
+            if (!executed && rc != 0) {
+                tab.buffer.push_back({"'" + cmdName + "' is not recognized as an internal or external command,", Color::fromHex(0xFF4D6D), false});
+                tab.buffer.push_back({"operable program or batch file. Type 'help' for commands.", Color::fromHex(0xFF4D6D), false});
+            }
+        } else {
+            tab.buffer.push_back({"'" + cmdName + "' is not recognized as an internal or external command,", Color::fromHex(0xFF4D6D), false});
+            tab.buffer.push_back({"operable program or batch file. Type 'help' for commands.", Color::fromHex(0xFF4D6D), false});
+        }
     }
 }
 

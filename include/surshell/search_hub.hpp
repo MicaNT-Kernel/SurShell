@@ -67,6 +67,7 @@ public:
 
     size_t resultCount() const noexcept { return filteredItems_.size(); }
     int32_t selectedIndex() const noexcept { return selectedIndex_; }
+    void populateHostApplications(const std::vector<ShellAppEntry>& apps);
 
 private:
     void updateFilter();

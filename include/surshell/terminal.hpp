@@ -80,6 +80,10 @@ public:
     void inputString(const std::string& str);
     const std::string& currentInput() const;
 
+    // Kernel & Host Integration
+    void setKernelBridge(class KernelBridge* bridge) noexcept { bridge_ = bridge; }
+    void setActiveTabCwd(const std::string& path);
+
 private:
     void executeCommand(const std::string& rawCmd);
     void renderTabBar(Surface& s, const ThemePalette& palette);
@@ -95,6 +99,7 @@ private:
     bool cursorBlink_{true};
     uint32_t blinkTimer_{0};
 
+    class KernelBridge* bridge_{nullptr};
     TerminalAppSpawnCallback onSpawnApp_;
 };
 
