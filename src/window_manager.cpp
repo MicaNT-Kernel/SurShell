@@ -192,6 +192,18 @@ void WindowManager::setWindowState(uint32_t windowId, WindowState state) {
         win->isVisible = true;
     }
 
+    if (state != WindowState::Minimized) {
+        const Rect cab = win->clientAreaBounds();
+        if (cab.width > 0 && cab.height > 0 &&
+            (win->clientSurface.width() != static_cast<uint32_t>(cab.width) ||
+             win->clientSurface.height() != static_cast<uint32_t>(cab.height))) {
+            win->clientSurface.resize(cab.width, cab.height);
+            if (win->content) {
+                win->content->render(win->clientSurface);
+            }
+        }
+    }
+
     if (stateChangedCb_) {
         stateChangedCb_(windowId, state, win->isActive);
     }
@@ -265,6 +277,16 @@ void WindowManager::snapWindow(uint32_t windowId, WindowState snapState) {
             break;
         default:
             break;
+    }
+
+    const Rect cab = win->clientAreaBounds();
+    if (cab.width > 0 && cab.height > 0 &&
+        (win->clientSurface.width() != static_cast<uint32_t>(cab.width) ||
+         win->clientSurface.height() != static_cast<uint32_t>(cab.height))) {
+        win->clientSurface.resize(cab.width, cab.height);
+        if (win->content) {
+            win->content->render(win->clientSurface);
+        }
     }
 
     if (stateChangedCb_) {
@@ -356,7 +378,7 @@ void WindowManager::buildSnapZones(Point anchor) {
 }
 
 bool WindowManager::onMouseDown(Point pt, MouseButton button) {
-    if (button != MouseButton::Left) return false;
+    if (button != MouseButton::Left && button != MouseButton::Right) return false;
 
     // Check click on Snap Flyout
     if (isSnapFlyoutVisible_) {
@@ -384,27 +406,40 @@ bool WindowManager::onMouseDown(Point pt, MouseButton button) {
 
         setWindowActive(win->id);
 
-        if (hit == HitTestResult::CloseButton) {
-            closeWindow(win->id);
-            return true;
-        } else if (hit == HitTestResult::MinButton) {
-            toggleMinimize(win->id);
-            return true;
-        } else if (hit == HitTestResult::MaxButton) {
-            toggleMaximize(win->id);
-            return true;
-        } else if (hit == HitTestResult::Caption) {
-            isDragging_ = true;
-            interactingWindowId_ = win->id;
-            dragStartMouse_ = pt;
-            dragStartWindowBounds_ = win->currentBounds;
-            return true;
-        } else if (hit >= HitTestResult::BorderLeft && hit <= HitTestResult::BorderBottomRight) {
-            isResizing_ = true;
-            interactingWindowId_ = win->id;
-            resizeEdge_ = hit;
-            dragStartMouse_ = pt;
-            dragStartWindowBounds_ = win->currentBounds;
+        if (button == MouseButton::Left) {
+            if (hit == HitTestResult::CloseButton) {
+                closeWindow(win->id);
+                return true;
+            } else if (hit == HitTestResult::MinButton) {
+                toggleMinimize(win->id);
+                return true;
+            } else if (hit == HitTestResult::MaxButton) {
+                toggleMaximize(win->id);
+                return true;
+            } else if (hit == HitTestResult::Caption) {
+                isDragging_ = true;
+                interactingWindowId_ = win->id;
+                dragStartMouse_ = pt;
+                dragStartWindowBounds_ = win->currentBounds;
+                return true;
+            } else if (hit >= HitTestResult::BorderLeft && hit <= HitTestResult::BorderBottomRight) {
+                isResizing_ = true;
+                interactingWindowId_ = win->id;
+                resizeEdge_ = hit;
+                dragStartMouse_ = pt;
+                dragStartWindowBounds_ = win->currentBounds;
+                return true;
+            }
+        }
+
+        if (hit == HitTestResult::Client) {
+            if (win->content) {
+                const Rect cab = win->clientAreaBounds();
+                const Point localPt{pt.x - cab.x, pt.y - cab.y};
+                if (win->content->onMouseDown(localPt, button)) {
+                    win->content->render(win->clientSurface);
+                }
+            }
             return true;
         }
         return true;
@@ -496,21 +531,54 @@ bool WindowManager::onMouseMove(Point pt) {
 
             win->currentBounds = nb;
             win->normalBounds = nb;
+
+            // Resize client surface if needed
+            const Rect cab = win->clientAreaBounds();
+            if (cab.width > 0 && cab.height > 0 &&
+                (win->clientSurface.width() != static_cast<uint32_t>(cab.width) ||
+                 win->clientSurface.height() != static_cast<uint32_t>(cab.height))) {
+                win->clientSurface.resize(cab.width, cab.height);
+                if (win->content) {
+                    win->content->render(win->clientSurface);
+                }
+            }
         }
         return true;
+    }
+
+    // Forward mouse move to active window content
+    if (activeWindowId_) {
+        auto* win = findWindow(*activeWindowId_);
+        if (win && win->content && win->clientAreaBounds().contains(pt)) {
+            const Rect cab = win->clientAreaBounds();
+            const Point localPt{pt.x - cab.x, pt.y - cab.y};
+            if (win->content->onMouseMove(localPt)) {
+                win->content->render(win->clientSurface);
+            }
+        }
     }
 
     return false;
 }
 
 bool WindowManager::onMouseUp(Point pt, MouseButton button) {
-    (void)pt;
     if (button == MouseButton::Left) {
         isDragging_ = false;
         isResizing_ = false;
         interactingWindowId_ = 0;
         resizeEdge_ = HitTestResult::None;
-        return true;
+    }
+
+    if (activeWindowId_) {
+        auto* win = findWindow(*activeWindowId_);
+        if (win && win->content && win->clientAreaBounds().contains(pt)) {
+            const Rect cab = win->clientAreaBounds();
+            const Point localPt{pt.x - cab.x, pt.y - cab.y};
+            if (win->content->onMouseUp(localPt, button)) {
+                win->content->render(win->clientSurface);
+                return true;
+            }
+        }
     }
     return false;
 }
@@ -523,6 +591,52 @@ bool WindowManager::onDoubleClick(Point pt) {
         if (win->captionBounds().contains(pt)) {
             toggleMaximize(win->id);
             return true;
+        }
+
+        if (win->clientAreaBounds().contains(pt)) {
+            setWindowActive(win->id);
+            if (win->content) {
+                const Rect cab = win->clientAreaBounds();
+                const Point localPt{pt.x - cab.x, pt.y - cab.y};
+                if (win->content->onDoubleClick(localPt)) {
+                    win->content->render(win->clientSurface);
+                    return true;
+                }
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+bool WindowManager::onMouseWheel(Point pt, int32_t delta) {
+    for (auto it = windows_.rbegin(); it != windows_.rend(); ++it) {
+        auto& win = *it;
+        if (!win->isVisible) continue;
+
+        if (win->clientAreaBounds().contains(pt)) {
+            if (win->content) {
+                const Rect cab = win->clientAreaBounds();
+                const Point localPt{pt.x - cab.x, pt.y - cab.y};
+                if (win->content->onMouseWheel(localPt, delta)) {
+                    win->content->render(win->clientSurface);
+                    return true;
+                }
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+bool WindowManager::onCharInput(char c) {
+    if (activeWindowId_) {
+        auto* win = findWindow(*activeWindowId_);
+        if (win && win->content) {
+            if (win->content->onCharInput(c)) {
+                win->content->render(win->clientSurface);
+                return true;
+            }
         }
     }
     return false;

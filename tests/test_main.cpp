@@ -295,6 +295,47 @@ void Test_File_Explorer_Navigation() {
     exp.closeTab(1);
     TEST_ASSERT(exp.tabCount() == 1, "Closed tab 1, count is 1");
 
+    // Vertical scrolling & mouse wheel
+    TEST_ASSERT(exp.scrollOffset() == 0, "Initial scroll offset is 0");
+    exp.onMouseWheel(surshell::Point{250, 150}, -2); // Scroll down
+    TEST_ASSERT(exp.scrollOffset() > 0, "Mouse wheel down increased scroll offset");
+    exp.onMouseWheel(surshell::Point{250, 150}, 2); // Scroll up
+    TEST_ASSERT(exp.scrollOffset() == 0, "Mouse wheel up returned scroll offset to 0");
+
+    // Column sorting toggle
+    exp.sortBy(surshell::ExplorerSortColumn::Name, false);
+    TEST_ASSERT(exp.sortColumn() == surshell::ExplorerSortColumn::Name, "Sort column set to Name");
+    exp.sortBy(surshell::ExplorerSortColumn::Name, true);
+    TEST_ASSERT(!exp.isSortAscending(), "Toggled sort direction to descending");
+    exp.sortBy(surshell::ExplorerSortColumn::Name, true);
+    TEST_ASSERT(exp.isSortAscending(), "Toggled sort direction to ascending");
+
+    // Right-click Context Menu
+    TEST_ASSERT(!exp.contextMenu().isOpen, "Context menu closed initially");
+    exp.openContextMenu(surshell::Point{200, 200}, true);
+    TEST_ASSERT(exp.contextMenu().isOpen, "Context menu opened for item");
+    TEST_ASSERT(exp.contextMenu().items.size() >= 5, "Context menu has standard actions");
+    exp.closeContextMenu();
+    TEST_ASSERT(!exp.contextMenu().isOpen, "Context menu closed");
+
+    // Properties Dialog Inspector
+    TEST_ASSERT(!exp.propertiesDialog().isOpen, "Properties dialog closed initially");
+    auto firstItem = exp.items()[0];
+    exp.showPropertiesDialog(firstItem);
+    TEST_ASSERT(exp.propertiesDialog().isOpen, "Properties dialog opened");
+    TEST_ASSERT(exp.propertiesDialog().item.name == firstItem.name, "Properties dialog displays correct item");
+    exp.closePropertiesDialog();
+    TEST_ASSERT(!exp.propertiesDialog().isOpen, "Properties dialog closed");
+
+    // Text & Code Viewer
+    surshell::TextViewerContent viewer("C:\\boot.ini");
+    TEST_ASSERT(viewer.lineCount() > 0, "TextViewer loaded lines from boot.ini");
+    surshell::Surface viewerSurface(600, 400);
+    viewer.render(viewerSurface);
+    TEST_ASSERT(viewerSurface.width() == 600, "TextViewer rendered to surface");
+    viewer.onMouseWheel(surshell::Point{100, 100}, -1);
+    TEST_ASSERT(viewer.scrollOffset() >= 0, "TextViewer mouse wheel handled");
+
     std::cout << "[TEST] Suite 7: File Explorer Navigation PASSED.\n";
 }
 

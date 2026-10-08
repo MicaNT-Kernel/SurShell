@@ -80,34 +80,82 @@ void SurShellDesktop::setupDefaultEnvironment() {
     });
 
     // 3. Spawn Initial Sovereign Windows: Command Prompt & File Explorer
-    const uint32_t winCmd = windowManager_.createWindow("Command Prompt - [MicaNT ConHost: cmd.exe]", Rect{50, 45, 680, 420}, ">_");
-    virtualDesktops_.assignWindowToDesktop(winCmd, 0);
+    openTerminalWindow("C:\\Windows\\System32");
+    openFileExplorerWindow("C:\\Windows\\System32");
+
+    // Initialize Layouts for flyouts
+    quickSettings_.updateLayout(width_, height_, taskbar_.bounds().height);
+    virtualDesktops_.updateLayout(width_, height_, taskbar_.bounds().height);
+}
+
+uint32_t SurShellDesktop::openFileExplorerWindow(std::string path) {
+    const uint32_t winExp = windowManager_.createWindow("File Explorer - " + path, Rect{440, 130, 720, 460}, "[E]");
+    virtualDesktops_.assignWindowToDesktop(winExp, virtualDesktops_.activeIndex());
+    auto* expWin = windowManager_.findWindow(winExp);
+    if (expWin) {
+        auto explorer = std::make_shared<FileExplorer>(path);
+
+        explorer->setPathChangeCallback([this, winExp](const std::string& newPath) {
+            auto* w = windowManager_.findWindow(winExp);
+            if (w) {
+                w->title = "File Explorer - " + newPath;
+                taskbar_.addOrUpdateTask(winExp, w->title, w->iconGlyph, w->isActive, w->state == WindowState::Minimized);
+            }
+        });
+
+        explorer->setExecuteCallback([this](const std::string& execPath) {
+            kernelBridge_.spawnProcess(execPath, "");
+        });
+
+        explorer->setOpenEditorCallback([this](const std::string& filePath) {
+            openTextEditorWindow(filePath);
+        });
+
+        explorer->setOpenTerminalCallback([this](const std::string& workingDir) {
+            openTerminalWindow(workingDir);
+        });
+
+        expWin->content = explorer;
+        explorer->render(expWin->clientSurface);
+    }
+    return winExp;
+}
+
+uint32_t SurShellDesktop::openTextEditorWindow(std::string filePath) {
+    std::string title = "Sovereign Editor";
+    if (!filePath.empty()) {
+        const size_t slash = filePath.find_last_of("\\/");
+        title += " - [" + (slash != std::string::npos ? filePath.substr(slash + 1) : filePath) + "]";
+    }
+    const uint32_t winId = windowManager_.createWindow(title, Rect{320, 160, 680, 440}, "[T]");
+    virtualDesktops_.assignWindowToDesktop(winId, virtualDesktops_.activeIndex());
+    auto* win = windowManager_.findWindow(winId);
+    if (win) {
+        auto viewer = std::make_shared<TextViewerContent>(filePath);
+        win->content = viewer;
+        viewer->render(win->clientSurface);
+    }
+    return winId;
+}
+
+uint32_t SurShellDesktop::openTerminalWindow(std::string workingDir) {
+    const uint32_t winCmd = windowManager_.createWindow("Command Prompt - [" + workingDir + "]", Rect{50, 45, 680, 420}, ">_");
+    virtualDesktops_.assignWindowToDesktop(winCmd, virtualDesktops_.activeIndex());
     auto* cmdWin = windowManager_.findWindow(winCmd);
     if (cmdWin) {
         auto& cs = cmdWin->clientSurface;
         cs.clear(Color{12, 16, 24, 255});
         cs.drawString(14, 14, "MicaNT Sovereign Executive [Version 10.0.26100.1]", Color{0, 212, 255}, 1);
         cs.drawString(14, 30, "Dave Cutler 1988 Architecture | Clean-Room ISO C++23 | Zero Telemetry", Color{170, 185, 205}, 1);
-        cs.drawString(14, 50, "C:\\Windows\\System32> whoami", Color{245, 248, 255}, 1);
+        cs.drawString(14, 50, workingDir + "> whoami", Color{245, 248, 255}, 1);
         cs.drawString(14, 66, "MICANT-DESKTOP\\Administrator (S-1-5-18 LocalSystem)", Color{0, 255, 157}, 1);
-        cs.drawString(14, 90, "C:\\Windows\\System32> surshell --status", Color{245, 248, 255}, 1);
+        cs.drawString(14, 90, workingDir + "> surshell --status", Color{245, 248, 255}, 1);
         cs.drawString(14, 106, "[SurShell] Display Server: SurWin (CSRSS / Window Stations Active)", Color{245, 248, 255}, 1);
         cs.drawString(14, 122, "[SurShell] Compositor: PrismX DWM Software Composition 120Hz [OK]", Color{245, 248, 255}, 1);
         cs.drawString(14, 138, "[SurShell] Footprint: 14.8 MB Resident | 0 Background Daemons", Color{0, 255, 157}, 1);
-        cs.drawString(14, 162, "C:\\Windows\\System32> _", Color{245, 248, 255}, 1);
+        cs.drawString(14, 162, workingDir + "> _", Color{245, 248, 255}, 1);
     }
-
-    const uint32_t winExp = windowManager_.createWindow("File Explorer - C:\\Windows\\System32", Rect{440, 130, 720, 460}, "[E]");
-    virtualDesktops_.assignWindowToDesktop(winExp, 0);
-    auto* expWin = windowManager_.findWindow(winExp);
-    if (expWin) {
-        FileExplorer explorer("C:\\Windows\\System32");
-        explorer.render(expWin->clientSurface);
-    }
-
-    // Initialize Layouts for flyouts
-    quickSettings_.updateLayout(width_, height_, taskbar_.bounds().height);
-    virtualDesktops_.updateLayout(width_, height_, taskbar_.bounds().height);
+    return winCmd;
 }
 
 void SurShellDesktop::wireSubsystemCallbacks() {
@@ -172,16 +220,30 @@ void SurShellDesktop::wireSubsystemCallbacks() {
 
     // 7. Desktop Icon double-click launches window & registers with kernel
     desktop_.setLaunchCallback([this](const DesktopIcon& icon) {
-        kernelBridge_.spawnProcess(icon.executable, icon.arguments);
-        const uint32_t wid = windowManager_.createWindow(icon.label + " - [" + icon.executable + "]", Rect{200, 150, 640, 400}, icon.iconGlyph);
-        virtualDesktops_.assignWindowToDesktop(wid, virtualDesktops_.activeIndex());
+        if (icon.executable == "C:\\Windows\\explorer.exe") {
+            openFileExplorerWindow("C:\\Users\\admin");
+        } else if (icon.executable == "C:\\Windows\\System32\\cmd.exe") {
+            openTerminalWindow("C:\\Users\\admin");
+        } else {
+            kernelBridge_.spawnProcess(icon.executable, icon.arguments);
+            const uint32_t wid = windowManager_.createWindow(icon.label + " - [" + icon.executable + "]", Rect{200, 150, 640, 400}, icon.iconGlyph);
+            virtualDesktops_.assignWindowToDesktop(wid, virtualDesktops_.activeIndex());
+        }
     });
 
     // 8. Start Menu App click launches window & registers with kernel
     startMenu_.setLaunchCallback([this](const ShellAppEntry& app) {
-        kernelBridge_.spawnProcess(app.executablePath, app.arguments);
-        const uint32_t wid = windowManager_.createWindow(app.title, Rect{240, 180, 660, 420}, app.iconGlyph);
-        virtualDesktops_.assignWindowToDesktop(wid, virtualDesktops_.activeIndex());
+        if (app.executablePath == "C:\\Windows\\explorer.exe") {
+            openFileExplorerWindow("C:\\Users\\admin");
+        } else if (app.executablePath == "C:\\Windows\\System32\\cmd.exe") {
+            openTerminalWindow("C:\\Users\\admin");
+        } else if (app.executablePath == "C:\\Windows\\notepad.exe") {
+            openTextEditorWindow("");
+        } else {
+            kernelBridge_.spawnProcess(app.executablePath, app.arguments);
+            const uint32_t wid = windowManager_.createWindow(app.title, Rect{240, 180, 660, 420}, app.iconGlyph);
+            virtualDesktops_.assignWindowToDesktop(wid, virtualDesktops_.activeIndex());
+        }
     });
 }
 
@@ -267,6 +329,11 @@ void SurShellDesktop::onDoubleClick(Point pt) {
     desktop_.onDoubleClick(pt);
 }
 
+void SurShellDesktop::onMouseWheel(Point pt, int32_t delta) {
+    currentMousePos_ = pt;
+    windowManager_.onMouseWheel(pt, delta);
+}
+
 void SurShellDesktop::onCharInput(char c) {
     if (startMenu_.isOpen()) {
         if (c == '\b') {
@@ -274,6 +341,8 @@ void SurShellDesktop::onCharInput(char c) {
         } else {
             startMenu_.handleCharInput(c);
         }
+    } else {
+        windowManager_.onCharInput(c);
     }
 }
 

@@ -18,6 +18,18 @@
 
 namespace surshell {
 
+class IWindowContent {
+public:
+    virtual ~IWindowContent() = default;
+    virtual void render(Surface& clientSurface) = 0;
+    virtual bool onMouseDown(Point localPt, MouseButton button) { (void)localPt; (void)button; return false; }
+    virtual bool onMouseUp(Point localPt, MouseButton button) { (void)localPt; (void)button; return false; }
+    virtual bool onMouseMove(Point localPt) { (void)localPt; return false; }
+    virtual bool onDoubleClick(Point localPt) { (void)localPt; return false; }
+    virtual bool onMouseWheel(Point localPt, int32_t delta) { (void)localPt; (void)delta; return false; }
+    virtual bool onCharInput(char c) { (void)c; return false; }
+};
+
 struct WindowFrame {
     uint32_t id{0};
     std::string title;
@@ -29,8 +41,9 @@ struct WindowFrame {
     bool isVisible{true};
     bool hasMicaEffect{true};
 
-    // Client area surface
+    // Client area surface & attached content
     Surface clientSurface{640, 388, Color{10, 14, 22, 255}};
+    std::shared_ptr<IWindowContent> content{};
 
     [[nodiscard]] Rect captionBounds() const noexcept;
     [[nodiscard]] Rect minButtonBounds() const noexcept;
@@ -83,6 +96,8 @@ public:
     bool onMouseUp(Point pt, MouseButton button);
     bool onMouseMove(Point pt);
     bool onDoubleClick(Point pt);
+    bool onMouseWheel(Point pt, int32_t delta);
+    bool onCharInput(char c);
 
     // Compositing
     void render(Surface& surface);

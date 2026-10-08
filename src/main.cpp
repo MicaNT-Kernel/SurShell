@@ -88,6 +88,65 @@ int main(int argc, char* argv[]) {
     }
     shell.virtualDesktops().hideSwitcher();
 
+    // ------------------------------------------------------------------------
+    // Scene 6: File Explorer with Right-Click Context Menu Active
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 6: File Explorer with Acrylic Context Menu...\n";
+    for (const auto& w : shell.windowManager().windows()) {
+        if (auto exp = std::dynamic_pointer_cast<surshell::FileExplorer>(w->content)) {
+            exp->openContextMenu(surshell::Point{380, 210}, true);
+            exp->render(w->clientSurface);
+            break;
+        }
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_explorer_context_menu.bmp")) {
+        std::cout << "  -> Exported: surshell_explorer_context_menu.bmp (1920x1080 32-bpp)\n";
+    }
+    for (const auto& w : shell.windowManager().windows()) {
+        if (auto exp = std::dynamic_pointer_cast<surshell::FileExplorer>(w->content)) {
+            exp->closeContextMenu();
+            exp->render(w->clientSurface);
+            break;
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // Scene 7: File Explorer with Properties Inspector Dialog
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 7: File Explorer with Properties Inspector Dialog...\n";
+    for (const auto& w : shell.windowManager().windows()) {
+        if (auto exp = std::dynamic_pointer_cast<surshell::FileExplorer>(w->content)) {
+            if (!exp->items().empty()) {
+                exp->showPropertiesDialog(exp->items()[0]);
+                exp->render(w->clientSurface);
+            }
+            break;
+        }
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_explorer_properties.bmp")) {
+        std::cout << "  -> Exported: surshell_explorer_properties.bmp (1920x1080 32-bpp)\n";
+    }
+    for (const auto& w : shell.windowManager().windows()) {
+        if (auto exp = std::dynamic_pointer_cast<surshell::FileExplorer>(w->content)) {
+            exp->closePropertiesDialog();
+            exp->render(w->clientSurface);
+            break;
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // Scene 8: Sovereign Code & Text Editor inspecting live source code
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 8: Sovereign Code Editor with Syntax Highlighting...\n";
+    const uint32_t editorWin = shell.openTextEditorWindow("C:\\source\\SurShell\\include\\surshell\\explorer.hpp");
+    shell.windowManager().setWindowActive(editorWin);
+    shell.render();
+    if (shell.exportSnapshot("surshell_sovereign_editor.bmp")) {
+        std::cout << "  -> Exported: surshell_sovereign_editor.bmp (1920x1080 32-bpp)\n";
+    }
+
     std::cout << "\n[SurShell] Visual presentation pipeline completed successfully.\n";
     return 0;
 }

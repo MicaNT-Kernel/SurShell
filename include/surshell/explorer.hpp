@@ -5,7 +5,8 @@
 // File Cabinet & Navigation Explorer (CabinetWnd) - Modern 2026 Windows Edition.
 // Supports multi-tab navigation, real filesystem access (std::filesystem),
 // live search filtering, breadcrumbs, column sorting, sidebar quick access,
-// and file operation commands.
+// vertical scrolling with scrollbar, right-click context menu, file properties dialog,
+// and file execution / editor launching.
 // ============================================================================
 
 #pragma once
@@ -13,6 +14,7 @@
 #include "types.hpp"
 #include "compositor.hpp"
 #include "theme.hpp"
+#include "window_manager.hpp"
 #include <string>
 #include <string_view>
 #include <vector>
@@ -65,14 +67,49 @@ struct ExplorerTab {
     std::vector<FileItem> visibleItems{};
     std::string searchQuery{};
     int32_t selectedIndex{-1};
+    int32_t scrollOffset{0};
     Rect tabBounds{};
     Rect closeButtonBounds{};
 };
 
-class FileExplorer {
+struct BreadcrumbItem {
+    std::string name;
+    std::string targetPath;
+    Rect bounds{};
+};
+
+struct ContextMenuItem {
+    std::string id;
+    std::string label;
+    std::string shortcut;
+    std::string iconGlyph;
+    bool isSeparator{false};
+    bool isEnabled{true};
+    Rect bounds{};
+};
+
+struct ContextMenu {
+    bool isOpen{false};
+    Point position{0, 0};
+    std::vector<ContextMenuItem> items{};
+    int32_t hoveredIndex{-1};
+    Rect bounds{};
+};
+
+struct FilePropertiesDialog {
+    bool isOpen{false};
+    FileItem item{};
+    Rect bounds{};
+    Rect closeButtonBounds{};
+    Rect okButtonBounds{};
+};
+
+class FileExplorer : public IWindowContent {
 public:
     using FileExecuteCallback = std::function<void(const std::string& path)>;
     using PathChangeCallback = std::function<void(const std::string& path)>;
+    using OpenEditorCallback = std::function<void(const std::string& path)>;
+    using OpenTerminalCallback = std::function<void(const std::string& workingDir)>;
 
     explicit FileExplorer(std::string initialPath = "C:\\");
 
@@ -107,23 +144,42 @@ public:
     [[nodiscard]] ExplorerSortColumn sortColumn() const noexcept { return sortColumn_; }
     [[nodiscard]] bool isSortAscending() const noexcept { return sortAscending_; }
 
+    // Scrolling
+    [[nodiscard]] int32_t scrollOffset() const noexcept;
+    void setScrollOffset(int32_t offset);
+
     // File Operations
     bool createNewFolder(std::string_view folderName = "New Folder");
     bool deleteSelected();
 
+    // Context Menu & Properties
+    void openContextMenu(Point pt, bool forItem);
+    void closeContextMenu();
+    [[nodiscard]] const ContextMenu& contextMenu() const noexcept { return contextMenu_; }
+
+    void showPropertiesDialog(const FileItem& item);
+    void closePropertiesDialog();
+    [[nodiscard]] const FilePropertiesDialog& propertiesDialog() const noexcept { return propertiesDialog_; }
+
     // Callbacks
     void setExecuteCallback(FileExecuteCallback cb) { executeCallback_ = std::move(cb); }
     void setPathChangeCallback(PathChangeCallback cb) { pathChangeCallback_ = std::move(cb); }
+    void setOpenEditorCallback(OpenEditorCallback cb) { openEditorCallback_ = std::move(cb); }
+    void setOpenTerminalCallback(OpenTerminalCallback cb) { openTerminalCallback_ = std::move(cb); }
 
-    // Input Handling
+    // IWindowContent Interface Overrides
+    void render(Surface& clientSurface) override;
+    bool onMouseDown(Point localPt, MouseButton button) override;
+    bool onMouseUp(Point localPt, MouseButton button) override;
+    bool onMouseMove(Point localPt) override;
+    bool onDoubleClick(Point localPt) override;
+    bool onMouseWheel(Point localPt, int32_t delta) override;
+    bool onCharInput(char c) override;
+
+    // Backward-compatible event overloads
     void onMouseDown(Point localPt, MouseButton button, Rect clientBounds);
     void onDoubleClick(Point localPt, Rect clientBounds);
-    void onMouseMove(Point localPt);
-    void onCharInput(char c);
     void onBackspace();
-
-    // Rendering
-    void render(Surface& clientSurface);
 
 private:
     std::vector<ExplorerTab> tabs_{};
@@ -132,6 +188,15 @@ private:
     ExplorerSortColumn sortColumn_{ExplorerSortColumn::Name};
     bool sortAscending_{true};
     bool searchBoxFocused_{false};
+
+    // Address Bar Direct Edit & Breadcrumbs
+    bool addressEditing_{false};
+    std::string addressEditText_{};
+    std::vector<BreadcrumbItem> breadcrumbs_{};
+
+    // Context Menu & Inspector
+    ContextMenu contextMenu_{};
+    FilePropertiesDialog propertiesDialog_{};
 
     std::vector<DriveInfo> drives_{};
 
@@ -144,6 +209,19 @@ private:
     Rect searchBoxBounds_{};
     Rect newTabButtonBounds_{};
 
+    // Column Headers
+    Rect nameHeaderBounds_{};
+    Rect dateHeaderBounds_{};
+    Rect typeHeaderBounds_{};
+    Rect sizeHeaderBounds_{};
+
+    // Scrollbar Regions
+    Rect scrollbarTrack_{};
+    Rect scrollbarThumb_{};
+    bool isDraggingScrollbar_{false};
+    int32_t scrollDragStartMouseY_{0};
+    int32_t scrollDragStartOffset_{0};
+
     // Toolbar Command Buttons
     Rect cmdNewFolder_{};
     Rect cmdDelete_{};
@@ -154,11 +232,15 @@ private:
 
     FileExecuteCallback executeCallback_{};
     PathChangeCallback pathChangeCallback_{};
+    OpenEditorCallback openEditorCallback_{};
+    OpenTerminalCallback openTerminalCallback_{};
 
     void refreshCurrentDirectory();
     void refreshDrives();
     void applySearchFilter();
     void sortCurrentItems();
+    void updateBreadcrumbs();
+    void executeItem(const FileItem& item);
 
     [[nodiscard]] static std::string formatBytes(uint64_t bytes);
     [[nodiscard]] static std::string getFileIconGlyph(std::string_view extension, bool isDirectory);

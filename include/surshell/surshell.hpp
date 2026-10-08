@@ -16,6 +16,7 @@
 #include "tray.hpp"
 #include "window_manager.hpp"
 #include "explorer.hpp"
+#include "text_viewer.hpp"
 #include "quick_settings.hpp"
 #include "virtual_desktop.hpp"
 #include "kernel_bridge.hpp"
@@ -44,7 +45,13 @@ public:
     void onMouseUp(Point pt, MouseButton button);
     void onMouseMove(Point pt);
     void onDoubleClick(Point pt);
+    void onMouseWheel(Point pt, int32_t delta);
     void onCharInput(char c);
+
+    // Application Window Spawning Helpers
+    uint32_t openFileExplorerWindow(std::string path = "C:\\Windows\\System32");
+    uint32_t openTextEditorWindow(std::string filePath = "");
+    uint32_t openTerminalWindow(std::string workingDir = "C:\\Windows\\System32");
 
     // Master Render Loop
     void render();
