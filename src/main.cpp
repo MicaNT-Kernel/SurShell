@@ -169,6 +169,30 @@ int main(int argc, char* argv[]) {
         std::cout << "  -> Exported: surshell_sovereign_editor.bmp (1920x1080 32-bpp)\n";
     }
 
+    // ------------------------------------------------------------------------
+    // Scene 9: Alt+Tab Task Switcher HUD (Windows 11 / Aero Ergonomics)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 9: Alt+Tab Task Switcher HUD with Live Thumbnails...\n";
+    shell.triggerAltTab();
+    shell.render();
+    if (shell.exportSnapshot("surshell_alt_tab_hud.bmp")) {
+        std::cout << "  -> Exported: surshell_alt_tab_hud.bmp (1920x1080 32-bpp)\n";
+    }
+    shell.dismissAltTab();
+
+    // ------------------------------------------------------------------------
+    // Scene 10: Taskbar Live Hover Preview (Windows Peek)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 10: Taskbar Live Hover Preview (Windows Peek)...\n";
+    if (!shell.taskbar().tasks().empty()) {
+        shell.taskbar().setHoveredTaskWindowId(static_cast<int32_t>(shell.taskbar().tasks()[0].windowId));
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_taskbar_hover_preview.bmp")) {
+        std::cout << "  -> Exported: surshell_taskbar_hover_preview.bmp (1920x1080 32-bpp)\n";
+    }
+    shell.taskbar().setHoveredTaskWindowId(-1);
+
     std::cout << "\n[SurShell] Visual presentation pipeline completed successfully.\n";
     return 0;
 }

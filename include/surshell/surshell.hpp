@@ -21,6 +21,7 @@
 #include "virtual_desktop.hpp"
 #include "kernel_bridge.hpp"
 #include "icons.hpp"
+#include "alt_tab.hpp"
 
 namespace surshell {
 
@@ -38,8 +39,16 @@ public:
     [[nodiscard]] WindowManager& windowManager() noexcept { return windowManager_; }
     [[nodiscard]] QuickSettingsFlyout& quickSettings() noexcept { return quickSettings_; }
     [[nodiscard]] VirtualDesktopManager& virtualDesktops() noexcept { return virtualDesktops_; }
+    [[nodiscard]] AltTabSwitcher& altTab() noexcept { return altTab_; }
+    [[nodiscard]] const AltTabSwitcher& altTab() const noexcept { return altTab_; }
     [[nodiscard]] KernelBridge& kernel() noexcept { return kernelBridge_; }
     [[nodiscard]] Surface& framebuffer() noexcept { return framebuffer_; }
+
+    // Alt+Tab Task Switcher Workflow
+    void triggerAltTab();
+    void cycleAltTab();
+    void commitAltTab();
+    void dismissAltTab();
 
     // Master Input Dispatching
     void onMouseDown(Point pt, MouseButton button);
@@ -76,6 +85,7 @@ private:
     WindowManager windowManager_;
     QuickSettingsFlyout quickSettings_;
     VirtualDesktopManager virtualDesktops_;
+    AltTabSwitcher altTab_;
     KernelBridge kernelBridge_;
 
     Point currentMousePos_{0, 0};

@@ -20,6 +20,7 @@ set(SURSHELL_SOURCES
     src/kernel_bridge.cpp
     src/text_viewer.cpp
     src/icons.cpp
+    src/alt_tab.cpp
     src/surshell.cpp
 )
 

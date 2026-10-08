@@ -136,9 +136,38 @@ void Taskbar::setActiveTask(uint32_t windowId) {
     }
 }
 
+Rect Taskbar::hoverPreviewBounds(uint32_t windowId) const noexcept {
+    for (const auto& task : tasks_) {
+        if (task.windowId == windowId && !task.bounds.empty()) {
+            constexpr int32_t CARD_W = 200;
+            constexpr int32_t CARD_H = 150;
+            int32_t cx = task.bounds.centerX() - CARD_W / 2;
+            cx = std::clamp(cx, 10, static_cast<int32_t>(screenWidth_) - CARD_W - 10);
+            int32_t cy = task.bounds.y - CARD_H - 8;
+            return Rect{cx, cy, CARD_W, CARD_H};
+        }
+    }
+    return Rect{};
+}
+
+Rect Taskbar::hoverPreviewCloseButtonBounds(uint32_t windowId) const noexcept {
+    const Rect pb = hoverPreviewBounds(windowId);
+    if (pb.empty()) return Rect{};
+    return Rect{pb.right() - 22, pb.y + 4, 18, 18};
+}
+
 void Taskbar::onMouseMove(Point pt) {
     isStartButtonHovered_ = startButtonBounds_.contains(pt);
     isTaskViewHovered_ = taskViewButtonBounds_.contains(pt);
+
+    // Keep preview open if mouse navigates into the floating preview card
+    if (hoveredTaskWindowId_ >= 0) {
+        const Rect prevCard = hoverPreviewBounds(static_cast<uint32_t>(hoveredTaskWindowId_));
+        if (prevCard.contains(pt)) {
+            tray_.onMouseMove(pt);
+            return;
+        }
+    }
 
     hoveredTaskWindowId_ = -1;
     for (const auto& task : tasks_) {
@@ -153,6 +182,26 @@ void Taskbar::onMouseMove(Point pt) {
 
 void Taskbar::onMouseDown(Point pt, MouseButton button) {
     if (button != MouseButton::Left) return;
+
+    if (hoveredTaskWindowId_ >= 0) {
+        const uint32_t hwId = static_cast<uint32_t>(hoveredTaskWindowId_);
+        const Rect closeBtn = hoverPreviewCloseButtonBounds(hwId);
+        if (closeBtn.contains(pt)) {
+            if (previewCloseCallback_) {
+                previewCloseCallback_(hwId);
+            }
+            hoveredTaskWindowId_ = -1;
+            return;
+        }
+        const Rect prevCard = hoverPreviewBounds(hwId);
+        if (prevCard.contains(pt)) {
+            if (taskClickCallback_) {
+                taskClickCallback_(hwId);
+            }
+            hoveredTaskWindowId_ = -1;
+            return;
+        }
+    }
 
     if (startButtonBounds_.contains(pt)) {
         if (startClickCallback_) {
@@ -304,6 +353,78 @@ void Taskbar::render(Surface& surface) {
         const int32_t trayWidth = tray_.preferredWidth();
         const Rect trayRect{static_cast<int32_t>(screenWidth_) - trayWidth - 8, tbRect.y + 4, trayWidth, height_ - 8};
         tray_.render(surface, trayRect);
+    }
+
+    // 4. Render Live Hover Preview Card if hovering a task
+    if (hoveredTaskWindowId_ >= 0) {
+        renderHoverPreview(surface);
+    }
+}
+
+void Taskbar::renderHoverPreview(Surface& surface, const Surface* previewSurface) const {
+    if (hoveredTaskWindowId_ < 0) return;
+
+    const uint32_t hwId = static_cast<uint32_t>(hoveredTaskWindowId_);
+    const TaskItem* targetTask = nullptr;
+    for (const auto& task : tasks_) {
+        if (task.windowId == hwId) {
+            targetTask = &task;
+            break;
+        }
+    }
+    if (!targetTask) return;
+
+    const Rect card = hoverPreviewBounds(hwId);
+    if (card.empty()) return;
+
+    const auto& palette = ThemeManager::instance().palette();
+
+    // 1. Drop shadow for floating preview card
+    surface.drawDropShadow(card, 16, 0.45f);
+
+    // 2. Translucent Mica Acrylic Container
+    surface.applyAcrylicTint(card, palette.taskbarIslandBg, 8);
+    surface.drawRoundedRect(card, 10, palette.taskbarIslandBorder, false);
+
+    // 3. Header Strip (App Icon + Window Title)
+    const Rect iconRect{card.x + 8, card.y + 5, 16, 16};
+    IconRenderer::draw(surface, targetTask->iconId, iconRect, palette.accentColor);
+
+    std::string dispTitle = targetTask->title;
+    if (dispTitle.size() > 16) {
+        dispTitle = dispTitle.substr(0, 14) + "..";
+    }
+    surface.drawString(card.x + 30, card.y + 9, dispTitle, palette.textPrimary, 1);
+
+    // 4. Close Button [x]
+    const Rect closeBtn = hoverPreviewCloseButtonBounds(hwId);
+    surface.drawRoundedRect(closeBtn, 4, Color::fromRgba(180, 40, 50, 160), true);
+    const int32_t cx1 = closeBtn.x + 5;
+    const int32_t cy1 = closeBtn.y + 5;
+    const int32_t span = closeBtn.width - 10;
+    for (int32_t i = 0; i < span; ++i) {
+        surface.putPixel(cx1 + i, cy1 + i, Color::fromHex(0xFFFFFF));
+        surface.putPixel(cx1 + span - 1 - i, cy1 + i, Color::fromHex(0xFFFFFF));
+    }
+
+    // 5. Downscaled Live Preview Content Box
+    const Rect previewBox{card.x + 8, card.y + 26, card.width - 16, card.height - 34};
+    surface.fillRect(previewBox, Color::fromRgba(8, 12, 18, 255));
+    surface.drawRoundedRect(previewBox, 4, Color::fromRgba(35, 48, 70, 180), false);
+
+    const Surface* srcSurf = previewSurface;
+    if (!srcSurf && previewProvider_) {
+        srcSurf = previewProvider_(hwId);
+    }
+
+    if (srcSurf && srcSurf->width() > 0 && srcSurf->height() > 0) {
+        surface.blitScaled(*srcSurf,
+                           Rect{0, 0, static_cast<int32_t>(srcSurf->width()), static_cast<int32_t>(srcSurf->height())},
+                           previewBox.inflate(-2, -2));
+    } else {
+        IconRenderer::draw(surface, targetTask->iconId,
+                           Rect{previewBox.centerX() - 14, previewBox.centerY() - 14, 28, 28},
+                           Color::fromRgba(70, 95, 130, 200));
     }
 }
 

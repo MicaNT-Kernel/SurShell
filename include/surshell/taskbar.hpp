@@ -66,12 +66,25 @@ public:
 
     [[nodiscard]] const std::vector<TaskItem>& tasks() const noexcept { return tasks_; }
 
+    using WindowPreviewProvider = std::function<const Surface*(uint32_t windowId)>;
+    using PreviewCloseCallback = std::function<void(uint32_t windowId)>;
+
+    void setWindowPreviewProvider(WindowPreviewProvider provider) { previewProvider_ = std::move(provider); }
+    void setPreviewCloseCallback(PreviewCloseCallback cb) { previewCloseCallback_ = std::move(cb); }
+
+    [[nodiscard]] int32_t hoveredTaskWindowId() const noexcept { return hoveredTaskWindowId_; }
+    void setHoveredTaskWindowId(int32_t id) noexcept { hoveredTaskWindowId_ = id; }
+
+    [[nodiscard]] Rect hoverPreviewBounds(uint32_t windowId) const noexcept;
+    [[nodiscard]] Rect hoverPreviewCloseButtonBounds(uint32_t windowId) const noexcept;
+
     // Input Events
     void onMouseDown(Point pt, MouseButton button);
     void onMouseMove(Point pt);
 
     // Rendering
     void render(Surface& surface);
+    void renderHoverPreview(Surface& surface, const Surface* previewSurface = nullptr) const;
 
 private:
     uint32_t screenWidth_{1920};
@@ -95,6 +108,8 @@ private:
     TaskItemClickCallback taskClickCallback_{};
     TrayClickCallback trayClickCallback_{};
     TaskViewClickCallback taskViewClickCallback_{};
+    WindowPreviewProvider previewProvider_{};
+    PreviewCloseCallback previewCloseCallback_{};
 
     void recalculateLayout();
 };

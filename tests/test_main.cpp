@@ -639,6 +639,133 @@ void Test_Procedural_Icon_Engine() {
     std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (45 icons verified across 6 DPI scales).\n";
 }
 
+void Test_AltTab_And_Taskbar_Hover_Preview() {
+    std::cout << "[TEST] Running Suite 14: Alt+Tab Switcher HUD & Taskbar Live Previews (Windows Peek)...\n";
+
+    // 1. Verify Surface::blitScaled functionality
+    surshell::Surface srcSurf(100, 100, surshell::Color{255, 0, 0, 255});
+    srcSurf.fillRect(surshell::Rect{25, 25, 50, 50}, surshell::Color{0, 255, 0, 255});
+    surshell::Surface dstSurf(200, 200, surshell::Color{0, 0, 0, 255});
+
+    dstSurf.blitScaled(srcSurf, surshell::Rect{0, 0, 100, 100}, surshell::Rect{10, 10, 50, 50});
+    TEST_ASSERT(dstSurf.getPixel(15, 15).r > 200, "Scaled outer red region verified");
+    TEST_ASSERT(dstSurf.getPixel(35, 35).g > 200, "Scaled inner green region verified");
+
+    // Test blitScaled with alpha
+    surshell::Surface alphaDst(100, 100, surshell::Color{0, 0, 0, 255});
+    alphaDst.blitScaled(srcSurf, surshell::Rect{0, 0, 100, 100}, surshell::Rect{0, 0, 100, 100}, 128);
+    TEST_ASSERT(alphaDst.getPixel(10, 10).r > 100 && alphaDst.getPixel(10, 10).r < 160, "Scaled alpha blending verified");
+
+    // 2. AltTabSwitcher Unit Tests
+    surshell::AltTabSwitcher switcher;
+    TEST_ASSERT(!switcher.isActive(), "Switcher initially inactive");
+    TEST_ASSERT(switcher.itemCount() == 0, "Item count is 0");
+
+    std::vector<surshell::AltTabItem> testItems = {
+        {.windowId = 101, .title = "File Explorer", .iconGlyph = "[E]", .iconId = surshell::IconId::FileGeneric, .isActive = true, .isMinimized = false, .previewSurface = &srcSurf},
+        {.windowId = 102, .title = "Terminal - cmd.exe", .iconGlyph = "[T]", .iconId = surshell::IconId::Terminal, .isActive = false, .isMinimized = false, .previewSurface = &srcSurf},
+        {.windowId = 103, .title = "Sovereign Editor", .iconGlyph = "[N]", .iconId = surshell::IconId::FileText, .isActive = false, .isMinimized = true, .previewSurface = &srcSurf}
+    };
+
+    switcher.show(testItems, 1);
+    TEST_ASSERT(switcher.isActive(), "Switcher active after show");
+    TEST_ASSERT(switcher.itemCount() == 3, "Item count matches 3");
+    TEST_ASSERT(switcher.selectedIndex() == 1, "Initial index is 1 (next MRU window)");
+    TEST_ASSERT(switcher.selectedItem() != nullptr && switcher.selectedItem()->windowId == 102, "Selected item is window 102");
+
+    // Next cycling & wrap
+    switcher.next();
+    TEST_ASSERT(switcher.selectedIndex() == 2, "Cycled next to index 2");
+    switcher.next();
+    TEST_ASSERT(switcher.selectedIndex() == 0, "Cycled next wrapped around to index 0");
+
+    // Previous cycling & wrap
+    switcher.previous();
+    TEST_ASSERT(switcher.selectedIndex() == 2, "Cycled previous wrapped around to index 2");
+    switcher.previous();
+    TEST_ASSERT(switcher.selectedIndex() == 1, "Cycled previous to index 1");
+
+    // Select index
+    switcher.selectIndex(2);
+    TEST_ASSERT(switcher.selectedIndex() == 2, "Directly selected index 2");
+
+    // Bounds calculation
+    surshell::Rect hudBounds = switcher.calculateHudBounds(1920, 1080);
+    TEST_ASSERT(hudBounds.width > 600 && hudBounds.height > 150, "HUD bounds calculated correctly");
+    TEST_ASSERT(hudBounds.x > 0 && hudBounds.y > 0, "HUD is centered on screen");
+
+    surshell::Rect card0 = switcher.calculateCardBounds(0, hudBounds);
+    surshell::Rect card1 = switcher.calculateCardBounds(1, hudBounds);
+    surshell::Rect card2 = switcher.calculateCardBounds(2, hudBounds);
+    TEST_ASSERT(card1.x > card0.right(), "Card 1 spaced horizontally after Card 0");
+    TEST_ASSERT(card2.x > card1.right(), "Card 2 spaced horizontally after Card 1");
+
+    // Mouse move & hover test
+    TEST_ASSERT(switcher.onMouseMove(card1.center(), 1920, 1080), "Mouse move over card 1 returns true");
+
+    // Mouse click selection
+    auto clickedId = switcher.onMouseDown(card0.center(), surshell::MouseButton::Left, 1920, 1080);
+    TEST_ASSERT(clickedId.has_value() && *clickedId == 101, "Clicking card 0 confirmed window 101");
+    TEST_ASSERT(!switcher.isActive(), "Switcher dismissed after click confirmation");
+
+    // Dismissal test
+    switcher.show(testItems, 0);
+    TEST_ASSERT(switcher.isActive(), "Reopened switcher");
+    switcher.dismiss();
+    TEST_ASSERT(!switcher.isActive(), "Dismissed switcher");
+    TEST_ASSERT(switcher.itemCount() == 0, "Items cleared after dismissal");
+
+    // 3. Taskbar Hover Preview (Windows Peek) Tests
+    surshell::Taskbar taskbar(1920, 1080);
+    taskbar.addOrUpdateTask(201, "Mica Explorer", "[E]", true, false, surshell::IconId::FileGeneric);
+    taskbar.addOrUpdateTask(202, "Mica Terminal", "[T]", false, false, surshell::IconId::Terminal);
+
+    uint32_t closedWinId = 0;
+    taskbar.setPreviewCloseCallback([&](uint32_t wid) { closedWinId = wid; });
+    taskbar.setWindowPreviewProvider([&](uint32_t wid) -> const surshell::Surface* {
+        (void)wid;
+        return &srcSurf;
+    });
+
+    surshell::Rect prevBounds = taskbar.hoverPreviewBounds(201);
+    TEST_ASSERT(!prevBounds.empty(), "Hover preview bounds calculated for task 201");
+    TEST_ASSERT(prevBounds.bottom() < taskbar.bounds().y, "Preview card floats above taskbar");
+
+    surshell::Rect closeBtn = taskbar.hoverPreviewCloseButtonBounds(201);
+    TEST_ASSERT(!closeBtn.empty() && prevBounds.contains(closeBtn.center()), "Close button is inside preview card");
+
+    // Mouse hover over task pill triggers preview
+    taskbar.onMouseMove(taskbar.tasks()[0].bounds.center());
+    TEST_ASSERT(taskbar.hoveredTaskWindowId() == 201, "Hovering task pill activates task 201 preview");
+
+    // Mouse navigating inside preview card maintains preview active
+    taskbar.onMouseMove(prevBounds.center());
+    TEST_ASSERT(taskbar.hoveredTaskWindowId() == 201, "Hovering preview card maintains preview active");
+
+    // Clicking close button triggers callback
+    taskbar.onMouseDown(closeBtn.center(), surshell::MouseButton::Left);
+    TEST_ASSERT(closedWinId == 201, "Clicking close button triggered close callback for window 201");
+    TEST_ASSERT(taskbar.hoveredTaskWindowId() == -1, "Hover reset after close click");
+
+    // 4. Desktop Integration & Rendering Tests
+    surshell::SurShellDesktop shell(1920, 1080);
+    shell.openFileExplorerWindow();
+    shell.openTerminalWindow();
+    shell.render(); // Baseline render
+
+    TEST_ASSERT(!shell.altTab().isActive(), "Desktop AltTab initially inactive");
+    shell.triggerAltTab();
+    TEST_ASSERT(shell.altTab().isActive(), "Desktop triggerAltTab activated HUD");
+    TEST_ASSERT(shell.altTab().itemCount() >= 2, "Desktop gathered active open windows into HUD");
+
+    shell.cycleAltTab();
+    shell.render(); // Render with AltTab HUD active
+    shell.commitAltTab();
+    TEST_ASSERT(!shell.altTab().isActive(), "Desktop commitAltTab closed HUD");
+
+    std::cout << "[TEST] Suite 14: Alt+Tab Switcher HUD & Taskbar Live Previews (Windows Peek) PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -658,9 +785,10 @@ int main() {
     Test_Virtual_Desktops();
     Test_MicaNT_Kernel_Bridge();
     Test_Procedural_Icon_Engine();
+    Test_AltTab_And_Taskbar_Hover_Preview();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 13 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 14 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

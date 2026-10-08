@@ -285,10 +285,79 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             kernelBridge_.spawnProcess(path, "");
         }
     });
+
+    // 11. Taskbar Live Hover Preview Provider & Close Callback
+    taskbar_.setWindowPreviewProvider([this](uint32_t windowId) -> const Surface* {
+        auto* win = windowManager_.findWindow(windowId);
+        return win ? &win->clientSurface : nullptr;
+    });
+
+    taskbar_.setPreviewCloseCallback([this](uint32_t windowId) {
+        windowManager_.closeWindow(windowId);
+    });
+}
+
+void SurShellDesktop::triggerAltTab() {
+    std::vector<AltTabItem> items;
+    for (auto it = windowManager_.windows().rbegin(); it != windowManager_.windows().rend(); ++it) {
+        const auto& win = *it;
+        if (!win->isVisible && win->state != WindowState::Minimized) continue;
+        items.push_back(AltTabItem{
+            .windowId = win->id,
+            .title = win->title,
+            .iconGlyph = win->iconGlyph,
+            .iconId = win->iconId,
+            .isActive = win->isActive,
+            .isMinimized = (win->state == WindowState::Minimized),
+            .previewSurface = &win->clientSurface
+        });
+    }
+    if (!items.empty()) {
+        altTab_.show(std::move(items), 1);
+    }
+}
+
+void SurShellDesktop::cycleAltTab() {
+    if (!altTab_.isActive()) {
+        triggerAltTab();
+    } else {
+        altTab_.next();
+    }
+}
+
+void SurShellDesktop::commitAltTab() {
+    if (!altTab_.isActive()) return;
+    if (auto chosenId = altTab_.confirm()) {
+        auto* win = windowManager_.findWindow(*chosenId);
+        if (win) {
+            if (win->state == WindowState::Minimized) {
+                windowManager_.setWindowState(*chosenId, WindowState::Normal);
+            }
+            windowManager_.setWindowActive(*chosenId);
+        }
+    }
+}
+
+void SurShellDesktop::dismissAltTab() {
+    altTab_.dismiss();
 }
 
 void SurShellDesktop::onMouseDown(Point pt, MouseButton button) {
     currentMousePos_ = pt;
+
+    // 0. Alt+Tab HUD takes precedence when active
+    if (altTab_.isActive()) {
+        if (auto chosenId = altTab_.onMouseDown(pt, button, width_, height_)) {
+            auto* win = windowManager_.findWindow(*chosenId);
+            if (win) {
+                if (win->state == WindowState::Minimized) {
+                    windowManager_.setWindowState(*chosenId, WindowState::Normal);
+                }
+                windowManager_.setWindowActive(*chosenId);
+            }
+        }
+        return;
+    }
 
     // 1. Quick Settings Flyout (highest z-order when open)
     if (quickSettings_.isOpen()) {
@@ -344,6 +413,12 @@ void SurShellDesktop::onMouseUp(Point pt, MouseButton button) {
 
 void SurShellDesktop::onMouseMove(Point pt) {
     currentMousePos_ = pt;
+
+    if (altTab_.isActive()) {
+        if (altTab_.onMouseMove(pt, width_, height_)) {
+            return;
+        }
+    }
 
     if (quickSettings_.isOpen()) {
         quickSettings_.onMouseMove(pt);
@@ -431,7 +506,12 @@ void SurShellDesktop::render() {
         quickSettings_.render(framebuffer_, palette);
     }
 
-    // 8. Render Mouse Cursor Arrow
+    // 8. Render Alt+Tab HUD (if active)
+    if (altTab_.isActive()) {
+        altTab_.render(framebuffer_, width_, height_);
+    }
+
+    // 9. Render Mouse Cursor Arrow
     const int32_t mx = currentMousePos_.x;
     const int32_t my = currentMousePos_.y;
     if (mx >= 0 && mx < static_cast<int32_t>(width_) && my >= 0 && my < static_cast<int32_t>(height_)) {

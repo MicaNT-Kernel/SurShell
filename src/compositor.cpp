@@ -401,6 +401,53 @@ void Surface::blit(const Surface& src, Rect srcRect, Point dstPos, uint8_t alpha
     }
 }
 
+void Surface::blitScaled(const Surface& src, Rect srcRect, Rect dstRect, uint8_t alpha) noexcept {
+    if (srcRect.width <= 0 || srcRect.height <= 0 || dstRect.width <= 0 || dstRect.height <= 0) return;
+    if (src.width_ == 0 || src.height_ == 0 || width_ == 0 || height_ == 0) return;
+
+    // Constrain destination rectangle within surface bounds
+    const int32_t dstXStart = std::max(0, dstRect.x);
+    const int32_t dstYStart = std::max(0, dstRect.y);
+    const int32_t dstXEnd = std::min(static_cast<int32_t>(width_), dstRect.right());
+    const int32_t dstYEnd = std::min(static_cast<int32_t>(height_), dstRect.bottom());
+
+    if (dstXEnd <= dstXStart || dstYEnd <= dstYStart) return;
+
+    const float scaleX = static_cast<float>(srcRect.width) / static_cast<float>(dstRect.width);
+    const float scaleY = static_cast<float>(srcRect.height) / static_cast<float>(dstRect.height);
+
+    for (int32_t dy = dstYStart; dy < dstYEnd; ++dy) {
+        const float srcYFloat = srcRect.y + (static_cast<float>(dy - dstRect.y) + 0.5f) * scaleY - 0.5f;
+        const float clampedSrcY = std::clamp(srcYFloat, static_cast<float>(srcRect.y), static_cast<float>(srcRect.bottom() - 1));
+        const int32_t sy0 = static_cast<int32_t>(clampedSrcY);
+        const int32_t sy1 = std::min(sy0 + 1, srcRect.bottom() - 1);
+        const float wy = clampedSrcY - sy0;
+
+        for (int32_t dx = dstXStart; dx < dstXEnd; ++dx) {
+            const float srcXFloat = srcRect.x + (static_cast<float>(dx - dstRect.x) + 0.5f) * scaleX - 0.5f;
+            const float clampedSrcX = std::clamp(srcXFloat, static_cast<float>(srcRect.x), static_cast<float>(srcRect.right() - 1));
+            const int32_t sx0 = static_cast<int32_t>(clampedSrcX);
+            const int32_t sx1 = std::min(sx0 + 1, srcRect.right() - 1);
+            const float wx = clampedSrcX - sx0;
+
+            const Color c00 = src.getPixel(sx0, sy0);
+            const Color c10 = src.getPixel(sx1, sy0);
+            const Color c01 = src.getPixel(sx0, sy1);
+            const Color c11 = src.getPixel(sx1, sy1);
+
+            const Color top = Color::lerp(c00, c10, wx);
+            const Color bot = Color::lerp(c01, c11, wx);
+            Color finalCol = Color::lerp(top, bot, wy);
+
+            if (alpha < 255) {
+                finalCol.a = static_cast<uint8_t>((static_cast<uint32_t>(finalCol.a) * alpha) / 255);
+            }
+
+            putPixel(dx, dy, finalCol);
+        }
+    }
+}
+
 void Surface::drawChar(int32_t x, int32_t y, char c, Color color, int32_t scale) noexcept {
     if (c < 32 || c > 126) c = '?';
     const uint8_t* glyph = FONT_8X8[c - 32];
