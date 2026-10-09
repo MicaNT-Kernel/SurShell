@@ -226,9 +226,9 @@ int runInteractiveDesktop() {
     DesktopAppState state;
     state.desktop = std::make_unique<surshell::SurShellDesktop>(1920, 1080);
 
-    // Open Registry Editor and File Explorer windows by default so they're immediately accessible
+    // Open File Explorer and Sovereign App Hub windows by default so they're immediately accessible
     state.desktop->openFileExplorerWindow("This PC");
-    state.desktop->openRegistryEditorWindow("Computer\\HKEY_LOCAL_MACHINE\\SOFTWARE\\MicaNT\\CurrentVersion");
+    state.desktop->openAppHubWindow();
 
     HINSTANCE hInstance = GetModuleHandleW(nullptr);
 
@@ -272,7 +272,7 @@ int runInteractiveDesktop() {
 
     std::cout << "[SurShell] Native Interactive Desktop Window launched.\n";
     std::cout << "  -> Resolution: " << winW << "x" << winH << " at (" << winX << ", " << winY << ")\n";
-    std::cout << "  -> Registry Editor, Terminal, Explorer, Task Manager & Settings ready.\n";
+    std::cout << "  -> Sovereign App Hub (winget), Explorer, Task View (Win+Tab), Terminal & Settings ready.\n";
     std::cout << "  -> Close the window or press Alt+F4 to exit.\n\n";
 
     MSG msg;
