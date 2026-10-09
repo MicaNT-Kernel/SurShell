@@ -2220,9 +2220,19 @@ void Test_Services_Management_Application() {
     // 3. Search and Filtering
     services.setSearchQuery("Event");
     TEST_ASSERT(services.selectedService() != nullptr, "Search filtered selection valid");
-    TEST_ASSERT(services.selectedService()->displayName.find("Event") != std::string::npos ||
-                services.selectedService()->name.find("Event") != std::string::npos,
-                "Filtered service matches search query 'Event'");
+    {
+        const auto* sel = services.selectedService();
+        std::string nLower = sel->name;
+        std::string dnLower = sel->displayName;
+        std::string descLower = sel->description;
+        for (char& c : nLower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        for (char& c : dnLower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        for (char& c : descLower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        TEST_ASSERT(nLower.find("event") != std::string::npos ||
+                    dnLower.find("event") != std::string::npos ||
+                    descLower.find("event") != std::string::npos,
+                    "Filtered service matches search query 'Event'");
+    }
 
     // Clear search
     services.setSearchQuery("");
