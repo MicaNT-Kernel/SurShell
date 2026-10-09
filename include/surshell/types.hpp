@@ -43,6 +43,10 @@ struct Color {
                static_cast<uint32_t>(b);
     }
 
+    [[nodiscard]] constexpr uint32_t toHex() const noexcept {
+        return toRgba();
+    }
+
     [[nodiscard]] static constexpr Color fromRgb(uint8_t r, uint8_t g, uint8_t b) noexcept {
         return Color{r, g, b, 255};
     }
@@ -305,6 +309,7 @@ enum class KeyCode {
     KeyV,
     KeyW,
     KeyX,
+    KeyY,
     KeyZ,
     Super
 };

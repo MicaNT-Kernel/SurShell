@@ -145,6 +145,10 @@ uint32_t SurShellDesktop::openFileExplorerWindow(std::string path) {
             openImageViewerWindow(imagePath);
         });
 
+        explorer->setOpenPaintCallback([this](const std::string& filePath) {
+            openPaintWindow(filePath);
+        });
+
         explorer->setToastCallback([this](const std::string& title, const std::string& message, IconId icon) {
             toastManager_.showToast(title, message, icon);
         });
@@ -344,6 +348,8 @@ uint32_t SurShellDesktop::openRunDialogWindow() {
                 openRegistryEditorWindow();
             } else if (lowerCmd == "photos" || lowerCmd == "photos.exe" || lowerCmd == "image") {
                 openImageViewerWindow("");
+            } else if (lowerCmd == "paint" || lowerCmd == "mspaint" || lowerCmd == "mspaint.exe" || lowerCmd == "pbrush" || lowerCmd == "draw") {
+                openPaintWindow("");
             } else {
                 kernelBridge_.spawnProcess(cmd, "");
             }
@@ -400,6 +406,38 @@ uint32_t SurShellDesktop::openImageViewerWindow(std::string imagePath) {
         auto viewer = std::make_shared<ImageViewerContent>(imagePath);
         win->content = viewer;
         viewer->render(win->clientSurface);
+    }
+    return winId;
+}
+
+uint32_t SurShellDesktop::openPaintWindow(std::string filePath) {
+    std::string title = "Sovereign Paint";
+    if (!filePath.empty()) {
+        const size_t slash = filePath.find_last_of("\\/");
+        title = (slash != std::string::npos ? filePath.substr(slash + 1) : filePath) + " - Sovereign Paint";
+    }
+    const uint32_t winId = windowManager_.createWindow(title, Rect{240, 80, 860, 580}, "[PNT]", IconId::Paint);
+    virtualDesktops_.assignWindowToDesktop(winId, virtualDesktops_.activeIndex());
+    auto* win = windowManager_.findWindow(winId);
+    if (win) {
+        auto paint = std::make_shared<PaintContent>(filePath);
+
+        paint->setTitleChangedCallback([this, winId](const std::string& newTitle) {
+            auto* w = windowManager_.findWindow(winId);
+            if (w) {
+                w->title = newTitle;
+                taskbar_.addOrUpdateTask(winId, w->title, w->iconGlyph, w->isActive, w->state == WindowState::Minimized, w->iconId);
+            }
+        });
+
+        paint->setFileSavedCallback([this](const std::string& path, uint64_t bytes) {
+            const size_t slash = path.find_last_of("\\/");
+            const std::string name = (slash != std::string::npos ? path.substr(slash + 1) : path);
+            toastManager_.showToast("Canvas Saved", name + " (" + std::to_string(bytes) + " bytes exported)", IconId::Save, Color::fromHex(0x00FF9D));
+        });
+
+        win->content = paint;
+        paint->render(win->clientSurface);
     }
     return winId;
 }
@@ -496,6 +534,7 @@ void SurShellDesktop::wireSubsystemCallbacks() {
         else if (targetApp == "editor") openTextEditorWindow(args);
         else if (targetApp == "regedit" || targetApp == "registry") openRegistryEditorWindow();
         else if (targetApp == "photos" || targetApp == "image" || targetApp == "viewer") openImageViewerWindow(args);
+        else if (targetApp == "paint" || targetApp == "mspaint" || targetApp == "draw" || targetApp == "canvas") openPaintWindow(args);
         else kernelBridge_.spawnProcess(targetApp, args);
     });
 
@@ -627,6 +666,8 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openCalculatorWindow();
         } else if (icon.executable == "C:\\Windows\\System32\\photos.exe" || icon.id == "photos") {
             openImageViewerWindow();
+        } else if (icon.executable == "C:\\Windows\\System32\\mspaint.exe" || icon.id == "paint" || icon.id == "mspaint") {
+            openPaintWindow();
         } else {
             const bool spawned = kernelBridge_.spawnProcess(icon.executable, icon.arguments).has_value();
             toastManager_.showToast("Launched", icon.label, icon.iconId);
@@ -742,6 +783,8 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openRegistryEditorWindow();
         } else if (app.executablePath == "C:\\Windows\\System32\\photos.exe" || app.id == "photos") {
             openImageViewerWindow();
+        } else if (app.executablePath == "C:\\Windows\\System32\\mspaint.exe" || app.id == "paint" || app.id == "mspaint") {
+            openPaintWindow();
         } else {
             const bool spawned = kernelBridge_.spawnProcess(app.executablePath, app.arguments).has_value();
             toastManager_.showToast("Launched Application", app.title, IconRenderer::iconForAppId(app.id));

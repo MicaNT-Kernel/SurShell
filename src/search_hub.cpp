@@ -20,6 +20,8 @@ SearchHub::SearchHub() {
         {"app_run",      "Run...",            "Dispatch system executables and file paths", SearchCategoryType::Apps, IconId::RunDialog,    "run",      ""},
         {"app_editor",   "Sovereign Editor",  "Pure C++ code editor with syntax highlighting", SearchCategoryType::Apps, IconId::FileCode,     "editor",   ""},
         {"app_regedit",  "Registry Editor",   "MicaNT sovereign configuration tree and keys", SearchCategoryType::Apps, IconId::Registry,     "regedit",  ""},
+        {"app_photos",   "Photos",            "Sovereign image viewer, zoom, rotate & BMP inspection", SearchCategoryType::Apps, IconId::ImageViewer, "photos", ""},
+        {"app_paint",    "Paint",             "Sovereign vector canvas, brushes, shapes & BMP studio", SearchCategoryType::Apps, IconId::Paint,       "paint",  ""},
 
         // Settings
         {"set_theme",    "Personalization",   "Themes, accent color palette & wallpaper style", SearchCategoryType::Settings, IconId::Personalization, "settings", "personalize"},

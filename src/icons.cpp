@@ -212,6 +212,9 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
         case IconId::ImageViewer:
             drawImageViewer(surface, bounds, tintOverride);
             break;
+        case IconId::Paint:
+            drawPaint(surface, bounds, tintOverride);
+            break;
         case IconId::CloudDrive:
             drawCloudDrive(surface, bounds, tintOverride);
             break;
@@ -260,6 +263,7 @@ IconId IconRenderer::iconForAppId(std::string_view appId) {
     if (appId == "notepad" || appId == "editor" || appId == "notepad.exe") return IconId::Edit;
     if (appId == "save") return IconId::Save;
     if (appId == "photos" || appId == "image_viewer" || appId == "image" || appId == "viewer") return IconId::ImageViewer;
+    if (appId == "paint" || appId == "mspaint" || appId == "draw" || appId == "canvas") return IconId::Paint;
     if (appId == "cloud" || appId == "gdrive" || appId == "google_drive") return IconId::CloudDrive;
     if (appId == "nas" || appId == "share" || appId == "storage") return IconId::NetworkShare;
     if (appId == "cd" || appId == "dvd" || appId == "optical") return IconId::OpticalDrive;
@@ -1550,6 +1554,61 @@ void IconRenderer::drawImageViewer(Surface& s, Rect r, std::optional<Color> tint
             if (inner.contains(Point{x, y})) {
                 s.putPixel(x, y, Color::fromHex(0x00FF9D));
             }
+        }
+    }
+}
+
+void IconRenderer::drawPaint(Surface& s, Rect r, std::optional<Color> tint) {
+    if (r.empty()) return;
+    const Color paletteBg = tint.value_or(Color::fromHex(0x1E293B));
+    const Color paletteBorder = tint.value_or(Color::fromHex(0x64748B));
+    const int32_t cx = r.centerX();
+    const int32_t cy = r.centerY();
+    const int32_t rad = std::max(3, std::min(r.width, r.height) / 2 - 2);
+
+    // 1. Oval Palette Body
+    const Rect paletteRect{cx - rad, cy - rad + 1, rad * 2, rad * 2 - 2};
+    s.drawRoundedRect(paletteRect, rad, paletteBg, true);
+    s.drawRoundedRect(paletteRect, rad, paletteBorder, false);
+
+    // 2. Thumb Hole
+    if (rad >= 5) {
+        const int32_t thX = paletteRect.x + rad / 2;
+        const int32_t thY = paletteRect.bottom() - rad / 2 - 1;
+        const int32_t thR = std::max(1, rad / 5);
+        s.drawRoundedRect(Rect{thX - thR, thY - thR, thR * 2, thR * 2}, thR, Color::fromHex(0x0A0E16), true);
+    }
+
+    // 3. Vibrant Pigment Spots (Cyan, Emerald, Yellow, Coral, Purple)
+    if (rad >= 4) {
+        s.putPixel(cx - rad / 2, cy - rad / 3, Color::fromHex(0x00D4FF));
+        s.putPixel(cx - rad / 2 + 1, cy - rad / 3, Color::fromHex(0x00D4FF));
+        s.putPixel(cx - 1, cy - rad / 2, Color::fromHex(0x00FF9D));
+        s.putPixel(cx, cy - rad / 2, Color::fromHex(0x00FF9D));
+        s.putPixel(cx + rad / 3, cy - rad / 3 + 1, Color::fromHex(0xFBBF24));
+        s.putPixel(cx + rad / 3 + 1, cy - rad / 3 + 1, Color::fromHex(0xFBBF24));
+        s.putPixel(cx + rad / 2, cy, Color::fromHex(0xFF5C5C));
+        s.putPixel(cx + rad / 2, cy + 1, Color::fromHex(0xFF5C5C));
+        s.putPixel(cx + rad / 4, cy + rad / 3, Color::fromHex(0xC084FC));
+    }
+
+    // 4. Paintbrush resting diagonally across palette
+    const int32_t brushLen = rad + 2;
+    for (int32_t i = -brushLen / 2; i <= brushLen / 2; ++i) {
+        const int32_t bx = cx + i;
+        const int32_t by = cy - i;
+        if (i < -brushLen / 4) {
+            // Wooden Handle
+            s.putPixel(bx, by, Color::fromHex(0xB45309));
+            s.putPixel(bx + 1, by, Color::fromHex(0x92400E));
+        } else if (i <= brushLen / 4) {
+            // Metallic Silver Ferrule
+            s.putPixel(bx, by, Color::fromHex(0xE2E8F0));
+            s.putPixel(bx + 1, by, Color::fromHex(0x94A3B8));
+        } else {
+            // Paintbrush Bristle Tip with active Cyan Paint
+            s.putPixel(bx, by, Color::fromHex(0x00D4FF));
+            s.putPixel(bx + 1, by, Color::fromHex(0x38BDF8));
         }
     }
 }

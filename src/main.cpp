@@ -716,7 +716,48 @@ int runSnapshotPipeline() {
         std::cout << "  -> Exported: surshell_task_manager_performance.bmp (1920x1080 32-bpp)\n";
     }
 
-    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (29 high-resolution scenes generated).\n";
+    // ------------------------------------------------------------------------
+    // Scene 28: Sovereign Paint Studio & Vector Canvas (paint.exe Parity)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 28: Sovereign Paint Studio & Vector Canvas...\n";
+    const uint32_t paintWin = shell.openPaintWindow();
+    shell.windowManager().setWindowActive(paintWin);
+    if (auto* w = shell.windowManager().findWindow(paintWin)) {
+        if (auto paint = std::dynamic_pointer_cast<surshell::PaintContent>(w->content)) {
+            const auto cyan = surshell::Color::fromHex(0x00D4FF);
+            const auto green = surshell::Color::fromHex(0x00FF9D);
+            const auto coral = surshell::Color::fromHex(0xFF5C5C);
+            const auto amber = surshell::Color::fromHex(0xF59E0B);
+            const auto purple = surshell::Color::fromHex(0xA855F7);
+            const auto slate = surshell::Color::fromHex(0x1E293B);
+
+            // Canvas drawing composition
+            paint->drawRect(surshell::Rect{20, 20, 480, 300}, surshell::Color::fromHex(0xF8FAFC), true);
+            paint->drawRect(surshell::Rect{20, 20, 480, 300}, surshell::Color::fromHex(0xCBD5E1), false);
+
+            paint->drawCircle(surshell::Point{140, 140}, 60, cyan, true);
+            paint->drawCircle(surshell::Point{170, 150}, 45, purple, true);
+            paint->drawCircle(surshell::Point{200, 130}, 30, amber, true);
+
+            paint->drawRect(surshell::Rect{260, 60, 120, 80}, slate, false);
+            paint->floodFill(surshell::Point{280, 80}, green);
+
+            paint->drawLine(surshell::Point{50, 260}, surshell::Point{450, 260}, slate, 3);
+            paint->drawLine(surshell::Point{50, 260}, surshell::Point{250, 180}, coral, 4);
+            paint->drawLine(surshell::Point{250, 180}, surshell::Point{450, 260}, cyan, 4);
+
+            paint->drawBrushSpot(surshell::Point{380, 200}, coral, 10);
+            paint->drawBrushSpot(surshell::Point{420, 200}, amber, 7);
+
+            paint->render(w->clientSurface);
+        }
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_paint_studio.bmp")) {
+        std::cout << "  -> Exported: surshell_paint_studio.bmp (1920x1080 32-bpp)\n";
+    }
+
+    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (30 high-resolution scenes generated).\n";
     return 0;
 }
 

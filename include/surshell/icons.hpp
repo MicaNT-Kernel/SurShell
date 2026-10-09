@@ -100,6 +100,7 @@ enum class IconId {
     SearchCategory,
     Registry,
     ImageViewer,
+    Paint,
 
     // Storage, Cloud & Infrastructure
     CloudDrive,
@@ -172,6 +173,7 @@ private:
     static void drawSearchCategory(Surface& s, Rect r, std::optional<Color> tint);
     static void drawRegistry(Surface& s, Rect r, std::optional<Color> tint);
     static void drawImageViewer(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawPaint(Surface& s, Rect r, std::optional<Color> tint);
     static void drawCloudDrive(Surface& s, Rect r, std::optional<Color> tint);
     static void drawNetworkShare(Surface& s, Rect r, std::optional<Color> tint);
     static void drawOpticalDrive(Surface& s, Rect r, std::optional<Color> tint);

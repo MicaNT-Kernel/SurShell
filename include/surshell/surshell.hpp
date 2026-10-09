@@ -35,6 +35,7 @@
 #include "lock_screen.hpp"
 #include "registry_editor.hpp"
 #include "image_viewer.hpp"
+#include "paint.hpp"
 
 namespace surshell {
 
@@ -98,6 +99,7 @@ public:
     uint32_t openRunDialogWindow();
     uint32_t openRegistryEditorWindow(std::string initialKey = "Computer\\HKEY_CURRENT_USER\\Software\\MicaNT\\SurShell");
     uint32_t openImageViewerWindow(std::string imagePath = "");
+    uint32_t openPaintWindow(std::string filePath = "");
 
     // Master Render Loop
     void render();

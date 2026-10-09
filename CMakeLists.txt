@@ -33,6 +33,7 @@ set(SURSHELL_SOURCES
     src/lock_screen.cpp
     src/registry_editor.cpp
     src/image_viewer.cpp
+    src/paint.cpp
     src/surshell.cpp
 )
 

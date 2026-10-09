@@ -1069,6 +1069,10 @@ void FileExplorer::openContextMenu(Point pt, bool forItem) {
         contextMenu_.items.push_back(ContextMenuItem{.id = "open", .label = "Open", .shortcut = "Enter", .iconGlyph = "[>]", .iconId = IconId::NavForward});
         contextMenu_.items.push_back(ContextMenuItem{.id = "terminal", .label = "Open in Terminal", .shortcut = "", .iconGlyph = ">_", .iconId = IconId::Terminal});
         contextMenu_.items.push_back(ContextMenuItem{.id = "editor", .label = "Open with Editor", .shortcut = "", .iconGlyph = "[E]", .iconId = IconId::Edit});
+        auto sel = selectedItem();
+        if (sel && (sel->extension == ".bmp" || sel->extension == ".png" || sel->extension == ".jpg" || sel->extension == ".jpeg")) {
+            contextMenu_.items.push_back(ContextMenuItem{.id = "paint", .label = "Edit with Paint", .shortcut = "", .iconGlyph = "[PNT]", .iconId = IconId::Paint});
+        }
         contextMenu_.items.push_back(ContextMenuItem{.isSeparator = true});
         contextMenu_.items.push_back(ContextMenuItem{.id = "cut", .label = "Cut", .shortcut = "Ctrl+X", .iconGlyph = "[X]", .iconId = IconId::Cut});
         contextMenu_.items.push_back(ContextMenuItem{.id = "copy", .label = "Copy", .shortcut = "Ctrl+C", .iconGlyph = "[C]", .iconId = IconId::Copy});
@@ -1187,6 +1191,9 @@ bool FileExplorer::onMouseDown(Point localPt, MouseButton button) {
                     } else if (item.id == "editor") {
                         auto sel = selectedItem();
                         if (sel && openEditorCallback_) openEditorCallback_(sel->fullPath);
+                    } else if (item.id == "paint") {
+                        auto sel = selectedItem();
+                        if (sel && openPaintCallback_) openPaintCallback_(sel->fullPath);
                     } else if (item.id == "cut") {
                         cutSelected();
                     } else if (item.id == "copy") {

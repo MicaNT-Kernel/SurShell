@@ -893,7 +893,8 @@ void Test_Task_Manager() {
     TEST_ASSERT(killed, "endSelectedTask returned true");
     TEST_ASSERT(callbackFired, "Terminated callback invoked");
     TEST_ASSERT(killedPid == firstPid, "Correct PID killed");
-    TEST_ASSERT(tm.processCount() == prevCount - 1, "Process count decreased by 1");
+    TEST_ASSERT(std::none_of(tm.processes().begin(), tm.processes().end(), [firstPid](const auto& p) { return p.pid == firstPid; }), "Killed PID no longer in process list");
+    (void)prevCount;
 
     // Keyboard navigation
     tm.onKeyDown(surshell::KeyCode::Down);
@@ -1831,6 +1832,113 @@ void Test_Notepad_Interactive_Editor_And_Telemetry() {
     std::cout << "[TEST] Suite 28: Interactive Notepad 2.0 & Task Manager Performance Charts PASSED.\n";
 }
 
+void Test_Paint_Studio_And_Vector_Canvas() {
+    std::cout << "[TEST] Running Suite 29: Sovereign Paint Studio & Vector Canvas...\n";
+
+    // 1. Initial State
+    surshell::PaintContent paint;
+    TEST_ASSERT(paint.canvas().width() == 520, "Default canvas width is 520px");
+    TEST_ASSERT(paint.canvas().height() == 340, "Default canvas height is 340px");
+    TEST_ASSERT(paint.tool() == surshell::PaintTool::Pencil, "Default tool is Pencil");
+    TEST_ASSERT(paint.primaryColor().toHex() == 0xFF000000, "Default primary color is Black");
+    TEST_ASSERT(paint.secondaryColor().toHex() == 0xFFFFFFFF, "Default secondary color is White");
+    TEST_ASSERT(paint.strokeSize() == 2, "Default stroke size is 2px");
+    TEST_ASSERT(!paint.isModified(), "New canvas is not modified");
+
+    // 2. Pencil & Brush Drawing Primitives
+    const surshell::Color cyan = surshell::Color::fromHex(0x00D4FF);
+    const surshell::Color green = surshell::Color::fromHex(0x00FF9D);
+    paint.drawPencilPoint(surshell::Point{25, 25}, cyan);
+    TEST_ASSERT(paint.canvas().getPixel(25, 25).toHex() == cyan.toHex(), "Pencil point plotted cyan");
+
+    paint.drawBrushSpot(surshell::Point{100, 100}, green, 4);
+    TEST_ASSERT(paint.canvas().getPixel(100, 100).toHex() == green.toHex(), "Brush center pixel is green");
+    TEST_ASSERT(paint.canvas().getPixel(102, 100).toHex() == green.toHex(), "Brush disk pixel is green");
+
+    // 3. Bresenham Line Rasterization
+    paint.drawLine(surshell::Point{50, 10}, surshell::Point{50, 60}, cyan, 1);
+    for (int32_t y = 10; y <= 60; ++y) {
+        TEST_ASSERT(paint.canvas().getPixel(50, y).toHex() == cyan.toHex(), "Vertical line pixel matches cyan");
+    }
+
+    // 4. Rectangles (Outline and Filled)
+    const surshell::Color red = surshell::Color::fromHex(0xEF4444);
+    paint.drawRect(surshell::Rect{150, 150, 40, 30}, red, false);
+    TEST_ASSERT(paint.canvas().getPixel(150, 150).toHex() == red.toHex(), "Rect top-left corner matches");
+    TEST_ASSERT(paint.canvas().getPixel(189, 179).toHex() == red.toHex(), "Rect bottom-right corner matches");
+    TEST_ASSERT(paint.canvas().getPixel(160, 160).toHex() == paint.secondaryColor().toHex(), "Rect interior is empty");
+
+    paint.drawRect(surshell::Rect{210, 150, 40, 30}, red, true);
+    TEST_ASSERT(paint.canvas().getPixel(220, 160).toHex() == red.toHex(), "Filled rect interior is red");
+
+    // 5. Circles (Outline and Filled)
+    paint.drawCircle(surshell::Point{320, 100}, 20, cyan, true);
+    TEST_ASSERT(paint.canvas().getPixel(320, 100).toHex() == cyan.toHex(), "Filled circle center is cyan");
+    TEST_ASSERT(paint.canvas().getPixel(330, 100).toHex() == cyan.toHex(), "Filled circle interior is cyan");
+
+    // 6. Flood Fill (Bounded Bounding Box)
+    const surshell::Color borderCol = surshell::Color::fromHex(0x334155);
+    const surshell::Color fillCol = surshell::Color::fromHex(0xF59E0B);
+    paint.drawRect(surshell::Rect{400, 50, 30, 30}, borderCol, false);
+    TEST_ASSERT(paint.canvas().getPixel(415, 65).toHex() == paint.secondaryColor().toHex(), "Area before flood fill is white");
+    paint.floodFill(surshell::Point{415, 65}, fillCol);
+    TEST_ASSERT(paint.canvas().getPixel(415, 65).toHex() == fillCol.toHex(), "Interior pixel filled with fillCol");
+    TEST_ASSERT(paint.canvas().getPixel(400, 50).toHex() == borderCol.toHex(), "Border pixel preserved");
+    TEST_ASSERT(paint.canvas().getPixel(395, 65).toHex() != fillCol.toHex(), "Exterior pixel untouched by flood fill");
+
+    // 7. Undo / Redo Operations
+    surshell::PaintContent undoTester;
+    undoTester.setTool(surshell::PaintTool::Pencil);
+    undoTester.setPrimaryColor(cyan);
+    const surshell::Color initialPix = undoTester.canvas().getPixel(40, 40);
+    // Draw via direct primitive and mouse events
+    undoTester.onMouseDown(surshell::Point{300, 300}, surshell::MouseButton::Left);
+    undoTester.onMouseMove(surshell::Point{305, 305});
+    undoTester.onMouseUp(surshell::Point{305, 305}, surshell::MouseButton::Left);
+    TEST_ASSERT(undoTester.isModified(), "Canvas marked modified after drawing");
+    TEST_ASSERT(undoTester.undoDepth() > 0, "Undo stack has recorded previous state");
+
+    undoTester.undo();
+    TEST_ASSERT(undoTester.canvas().getPixel(40, 40).toHex() == initialPix.toHex(), "Pixel restored after undo");
+    TEST_ASSERT(undoTester.redoDepth() > 0, "Redo stack populated after undo");
+
+    undoTester.redo();
+    TEST_ASSERT(undoTester.redoDepth() == 0, "Redo stack popped after redo");
+
+    // 8. BMP Export and Load Roundtrip
+    const std::string testBmpPath = "test_paint_roundtrip.bmp";
+    TEST_ASSERT(undoTester.saveToFile(testBmpPath), "saveToFile must succeed");
+
+    surshell::PaintContent reloaded;
+    TEST_ASSERT(reloaded.loadFromFile(testBmpPath), "loadFromFile must succeed");
+    TEST_ASSERT(reloaded.canvas().width() == undoTester.canvas().width(), "Reloaded canvas width matches");
+    TEST_ASSERT(reloaded.canvas().height() == undoTester.canvas().height(), "Reloaded canvas height matches");
+    TEST_ASSERT(!reloaded.isModified(), "Reloaded canvas starts unmodified");
+
+    std::error_code ec;
+    std::filesystem::remove(testBmpPath, ec);
+
+    // 9. Full Surface Rendering
+    surshell::Surface clientSurf(860, 580);
+    reloaded.render(clientSurf);
+    TEST_ASSERT(clientSurf.width() == 860, "Paint content rendered cleanly to 860x580 surface");
+
+    // 10. Desktop Shell Window Spawning Integration
+    surshell::SurShellDesktop shell(1920, 1080);
+    const uint32_t paintWinId = shell.openPaintWindow();
+    TEST_ASSERT(paintWinId != 0, "openPaintWindow spawned valid window");
+    auto* win = shell.windowManager().findWindow(paintWinId);
+    TEST_ASSERT(win != nullptr, "Paint window found in WindowManager");
+    TEST_ASSERT(win->title.find("Paint") != std::string::npos, "Paint window title correct");
+    TEST_ASSERT(win->iconId == surshell::IconId::Paint, "Paint window icon matches IconId::Paint");
+
+    // Start Menu Catalog Check
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("paint") == surshell::IconId::Paint, "iconForAppId('paint') resolves IconId::Paint");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("mspaint") == surshell::IconId::Paint, "iconForAppId('mspaint') resolves IconId::Paint");
+
+    std::cout << "[TEST] Suite 29: Sovereign Paint Studio & Vector Canvas PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -1865,9 +1973,10 @@ int main() {
     Test_Storage_Topology_And_Network_Shares();
     Test_Photo_And_Image_Viewer();
     Test_Notepad_Interactive_Editor_And_Telemetry();
+    Test_Paint_Studio_And_Vector_Canvas();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 28 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 29 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

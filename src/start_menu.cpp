@@ -157,6 +157,18 @@ StartMenu::StartMenu() {
         .pinnedToStart = true
     });
 
+    registerApp(ShellAppEntry{
+        .id = "paint",
+        .title = "Paint",
+        .subtitle = "Sovereign Vector & Pixel Canvas Studio",
+        .executablePath = "C:\\Windows\\System32\\mspaint.exe",
+        .arguments = "",
+        .iconGlyph = "[PNT]",
+        .category = AppCategory::Accessories,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = true
+    });
+
     // Windows 11-style Interactive Power Flyout Options
     powerOptions_ = {
         PowerOptionItem{.action = PowerAction::Sleep, .label = "Sleep", .description = "Save session in low power", .iconId = IconId::Sleep},
