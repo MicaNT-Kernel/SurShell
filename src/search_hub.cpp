@@ -23,6 +23,7 @@ SearchHub::SearchHub() {
         {"app_photos",   "Photos",            "Sovereign image viewer, zoom, rotate & BMP inspection", SearchCategoryType::Apps, IconId::ImageViewer, "photos", ""},
         {"app_paint",    "Paint",             "Sovereign vector canvas, brushes, shapes & BMP studio", SearchCategoryType::Apps, IconId::Paint,       "paint",  ""},
         {"app_sysinfo",  "System Information","Hardware topology, storage, CPU & diagnostics",        SearchCategoryType::Apps, IconId::SystemInfo,  "sysinfo", ""},
+        {"app_devmgmt",  "Device Manager",    "Hardware tree, device drivers & peripherals",        SearchCategoryType::Apps, IconId::DeviceManager, "devmgmt", ""},
 
         // Settings
         {"set_theme",    "Personalization",   "Themes, accent color palette & wallpaper style", SearchCategoryType::Settings, IconId::Personalization, "settings", "personalize"},

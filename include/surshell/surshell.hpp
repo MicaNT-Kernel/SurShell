@@ -37,6 +37,7 @@
 #include "image_viewer.hpp"
 #include "paint.hpp"
 #include "sysinfo.hpp"
+#include "devicemanager.hpp"
 
 namespace surshell {
 
@@ -102,6 +103,7 @@ public:
     uint32_t openImageViewerWindow(std::string imagePath = "");
     uint32_t openPaintWindow(std::string filePath = "");
     uint32_t openSystemInfoWindow();
+    uint32_t openDeviceManagerWindow();
 
     // Master Render Loop
     void render();

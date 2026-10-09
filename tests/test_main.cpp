@@ -2024,6 +2024,92 @@ void Test_System_Information_Application() {
     std::cout << "[TEST] Suite 30: Sovereign System Information & Diagnostics PASSED.\n";
 }
 
+void Test_Device_Manager_Application() {
+    std::cout << "[TEST] Running Suite 31: Sovereign Device Manager & Hardware Tree (devmgmt.msc)...\n";
+
+    surshell::DeviceManagerContent devMgr;
+
+    // 1. Initial State & Hardware Discovery
+    TEST_ASSERT(devMgr.categoryCount() >= 8, "Device Manager contains at least 8 hardware categories");
+    TEST_ASSERT(devMgr.totalDeviceCount() >= 12, "Device Manager contains at least 12 discovered devices");
+
+    bool hasProcessors = false;
+    bool hasDisplay = false;
+    bool hasNetwork = false;
+    bool hasDisk = false;
+    for (const auto& cat : devMgr.categories()) {
+        if (cat.id == "processors") hasProcessors = true;
+        if (cat.id == "display") hasDisplay = true;
+        if (cat.id == "network") hasNetwork = true;
+        if (cat.id == "disk") hasDisk = true;
+    }
+    TEST_ASSERT(hasProcessors, "Contains Processors category");
+    TEST_ASSERT(hasDisplay, "Contains Display category");
+    TEST_ASSERT(hasNetwork, "Contains Network category");
+    TEST_ASSERT(hasDisk, "Contains Disk category");
+
+    // 2. Expand and Collapse Tree Navigation
+    devMgr.toggleCategory("processors");
+    devMgr.collapseAll();
+    for (const auto& cat : devMgr.categories()) {
+        TEST_ASSERT(!cat.isExpanded, "Category is collapsed after collapseAll");
+    }
+    devMgr.expandAll();
+    for (const auto& cat : devMgr.categories()) {
+        TEST_ASSERT(cat.isExpanded, "Category is expanded after expandAll");
+    }
+
+    // 3. Search and Device Filter
+    devMgr.setFilterQuery("GeForce");
+    TEST_ASSERT(devMgr.filterQuery() == "GeForce", "Filter query set to GeForce");
+    devMgr.setFilterQuery("");
+    TEST_ASSERT(devMgr.filterQuery().empty(), "Filter query cleared");
+
+    // 4. Device Selection and Toggle Enable / Disable
+    devMgr.selectDevice("disp_gpu");
+    const auto* dev = devMgr.selectedDevice();
+    TEST_ASSERT(dev != nullptr, "Found selected device disp_gpu");
+    TEST_ASSERT(dev->isEnabled, "Device initially enabled");
+
+    devMgr.toggleSelectedDeviceEnabled();
+    dev = devMgr.selectedDevice();
+    TEST_ASSERT(dev != nullptr && !dev->isEnabled, "Device toggled to disabled");
+    TEST_ASSERT(dev->status.find("Code 22") != std::string::npos, "Disabled device status contains Code 22");
+
+    devMgr.toggleSelectedDeviceEnabled();
+    dev = devMgr.selectedDevice();
+    TEST_ASSERT(dev != nullptr && dev->isEnabled, "Device re-enabled");
+    TEST_ASSERT(dev->status.find("Code 0") != std::string::npos, "Enabled device status contains Code 0");
+
+    // 5. Modal Properties Dialog
+    TEST_ASSERT(!devMgr.isPropertiesDialogOpen(), "Properties dialog starts closed");
+    devMgr.openPropertiesDialog();
+    TEST_ASSERT(devMgr.isPropertiesDialogOpen(), "Properties dialog opened");
+    devMgr.closePropertiesDialog();
+    TEST_ASSERT(!devMgr.isPropertiesDialogOpen(), "Properties dialog closed");
+
+    // 6. Surface Rendering
+    surshell::Surface clientSurf(860, 580);
+    devMgr.render(clientSurf);
+    TEST_ASSERT(clientSurf.width() == 860 && clientSurf.height() == 580, "Device Manager rendered to 860x580 surface");
+
+    // 7. Desktop Coordinator Integration
+    surshell::SurShellDesktop shell(1920, 1080);
+    const uint32_t devWinId = shell.openDeviceManagerWindow();
+    TEST_ASSERT(devWinId != 0, "openDeviceManagerWindow spawned valid window");
+    auto* win = shell.windowManager().findWindow(devWinId);
+    TEST_ASSERT(win != nullptr, "Device Manager window found in WindowManager");
+    TEST_ASSERT(win->title.find("Device Manager") != std::string::npos, "Window title is Device Manager");
+    TEST_ASSERT(win->iconId == surshell::IconId::DeviceManager, "Window icon matches IconId::DeviceManager");
+
+    // 8. Icon and App ID Mappings
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("devmgmt") == surshell::IconId::DeviceManager, "iconForAppId('devmgmt') matches DeviceManager");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("devmgmt.msc") == surshell::IconId::DeviceManager, "iconForAppId('devmgmt.msc') matches DeviceManager");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("devices") == surshell::IconId::DeviceManager, "iconForAppId('devices') matches DeviceManager");
+
+    std::cout << "[TEST] Suite 31: Sovereign Device Manager & Hardware Tree PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -2060,9 +2146,11 @@ int main() {
     Test_Notepad_Interactive_Editor_And_Telemetry();
     Test_Paint_Studio_And_Vector_Canvas();
     Test_System_Information_Application();
+    Test_Device_Manager_Application();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 30 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 31 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }
+

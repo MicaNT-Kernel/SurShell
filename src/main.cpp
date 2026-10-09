@@ -774,7 +774,24 @@ int runSnapshotPipeline() {
         std::cout << "  -> Exported: surshell_system_information.bmp (1920x1080 32-bpp)\n";
     }
 
-    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (30 high-resolution scenes generated).\n";
+    // ------------------------------------------------------------------------
+    // Scene 30: Sovereign Device Manager & Hardware Tree (devmgmt.msc Parity)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 30: Sovereign Device Manager & Hardware Tree...\n";
+    const uint32_t devWin = shell.openDeviceManagerWindow();
+    shell.windowManager().setWindowActive(devWin);
+    if (auto* w = shell.windowManager().findWindow(devWin)) {
+        if (auto devMgr = std::dynamic_pointer_cast<surshell::DeviceManagerContent>(w->content)) {
+            devMgr->selectDevice("disp_gpu");
+            devMgr->render(w->clientSurface);
+        }
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_device_manager.bmp")) {
+        std::cout << "  -> Exported: surshell_device_manager.bmp (1920x1080 32-bpp)\n";
+    }
+
+    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (31 high-resolution scenes generated).\n";
     return 0;
 }
 

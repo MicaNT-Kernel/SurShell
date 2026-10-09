@@ -35,6 +35,7 @@ set(SURSHELL_SOURCES
     src/image_viewer.cpp
     src/paint.cpp
     src/sysinfo.cpp
+    src/devicemanager.cpp
     src/surshell.cpp
 )
 

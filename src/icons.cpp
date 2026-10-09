@@ -218,6 +218,9 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
         case IconId::SystemInfo:
             drawSystemInfo(surface, bounds, tintOverride);
             break;
+        case IconId::DeviceManager:
+            drawDeviceManager(surface, bounds, tintOverride);
+            break;
         case IconId::CloudDrive:
             drawCloudDrive(surface, bounds, tintOverride);
             break;
@@ -268,6 +271,7 @@ IconId IconRenderer::iconForAppId(std::string_view appId) {
     if (appId == "photos" || appId == "image_viewer" || appId == "image" || appId == "viewer") return IconId::ImageViewer;
     if (appId == "paint" || appId == "mspaint" || appId == "draw" || appId == "canvas") return IconId::Paint;
     if (appId == "sysinfo" || appId == "msinfo32" || appId == "systeminfo" || appId == "specs" || appId == "system_information" || appId == "msinfo") return IconId::SystemInfo;
+    if (appId == "devmgmt" || appId == "devmgmt.msc" || appId == "devices" || appId == "devicemanager" || appId == "device_manager") return IconId::DeviceManager;
     if (appId == "cloud" || appId == "gdrive" || appId == "google_drive") return IconId::CloudDrive;
     if (appId == "nas" || appId == "share" || appId == "storage") return IconId::NetworkShare;
     if (appId == "cd" || appId == "dvd" || appId == "optical") return IconId::OpticalDrive;
@@ -1652,6 +1656,59 @@ void IconRenderer::drawSystemInfo(Surface& s, Rect r, std::optional<Color> tint)
     if (core.width >= 4 && core.height >= 4) {
         s.putPixel(cx, cy - 1, Color::fromHex(0x00D4FF));
         s.putPixel(cx, cy + 1, Color::fromHex(0x00D4FF));
+    }
+}
+
+void IconRenderer::drawDeviceManager(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color frameCol = tint.value_or(Color::fromHex(0x38BDF8));
+    const int32_t pad = std::max(1, r.width / 12);
+    
+    // 1. Desktop Monitor / System Case Backdrop (top left)
+    const int32_t monW = (r.width * 7) / 10;
+    const int32_t monH = (r.height * 6) / 10;
+    const Rect monRect{r.x + pad, r.y + pad, monW, monH};
+    s.drawRoundedRect(monRect, 2, Color::fromHex(0x1E293B), true);
+    s.drawRoundedRect(monRect, 2, frameCol, false);
+    
+    // Screen display area with cyan/green gridline
+    const Rect monScreen{monRect.x + 2, monRect.y + 2, monRect.width - 4, monRect.height - 4};
+    s.fillRect(monScreen, Color::fromHex(0x0C1422));
+    if (monScreen.height >= 4) {
+        s.fillRect(Rect{monScreen.x + 1, monScreen.y + monScreen.height / 2, monScreen.width - 2, 1}, Color::fromHex(0x00FF9D));
+    }
+
+    // Monitor stand foot
+    const int32_t standW = std::max(3, monW / 3);
+    const int32_t standX = monRect.centerX() - standW / 2;
+    s.fillRect(Rect{standX, monRect.bottom(), standW, 2}, Color::fromHex(0x64748B));
+
+    // 2. Hardware Expansion Card / Chip in Foreground (bottom right)
+    const int32_t cardW = (r.width * 7) / 10;
+    const int32_t cardH = (r.height * 6) / 10;
+    const Rect cardRect{r.right() - cardW - pad, r.bottom() - cardH - pad, cardW, cardH};
+    
+    // Card PCB body (Dark emerald green / slate)
+    s.drawRoundedRect(cardRect, 2, Color::fromHex(0x064E3B), true);
+    s.drawRoundedRect(cardRect, 2, Color::fromHex(0x10B981), false);
+
+    // Golden PCIe / Bus connector teeth at bottom
+    if (cardRect.width >= 8) {
+        const int32_t teethY = cardRect.bottom() - 2;
+        for (int32_t tx = cardRect.x + 2; tx < cardRect.right() - 2; tx += 2) {
+            s.putPixel(tx, teethY, Color::fromHex(0xF59E0B));
+        }
+    }
+
+    // Microchip mounted on PCB
+    const int32_t chipW = std::max(3, cardRect.width / 2);
+    const int32_t chipH = std::max(3, cardRect.height / 2);
+    const Rect chipRect{cardRect.centerX() - chipW / 2, cardRect.centerY() - chipH / 2, chipW, chipH};
+    s.drawRoundedRect(chipRect, 1, Color::fromHex(0x0F172A), true);
+    s.drawRoundedRect(chipRect, 1, Color::fromHex(0x38BDF8), false);
+
+    // Silicon dot / activity LED
+    if (chipRect.width >= 3 && chipRect.height >= 3) {
+        s.putPixel(chipRect.centerX(), chipRect.centerY(), Color::fromHex(0x00FF9D));
     }
 }
 
