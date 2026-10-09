@@ -2631,6 +2631,16 @@ void Test_Winget_Pkgs_Repo_Settings_And_StartMenu_Catalog() {
     }
     TEST_ASSERT(foundWingetPkgs, "winget-pkgs repository source present");
 
+    bool foundMicaNtApps = false;
+    for (const auto& src : engine.getSources()) {
+        if (src.name == "micant-apps") {
+            foundMicaNtApps = true;
+            TEST_ASSERT(src.argument == "https://github.com/MicaNT-Kernel/micant-apps", "micant-apps points to native Win32 repository");
+            break;
+        }
+    }
+    TEST_ASSERT(foundMicaNtApps, "micant-apps Win32 repository source present");
+
     TEST_ASSERT(engine.getActiveSource() == "winget-pkgs", "Default active repository source is winget-pkgs");
     engine.setActiveSource("sovereign");
     TEST_ASSERT(engine.getActiveSource() == "sovereign", "Active repository changed to sovereign");
@@ -2811,7 +2821,7 @@ void Test_Wsa_Subsystem_And_Aosp_Store() {
     // 4. JSON Serialization & Deserialization (MicaNT-Kernel Community Repo Schema)
     std::string jsonCatalog = catalog.exportJson();
     TEST_ASSERT(jsonCatalog.find("\"parent_entity\": \"Barrer Software\"") != std::string::npos, "JSON contains parent entity Barrer Software");
-    TEST_ASSERT(jsonCatalog.find("\"repository\": \"MicaNT-Kernel/micant-apps\"") != std::string::npos, "JSON points to MicaNT-Kernel/micant-apps repo");
+    TEST_ASSERT(jsonCatalog.find("\"repository\": \"MicaNT-Kernel/wsa-app\"") != std::string::npos, "JSON points to MicaNT-Kernel/wsa-app repo");
     TEST_ASSERT(jsonCatalog.find("\"org.videolan.vlc\"") != std::string::npos, "JSON contains VLC package");
 
     surshell::WsaCatalog loadedCatalog;
@@ -2905,7 +2915,7 @@ void Test_Wsa_Subsystem_And_Aosp_Store() {
     bool handledWsaBadgeClick = appHub.onMouseDown(wsaBadgePt, surshell::MouseButton::Left);
     TEST_ASSERT(handledWsaBadgeClick, "onMouseDown handled WSA status badge click");
 
-    // Settings View Section 4 (MicaNT-Kernel/micant-apps sync button)
+    // Settings View Section 4 (MicaNT-Kernel/wsa-app sync button)
     appHub.setCategory(surshell::AppHubCategory::Settings);
     appHub.render(hubSurface);
     TEST_ASSERT(appHub.syncWsaRepoBtnBounds().width > 0, "syncWsaRepoBtnBounds computed in settings layout");

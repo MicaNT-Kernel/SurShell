@@ -6,7 +6,7 @@
 //
 // Organization: Barrer Software | Ecosystem: MicaNT-Kernel (GitHub)
 // Subsystem: Pure AOSP runtime compliance (Apache 2.0 clean-room target)
-// Distribution: Public GitHub Manifest Repository (MicaNT-Kernel/micant-apps)
+// Distribution: Public GitHub Manifest Repository (MicaNT-Kernel/wsa-app)
 //
 // Legal & Clean-Room Guarantees:
 //   - Zero proprietary Google Play binaries (Phonesky.apk) or GMS dependencies
@@ -92,7 +92,7 @@ public:
 
 private:
     std::vector<WsaPackageManifest> packages_{};
-    std::string remoteCatalogEndpoint_{"https://raw.githubusercontent.com/MicaNT-Kernel/micant-apps/main/catalog.json"};
+    std::string remoteCatalogEndpoint_{"https://raw.githubusercontent.com/MicaNT-Kernel/wsa-app/main/catalog.json"};
     mutable std::mutex mutex_{};
 };
 

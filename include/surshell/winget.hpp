@@ -823,6 +823,7 @@ public:
 
 private:
     void seedDefaultSources() {
+        m_sources.push_back({"micant-apps", "https://github.com/MicaNT-Kernel/micant-apps", "MicaNT.Native.Win32ManifestTree", true});
         m_sources.push_back({"winget-pkgs", "https://github.com/microsoft/winget-pkgs", "Microsoft.Git.ManifestTree", true});
         m_sources.push_back({"sovereign", "local://catalog/repo.idx", "Sovereign.LocalIndex", true});
         m_sources.push_back({"winget", "https://cdn.winget.microsoft.com/cache", "Microsoft.PreIndexed.Package", false});

@@ -350,7 +350,7 @@ void AppHubContent::updateLayout(int32_t width, int32_t height) {
         syncUpstreamBtnBounds_ = Rect{catalogAreaBounds_.x + cardW - 276, sec3Y + 22, 130, 30};
         resetDefaultsBtnBounds_ = Rect{catalogAreaBounds_.x + cardW - 136, sec3Y + 22, 136, 30};
 
-        // Section 4: Barrer Software MicaNT AOSP Manifest Repository (MicaNT-Kernel/micant-apps)
+        // Section 4: Barrer Software MicaNT AOSP Manifest Repository (MicaNT-Kernel/wsa-app)
         const int32_t sec4Y = sec3Y + 68;
         syncWsaRepoBtnBounds_ = Rect{catalogAreaBounds_.x + cardW - 196, sec4Y + 22, 196, 30};
 
@@ -650,7 +650,8 @@ void AppHubContent::renderSettingsView(Surface& clientSurface, int32_t width, in
 
         // Name
         std::string dispName = sc.name;
-        if (sc.name == "winget-pkgs") dispName = "microsoft/winget-pkgs (Official Community Repository)";
+        if (sc.name == "micant-apps") dispName = "MicaNT-Kernel/micant-apps (Official MicaNT Win32 App Repository)";
+        else if (sc.name == "winget-pkgs") dispName = "microsoft/winget-pkgs (Official Community Repository)";
         else if (sc.name == "sovereign") dispName = "Sovereign Retail Mirror (Clean-Room Certified NT)";
         else if (sc.name == "winget") dispName = "winget CDN Pre-Indexed Cache";
         else if (sc.name == "msstore") dispName = "Microsoft Store REST API";
@@ -732,7 +733,7 @@ void AppHubContent::renderSettingsView(Surface& clientSurface, int32_t width, in
     // Section 4: MicaNT AOSP Manifest Repository (Barrer Software)
     const int32_t sec4Y = sec3Y + 68;
     clientSurface.drawString(catalogAreaBounds_.x, sec4Y,
-                             "BARRER SOFTWARE / MICANT AOSP REPOSITORY (MicaNT-Kernel/micant-apps)", palette.prismAccent, 1);
+                             "BARRER SOFTWARE / MICANT AOSP REPOSITORY (MicaNT-Kernel/wsa-app)", palette.prismAccent, 1);
     clientSurface.fillRect(Rect{catalogAreaBounds_.x, sec4Y + 16, catalogAreaBounds_.width, 1},
                            Color::fromHex(0x1E293B));
 
@@ -740,7 +741,7 @@ void AppHubContent::renderSettingsView(Surface& clientSurface, int32_t width, in
     clientSurface.drawRoundedRect(wsaRepoBox, 4, Color::fromHex(0x131C2A), true);
     clientSurface.drawRoundedRect(wsaRepoBox, 4, Color::fromHex(0x28384E), false);
     clientSurface.drawString(wsaRepoBox.x + 10, wsaRepoBox.y + 8,
-                             "https://raw.githubusercontent.com/MicaNT-Kernel/micant-apps/main/catalog.json",
+                             "https://raw.githubusercontent.com/MicaNT-Kernel/wsa-app/main/catalog.json",
                              Color::fromHex(0x34D399), 1);
 
     const Color syncWsaBg = isSyncWsaRepoHovered_ ? Color::fromHex(0x10B981) : Color::fromHex(0x059669);
@@ -810,7 +811,7 @@ bool AppHubContent::onMouseDown(Point localPt, MouseButton button) {
             updateFilter();
             if (installCallback_) {
                 installCallback_("AOSP Repository Synced",
-                                 "Synced " + std::to_string(wsaCatalog_.size()) + " clean-room AOSP manifests from MicaNT-Kernel/micant-apps.",
+                                 "Synced " + std::to_string(wsaCatalog_.size()) + " clean-room AOSP manifests from MicaNT-Kernel/wsa-app.",
                                  true);
             }
             return true;

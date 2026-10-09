@@ -6,7 +6,7 @@
 //
 // Organization: Barrer Software | Ecosystem: MicaNT-Kernel (GitHub)
 // Subsystem: Pure AOSP runtime compliance (Apache 2.0 clean-room target)
-// Distribution: Public GitHub Manifest Repository (MicaNT-Kernel/micant-apps)
+// Distribution: Public GitHub Manifest Repository (MicaNT-Kernel/wsa-app)
 // ============================================================================
 
 #include "surshell/wsa.hpp"
@@ -524,7 +524,7 @@ std::string WsaCatalog::exportToJson(bool minified) const {
     const std::string nl = minified ? "" : "\n";
 
     oss << "{" << nl;
-    oss << indent << "\"repository\": \"MicaNT-Kernel/micant-apps\"," << nl;
+    oss << indent << "\"repository\": \"MicaNT-Kernel/wsa-app\"," << nl;
     oss << indent << "\"parent_entity\": \"Barrer Software\"," << nl;
     oss << indent << "\"subsystem\": \"Windows Subsystem for Android (WSA)\"," << nl;
     oss << indent << "\"packages\": [" << nl;
