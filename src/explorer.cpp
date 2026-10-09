@@ -89,7 +89,7 @@ void FileExplorer::refreshDrives() {
             kind = DriveKind::Fixed;
             icon = (letter == 'C') ? IconId::LocalDisk : IconId::DriveStorage;
             if (volName.empty()) {
-                label = (letter == 'C' ? "Windows (" : "Storage (") + std::string(1, letter) + ":)";
+                label = (letter == 'C' ? "MicaNT (" : "Storage (") + std::string(1, letter) + ":)";
             } else {
                 label = volName + " (" + std::string(1, letter) + ":)";
             }
@@ -161,7 +161,7 @@ void FileExplorer::refreshDrives() {
     if (drives_.empty()) {
         drives_.push_back(DriveInfo{
             .rootPath = "C:\\",
-            .label = "Windows (C:)",
+            .label = "MicaNT (C:)",
             .subtitle = "NTFS Volume",
             .kind = DriveKind::Fixed,
             .iconId = IconId::LocalDisk,
@@ -1026,7 +1026,7 @@ bool FileExplorer::deleteSelected() {
 
     bool deleted = false;
 #if defined(_WIN32)
-    // Send to Windows Recycle Bin via SHFileOperationW
+    // Send to Recycle Bin via SHFileOperationW
     int wlen = MultiByteToWideChar(CP_UTF8, 0, itemPath.c_str(), -1, nullptr, 0);
     if (wlen > 0) {
         std::wstring wpath;
@@ -1713,7 +1713,7 @@ void FileExplorer::render(Surface& clientSurface) {
     const int32_t height = static_cast<int32_t>(clientSurface.height());
 
     // ------------------------------------------------------------------------
-    // Layer 1: Windows 11-Style Multi-Tab Bar (y = 0 to 32)
+    // Layer 1: Sovereign Multi-Tab Bar (y = 0 to 32)
     // ------------------------------------------------------------------------
     clientSurface.fillRect(Rect{0, 0, width, 32}, Color::fromRgba(14, 20, 32, 255));
     clientSurface.fillRect(Rect{0, 31, width, 1}, Color::fromRgba(38, 52, 78, 200));
@@ -1816,7 +1816,7 @@ void FileExplorer::render(Surface& clientSurface) {
     }
 
     // ------------------------------------------------------------------------
-    // Layer 3: Modern Windows 11 Command Ribbon Bar (y = 66 to 98)
+    // Layer 3: Modern Sovereign Command Ribbon Bar (y = 66 to 98)
     // ------------------------------------------------------------------------
     clientSurface.fillRect(Rect{0, 66, width, 32}, Color::fromRgba(16, 22, 36, 240));
     clientSurface.fillRect(Rect{0, 97, width, 1}, Color::fromRgba(38, 52, 78, 160));
@@ -2203,7 +2203,7 @@ void FileExplorer::render(Surface& clientSurface) {
             const auto& sel = tab.visibleItems[static_cast<size_t>(tab.selectedIndex)];
             statusText += "  |  1 item selected (" + (sel.isDirectory ? "Folder" : formatBytes(sel.sizeBytes)) + ")";
         }
-        statusText += "  |  Dave Cutler Clean-Room IFS Provider";
+        statusText += "  |  Barrer Software Clean-Room IFS Provider";
         clientSurface.drawString(12, statusBar.y + 6, statusText, palette.textSecondary, 1);
     }
 

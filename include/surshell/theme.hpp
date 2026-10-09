@@ -53,7 +53,7 @@ struct ThemePalette {
     Color taskbarItemBg{Color::fromRgba(24, 34, 52, 140)};
     Color taskbarItemHover{Color::fromRgba(42, 60, 92, 200)};
     Color taskbarItemActive{Color::fromRgba(52, 76, 116, 230)};
-    Color taskbarItemIndicator{Color::fromHex(0x00D4FF)}; // Cutler Cyan
+    Color taskbarItemIndicator{Color::fromHex(0x00D4FF)}; // Barrer Cyan
 
     // Prism Emblem & Accents
     Color prismAccent{Color::fromHex(0x00D4FF)};

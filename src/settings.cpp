@@ -14,7 +14,7 @@ SettingsContent::SettingsContent() {
     deviceName_ = KernelBridge::queryComputerName();
 
     accentColors_ = {
-        {"Cutler Cyan",   Color::fromHex(0x00D4FF), {}},
+        {"Barrer Cyan",   Color::fromHex(0x00D4FF), {}},
         {"Emerald Neon",  Color::fromHex(0x00FF9D), {}},
         {"Solar Amber",   Color::fromHex(0xFFB703), {}},
         {"Crimson Coral", Color::fromHex(0xFF4D6D), {}},
@@ -83,7 +83,7 @@ void SettingsContent::executeSearchFilter() {
                lowerQ.find("taskmgr") != std::string::npos) {
         activeCategory_ = SettingsCategory::Developer;
     } else if (lowerQ.find("about") != std::string::npos || lowerQ.find("spec") != std::string::npos ||
-               lowerQ.find("build") != std::string::npos || lowerQ.find("cutler") != std::string::npos ||
+               lowerQ.find("build") != std::string::npos || lowerQ.find("barrer") != std::string::npos ||
                lowerQ.find("rename") != std::string::npos) {
         activeCategory_ = SettingsCategory::About;
     }
@@ -426,7 +426,7 @@ void SettingsContent::renderTaskbarPage(Surface& s, const ThemePalette& palette,
     curY += 46;
 
     // 3. Top Diagnostic Header Bar
-    s.drawString(startX, curY, "Architectural Diagnostic Bar (Cutler IRQL 0 HUD)", palette.textSecondary, 1);
+    s.drawString(startX, curY, "Architectural Diagnostic Bar (Barrer IRQL 0 HUD)", palette.textSecondary, 1);
     curY += 18;
 
     btnTopBar_ = Rect{startX, curY, 210, btnH};
@@ -549,7 +549,7 @@ void SettingsContent::renderAppsPage(Surface& s, const ThemePalette& palette, Re
     IconRenderer::draw(s, IconId::FolderOpen, Point{catCard.x + 16, catCard.y + 14}, 20, palette.accentColor);
     s.drawString(catCard.x + 46, catCard.y + 16, "Installed Sovereign Applications Catalog", palette.textPrimary, 1);
 
-    s.drawString(catCard.x + 16, catCard.y + 44,  "* Windows Terminal System (cmd/pwsh)    | Pure C++23 | 4.2 MB", palette.textSecondary, 1);
+    s.drawString(catCard.x + 16, catCard.y + 44,  "* Sovereign Terminal System (cmd/pwsh)    | Pure C++23 | 4.2 MB", palette.textSecondary, 1);
     s.drawString(catCard.x + 16, catCard.y + 62,  "* Sovereign File Explorer (Tabs/Nav)    | Pure C++23 | 3.8 MB", palette.textSecondary, 1);
     s.drawString(catCard.x + 16, catCard.y + 80,  "* Modern Sovereign Calculator (Acrylic) | Pure C++23 | 1.4 MB", palette.textSecondary, 1);
     s.drawString(catCard.x + 16, catCard.y + 98,  "* Sovereign Registry Editor (regedit)   | Pure C++23 | 1.8 MB", Color::fromHex(0x00FF9D), 1);
@@ -574,7 +574,7 @@ void SettingsContent::renderPrivacyPage(Surface& s, const ThemePalette& palette,
     btnDmaProtect_ = Rect{secCard.x + 196, secCard.y + 56, 180, 26};
     drawPill(s, btnCoreIsolation_, coreIsolationHvci_ ? "HVCI Enclave: ACTIVE" : "HVCI: OFF", coreIsolationHvci_, palette);
     drawPill(s, btnDmaProtect_, kernelDmaProtect_ ? "Kernel DMA: ENABLED" : "DMA: OFF", kernelDmaProtect_, palette);
-    s.drawString(secCard.x + 16, secCard.y + 88, "Dave Cutler Microkernel Enclave Level 0 | Zero Vulnerabilities", palette.textSecondary, 1);
+    s.drawString(secCard.x + 16, secCard.y + 88, "Barrer Software & MicaNT Community Kernel Enclave Level 0 | Zero Vulnerabilities", palette.textSecondary, 1);
 
     curY += 122;
 
@@ -685,7 +685,7 @@ void SettingsContent::renderDeveloperPage(Surface& s, const ThemePalette& palett
     s.drawRoundedRect(lpcCard, 8, Color::fromHex(0x283850), false);
 
     IconRenderer::draw(s, IconId::TerminalTab, Point{lpcCard.x + 16, lpcCard.y + 16}, 24, palette.accentColor);
-    s.drawString(lpcCard.x + 50, lpcCard.y + 18, "Kernel LPC Port Diagnostics (Dave Cutler CSRSS Parity)", palette.textPrimary, 1);
+    s.drawString(lpcCard.x + 50, lpcCard.y + 18, "Kernel LPC Port Diagnostics (Barrer Software LPC Engine)", palette.textPrimary, 1);
     s.drawString(lpcCard.x + 16, lpcCard.y + 46, "Port: \\RPC_Control\\SurWinLpc  |  Messages Handled: 14,892", palette.textSecondary, 1);
     s.drawString(lpcCard.x + 16, lpcCard.y + 64, "Thread Dispatches: 38,401   |  Avg Dispatch Latency: 0.65 us", Color::fromHex(0x00FF9D), 1);
 
@@ -741,9 +741,9 @@ void SettingsContent::renderAboutPage(Surface& s, const ThemePalette& palette, R
     s.drawRoundedRect(certR, 8, Color::fromHex(0x283850), false);
 
     IconRenderer::draw(s, IconId::ShieldAdmin, Point{certR.x + 16, certR.y + 16}, 24, Color::fromHex(0x00FF9D));
-    s.drawString(certR.x + 50, certR.y + 18, "Clean-Room Legal Provenance & Architecture Tribute", palette.textPrimary, 1);
+    s.drawString(certR.x + 50, certR.y + 18, "Clean-Room Legal Provenance & Authorship", palette.textPrimary, 1);
     s.drawString(certR.x + 16, certR.y + 48, "Engineered independently with zero proprietary binaries or copyright code.", palette.textSecondary, 1);
-    s.drawString(certR.x + 16, certR.y + 68, "Dedicated in honor of Dave Cutler: Architect of VMS and Windows NT.", Color::fromHex(0x00D4FF), 1);
+    s.drawString(certR.x + 16, certR.y + 68, "Engineered by Barrer Software and the MicaNT Community.", Color::fromHex(0x00D4FF), 1);
 }
 
 bool SettingsContent::onMouseDown(Point localPt, MouseButton button) {

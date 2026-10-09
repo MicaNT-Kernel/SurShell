@@ -10,17 +10,17 @@ To ensure complete legal, ethical, and architectural integrity:
 2. **Black-Box Functional Alignment**: SurShell is architected exclusively from:
    - Officially published MSDN and Microsoft Learn technical documentation.
    - Public standard specifications (`win32metadata`, ISO/IEC 14882:2023 C++ standard).
-   - Historical literature chronicling Dave Cutler's design philosophy (e.g., G. Pascal Zachary's *Showstopper!*, Helen Custer's *Inside Windows NT*).
+   - Public computing literature and architectural textbooks on executive systems and microkernel design.
    - Mathematical and computer graphics algorithms for 2D software rendering (Porter-Duff compositing, Bresenham line rasterization, bilinear interpolation).
 3. **Freestanding Independence**: SurShell contains its own self-contained rasterizer, math types, event dispatching, and windowing abstractions without relying on proprietary platform SDK runtime libraries or undisclosed DLL entry points.
 
 ---
 
-## 2. Taxonomy Alignment with Dave Cutler's Heritage
+## 2. Taxonomy Alignment with Sovereign Heritage
 
 As documented in `MicaNT/docs/SOVEREIGN_TAXONOMY.md`:
 
-| Component | Historical Cutler NT Codename | SurShell Clean-Room Equivalent | Description |
+| Component | Historical NT Codename | SurShell Clean-Room Equivalent | Description |
 | :--- | :--- | :--- | :--- |
 | **Shell & Desktop** | `SUR` / `SurWin` (Shell Update Release) | **SurShell** | Modern C++23 sovereign desktop shell and compositor |
 | **Taskbar** | `Shell_TrayWnd` | `surshell::Taskbar` | Application anchor, clock, running task indicators |

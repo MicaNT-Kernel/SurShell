@@ -13,7 +13,7 @@ SearchHub::SearchHub() {
     allCatalog_ = {
         // Apps
         {"app_calc",     "Calculator",        "Standard arithmetic and function modifiers", SearchCategoryType::Apps, IconId::Calculator,   "calc",     ""},
-        {"app_cmd",      "Command Prompt",    "Sovereign Windows Terminal and command CLI", SearchCategoryType::Apps, IconId::Terminal,     "cmd",      ""},
+        {"app_cmd",      "Command Prompt",    "Sovereign Terminal and command CLI", SearchCategoryType::Apps, IconId::Terminal,     "cmd",      ""},
         {"app_explorer", "File Explorer",     "Browse sovereign directories, libraries & drives", SearchCategoryType::Apps, IconId::FileExplorer, "explorer", "C:\\Users\\admin"},
         {"app_taskmgr",  "Task Manager",      "System vitals, memory graphs & process monitor", SearchCategoryType::Apps, IconId::TaskManager,  "taskmgr",  ""},
         {"app_settings", "Settings",          "System personalization, themes & hardware info", SearchCategoryType::Apps, IconId::Settings,     "settings", ""},

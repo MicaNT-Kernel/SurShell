@@ -6,7 +6,7 @@
 [![Target: MicaNT Sovereign](https://img.shields.io/badge/Target-MicaNT_Sovereign_Kernel-00D4FF.svg)](https://github.com/MicaNT-Kernel)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/MicaNT-Kernel/SurShell/ci.yml?branch=main&label=CI%20(Windows%20%2B%20Linux))](https://github.com/MicaNT-Kernel/SurShell/actions)
 
-**SurShell** is the sovereign, clean-room modern desktop environment and user shell for the **MicaNT** operating system. Named in tribute to Dave Cutler's historic Windows NT 4.0 **"SUR" (Shell Update Release)** initiative, SurShell delivers an ultra-responsive, zero-telemetry, memory-efficient desktop shell engineered from scratch in pure standard ISO C++23.
+**SurShell** is the sovereign, clean-room modern desktop environment and user shell for the **MicaNT** operating system. SurShell delivers an ultra-responsive, zero-telemetry, memory-efficient sovereign desktop shell engineered from scratch in pure standard ISO C++23 by **Barrer Software** and the **MicaNT Community**.
 
 SurShell implements the **"Mica Prism" Modern 2026 Sovereign Design Language**: centered floating island docks, detached tactile start hubs, 2D procedural vector iconography, and intelligent Snap Layout multitasking—engineered 100% clean-room with **zero copyright or trademark infringement**.
 
@@ -44,7 +44,7 @@ SurShell implements the **"Mica Prism" Modern 2026 Sovereign Design Language**: 
 ```
 
 ### Why SurShell?
-1. **Dave Cutler "SUR" Heritage**: Following Dave Cutler's internal engineering codename for the classic NT shell update, SurShell captures the lean, bulletproof reliability of classic NT while bringing modern 2026 aesthetics (Mica, Acrylic, Cutler Cyan accent).
+1. **Sovereign SUR Heritage**: Engineered by Barrer Software and the MicaNT Community, SurShell captures the lean, bulletproof reliability of sovereign NT architecture while bringing modern 2026 aesthetics (Mica, Acrylic, Barrer Cyan accent).
 2. **Absolute Zero Telemetry**: 100% local execution. No telemetry services, no ad injection, no background tracking daemons, no remote beacons.
 3. **Extreme Resource Efficiency**: Runs comfortably within **<15 MB RAM** at idle. No Electron, no WebView2, no bloated JavaScript runtime.
 4. **Clean-Room Vector Iconography**: Zero proprietary Microsoft icons or Segoe fonts. 100% original procedural vector glyphs (Mica Prism crystal, terminal cards, pulse waveforms, sovereign shields, mesh graphs).
@@ -71,7 +71,7 @@ SurShell implements the **"Mica Prism" Modern 2026 Sovereign Design Language**: 
 
 ### 📊 Centered Floating Taskbar (`surshell::Taskbar`)
 - Dual-island floating dock:
-  - **App Island**: Centered horizontally with 12px rounded corners, holding the vector **Mica Prism** start button and running task buttons with Cutler Cyan (`#00D4FF`) active indicator pills.
+  - **App Island**: Centered horizontally with 12px rounded corners, holding the vector **Mica Prism** start button and running task buttons with Barrer Cyan (`#00D4FF`) active indicator pills.
   - **Tray Island**: Floating pill on the right for NetBird Mesh VPN status, Zero-Telemetry security shield, volume, and clock.
 - Configurable alignment: `TaskbarAlignment::Center` (modern 2026) or `TaskbarAlignment::Left` (classic SUR).
 
@@ -79,7 +79,7 @@ SurShell implements the **"Mica Prism" Modern 2026 Sovereign Design Language**: 
 - Centered floating card with 14px rounded corners and 18px soft drop shadow.
 - Integrated modern search pill with live fuzzy filtering across app IDs, titles, and executable paths.
 - Tactile 2-column card grid with rich subtitles (e.g., "Command Prompt - Sovereign NT C++23 CLI").
-- Bottom user profile footer (`admin` / active host user) and Cutler power action buttons (Lock, Sleep, Restart, Shutdown).
+- Bottom user profile footer (`admin` / active host user) and sovereign power action buttons (Lock, Sleep, Restart, Shutdown).
 
 ### 📁 Sovereign File Explorer (`surshell::FileExplorer`)
 - Freestanding cabinet explorer with breadcrumb address bar.
@@ -106,7 +106,7 @@ SurShell implements the **"Mica Prism" Modern 2026 Sovereign Design Language**: 
 - Hotkey and dock-level switching between isolated workflow environments.
 
 ### 🌉 MicaNT Executive LPC Syscall Bridge (`surshell::KernelBridge`)
-- Clean-room Win32 / NT executive syscall abstraction conforming to Dave Cutler's `SurWin` (`micant::surwin`, `micant::user32`, `micant::csrss`).
+- Clean-room sovereign NT executive syscall abstraction (`micant::surwin`, `micant::user32`, `micant::csrss`).
 - Connects directly to `\RPC_Control\SurWinLpc` for window station creation and message dispatching.
 - Process spawning and lifecycle monitoring for sovereign kernel executables (`micant_kernel.exe`, `sentinel.exe`, `cmd.exe`).
 - Seamless freestanding emulation fallback when executing on host developer systems.
@@ -114,7 +114,7 @@ SurShell implements the **"Mica Prism" Modern 2026 Sovereign Design Language**: 
 ### 🔮 Sub-Surface Mica Acrylic Blur Pipeline (`surshell::Surface::applyBoxBlur`)
 - Fast, two-pass separable 1D horizontal + 1D vertical box blur running in $O(W \times H)$ time.
 - Single-pass sliding accumulator window providing sub-millisecond frosted glass blur.
-- Blends Mica dark slate and Cutler Cyan acrylic tints directly over blurred backdrops.
+- Blends Mica dark slate and Barrer Cyan acrylic tints directly over blurred backdrops.
 
 ---
 
@@ -151,7 +151,7 @@ ctest --test-dir build --output-on-failure
 SurShell includes an automated verification test suite:
 - `Compositor.ColorAndGeometry`: Color blending, lerp arithmetic, bounding rect containment.
 - `Compositor.SurfaceRendering`: Framebuffer memory allocation, pixel writing, clear operations, procedural vector shapes.
-- `Theme.Palette`: Mica, Acrylic, Carbon Slate, Cutler Cyan accent verification.
+- `Theme.Palette`: Mica, Acrylic, Carbon Slate, Barrer Cyan accent verification.
 - `Desktop.ItemManagement`: Grid layout, selection toggles, marquee bounding box, procedural icons.
 - `Tray.ClockAndItems`: Chronometer formatting, system icon registration.
 - `StartMenu.FuzzySearch`: Dynamic application filtering and catalog search.
@@ -164,4 +164,4 @@ SurShell includes an automated verification test suite:
 
 SurShell is developed strictly clean-room under the [MIT License](LICENSE). For complete architectural provenance and compliance details, see [docs/CLEAN_ROOM.md](docs/CLEAN_ROOM.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-> *"The NT kernel and its shell represent an engineering philosophy: simplicity where possible, robustness always, and performance without compromise."* — In memory of Dave Cutler's SUR team.
+> *"The NT kernel and its shell represent an engineering philosophy: simplicity where possible, robustness always, and performance without compromise."* — Barrer Software & MicaNT Community.

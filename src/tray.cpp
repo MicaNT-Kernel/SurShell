@@ -118,11 +118,11 @@ void SystemTray::render(Surface& surface, Rect trayRect) {
     int32_t curX = trayRect.x + 6;
     const int32_t trayH = trayRect.height;
 
-    // 1. Windows Hidden Icons Chevron [^]
+    // 1. Sovereign Hidden Icons Chevron [^]
     IconRenderer::draw(surface, IconId::NavUp, Point{curX, trayRect.y + (trayH - 12) / 2}, 12, palette.textSecondary);
     curX += 16;
 
-    // 2. Windows 11 Quick Controls Pill (Network + Volume + Battery)
+    // 2. Sovereign Quick Controls Pill (Network + Volume + Battery)
     const Rect quickPillRect{curX, trayRect.y + 4, 82, trayH - 8};
     surface.drawRoundedRect(quickPillRect, 6, Color::fromRgba(28, 38, 58, 160), true);
     surface.drawRoundedRect(quickPillRect, 6, Color::fromRgba(56, 76, 114, 120), false);
@@ -156,7 +156,7 @@ void SystemTray::render(Surface& surface, Rect trayRect) {
         curX += 28;
     }
 
-    // 4. Windows 11 Digital Clock & Date Pill
+    // 4. Sovereign Digital Clock & Date Pill
     const Rect clockPillRect{curX, trayRect.y + 4, 88, trayH - 8};
     surface.drawRoundedRect(clockPillRect, 6, Color::fromRgba(28, 38, 58, 160), true);
     surface.drawRoundedRect(clockPillRect, 6, Color::fromRgba(56, 76, 114, 120), false);
@@ -164,11 +164,11 @@ void SystemTray::render(Surface& surface, Rect trayRect) {
     const std::string timeStr = currentTimeString();
     const std::string dateStr = currentDateString();
 
-    // Stacked Windows Clock (Time on top, Date below)
+    // Stacked Sovereign Clock (Time on top, Date below)
     surface.drawString(clockPillRect.x + 10, clockPillRect.y + 4, timeStr, palette.textPrimary, 1);
     surface.drawString(clockPillRect.x + 12, clockPillRect.y + 16, dateStr, palette.textSecondary, 1);
 
-    // 5. Far right "Show Desktop" Peek Strip (Windows signature)
+    // 5. Far right "Show Desktop" Peek Strip
     const int32_t peekX = trayRect.right() - 4;
     surface.fillRect(Rect{peekX - 2, trayRect.y + 8, 1, trayH - 16}, Color::fromRgba(255, 255, 255, 30));
 }

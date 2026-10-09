@@ -59,7 +59,7 @@ void DiskManagementContent::populateDefaultDisks() {
                 .isSystem = true
             },
             {
-                .name = "Windows (C:)",
+                .name = "MicaNT (C:)",
                 .driveLetter = "C:",
                 .fileSystem = "NTFS",
                 .status = "Healthy (Boot, Page File, Crash Dump, Basic Data)",
@@ -169,7 +169,7 @@ void DiskManagementContent::populateDefaultDisks() {
 
 void DiskManagementContent::collectLiveStorageTopology() {
 #if defined(_WIN32)
-    // 1. Query Real Physical Disk Models from Windows Registry
+    // 1. Query Real Physical Disk Models from System Registry
     HKEY hDiskEnum{};
     if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Services\\disk\\Enum", 0, KEY_READ, &hDiskEnum) == ERROR_SUCCESS) {
         DWORD count = 0;

@@ -190,7 +190,7 @@ int main(int argc, char* argv[]) {
 
     std::cout << "===============================================================================\n";
     std::cout << "MicaNT Sovereign Registry Editor (regedit.exe)\n";
-    std::cout << "Standard: ISO C++23 | Clean-Room Provenance | Dave Cutler Executive Parity\n";
+    std::cout << "Standard: ISO C++23 | Clean-Room Provenance | Barrer Software & MicaNT Community\n";
     std::cout << "===============================================================================\n\n";
 
 #ifdef _WIN32
@@ -233,7 +233,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Enable Windows 10/11 Dark Titlebar
+    // Enable Sovereign Dark Titlebar
     BOOL darkMode = TRUE;
     DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode));
 

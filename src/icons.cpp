@@ -402,7 +402,7 @@ void IconRenderer::drawTaskManager(Surface& s, Rect r, std::optional<Color> tint
     s.drawRoundedRect(r, std::max(2, r.width / 6), Color::fromHex(0x121A28), true);
     s.drawRoundedRect(r, std::max(2, r.width / 6), Color::fromHex(0x364E72), false);
 
-    // Pulse wave line in Cutler Cyan
+    // Pulse wave line in Barrer Cyan
     const Color pulseCol = tint.value_or(Color::fromHex(0x00D4FF));
     const int32_t midY = r.centerY();
     const int32_t w = r.width - 4;
@@ -1737,7 +1737,7 @@ void IconRenderer::drawDiskManagement(Surface& s, Rect r, std::optional<Color> t
     const int32_t ribbonH = std::max(3, diskRect.height / 4);
     const Rect ribbonRect{diskRect.x + 2, diskRect.y + 2, diskRect.width - 4, ribbonH};
     
-    // Slice 1: EFI System Partition (Cutler Cyan - 25% width)
+    // Slice 1: EFI System Partition (Barrer Cyan - 25% width)
     const int32_t s1W = ribbonRect.width / 4;
     s.fillRect(Rect{ribbonRect.x, ribbonRect.y, s1W, ribbonH}, Color::fromHex(0x00D4FF));
 

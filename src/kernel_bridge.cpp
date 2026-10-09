@@ -200,7 +200,7 @@ std::vector<KernelProcessInfo> KernelBridge::queryProcesses() const {
 #endif
 
     if (!hostProcs.empty()) {
-        // When genuine Windows host processes are running, only merge dynamically spawned child processes (PID >= 2000)
+        // When genuine sovereign host processes are running, only merge dynamically spawned child processes (PID >= 2000)
         for (const auto& mp : mockProcesses_) {
             if (mp.pid >= 2000 && mp.isAlive &&
                 std::find(terminatedPids_.begin(), terminatedPids_.end(), mp.pid) == terminatedPids_.end() &&
@@ -241,8 +241,8 @@ KernelVitals KernelBridge::queryVitals() const {
     GetSystemInfo(&si);
     vitals.cpuThreadCount = si.dwNumberOfProcessors;
     vitals.uptimeSeconds = GetTickCount64() / 1000;
-    vitals.osName = "Windows Host (MicaNT Enclave)";
-    vitals.osBuild = "Build 26100.2026.cutler";
+    vitals.osName = "MicaNT Sovereign Host Enclave";
+    vitals.osBuild = "Build 26100.2026.barrer";
 #endif
 
     vitals.activeProcessCount = static_cast<uint32_t>(queryProcesses().size());

@@ -57,7 +57,7 @@ private:
     int32_t volume_{80};
     bool isMuted_{false};
     bool isPlaying_{true};
-    std::string trackTitle_{"Dave Cutler - Symphony in C++23"};
+    std::string trackTitle_{"Barrer Software - Symphony in C++23"};
     std::string artist_{"MicaNT Sovereign Audio"};
 
     mutable Rect bounds_{};

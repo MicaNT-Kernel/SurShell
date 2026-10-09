@@ -21,11 +21,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ===============================================================================
-Tribute & Clean-Room Provenance Notice:
+Authorship & Clean-Room Provenance Notice:
 ===============================================================================
-SurShell is named in tribute to Dave Cutler's historic Windows NT 4.0 "SUR"
-(Shell Update Release) milestone, which unified the modern desktop interface,
-Taskbar, and Explorer with the rock-solid NT kernel.
+SurShell is engineered by Barrer Software and the MicaNT Community,
+unifying the modern sovereign desktop interface, Taskbar, and Explorer
+with the rock-solid MicaNT sovereign kernel.
 
 All interfaces, data structures, and windowing abstractions in this repository
 have been clean-room engineered in modern ISO C++23 strictly against publicly

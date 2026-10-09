@@ -751,7 +751,7 @@ void Test_Procedural_Icon_Engine() {
 }
 
 void Test_AltTab_And_Taskbar_Hover_Preview() {
-    std::cout << "[TEST] Running Suite 14: Alt+Tab Switcher HUD & Taskbar Live Previews (Windows Peek)...\n";
+    std::cout << "[TEST] Running Suite 14: Alt+Tab Switcher HUD & Taskbar Live Previews (Sovereign Peek)...\n";
 
     // 1. Verify Surface::blitScaled functionality
     surshell::Surface srcSurf(100, 100, surshell::Color{255, 0, 0, 255});
@@ -826,7 +826,7 @@ void Test_AltTab_And_Taskbar_Hover_Preview() {
     TEST_ASSERT(!switcher.isActive(), "Dismissed switcher");
     TEST_ASSERT(switcher.itemCount() == 0, "Items cleared after dismissal");
 
-    // 3. Taskbar Hover Preview (Windows Peek) Tests
+    // 3. Taskbar Hover Preview (Sovereign Peek) Tests
     surshell::Taskbar taskbar(1920, 1080);
     taskbar.addOrUpdateTask(201, "Mica Explorer", "[E]", true, false, surshell::IconId::FileGeneric);
     taskbar.addOrUpdateTask(202, "Mica Terminal", "[T]", false, false, surshell::IconId::Terminal);
@@ -874,7 +874,7 @@ void Test_AltTab_And_Taskbar_Hover_Preview() {
     shell.commitAltTab();
     TEST_ASSERT(!shell.altTab().isActive(), "Desktop commitAltTab closed HUD");
 
-    std::cout << "[TEST] Suite 14: Alt+Tab Switcher HUD & Taskbar Live Previews (Windows Peek) PASSED.\n";
+    std::cout << "[TEST] Suite 14: Alt+Tab Switcher HUD & Taskbar Live Previews (Sovereign Peek) PASSED.\n";
 }
 
 void Test_Task_Manager() {
@@ -1303,7 +1303,7 @@ void Test_Run_Dialog_And_Live_Aero_Snap() {
 }
 
 void Test_Modern_Terminal_Subsystem() {
-    std::cout << "[TEST] Running Suite 21: Windows Terminal System (microsoft/terminal Architecture)...\n";
+    std::cout << "[TEST] Running Suite 21: Sovereign Terminal System (Pure ISO C++23 Architecture)...\n";
 
     surshell::TerminalContent term;
     TEST_ASSERT(term.tabCount() == 1, "Initial terminal has 1 tab");
@@ -1356,7 +1356,7 @@ void Test_Modern_Terminal_Subsystem() {
     term.render(canvas);
     TEST_ASSERT(canvas.width() == 720 && canvas.height() == 440, "Terminal rendered into surface");
 
-    std::cout << "[TEST] Suite 21: Windows Terminal System PASSED.\n";
+    std::cout << "[TEST] Suite 21: Sovereign Terminal System PASSED.\n";
 }
 
 void Test_Action_Center_And_Calendar() {
@@ -1372,7 +1372,7 @@ void Test_Action_Center_And_Calendar() {
     const size_t initialNotifs = actionCenter.notificationCount();
     actionCenter.addNotification("Security Center", "Zero-telemetry policy active and enforced", surshell::IconId::SentinelSec);
     actionCenter.addNotification("Network Adapter", "Gigabit Ethernet connected at 1.0 Gbps", surshell::IconId::NetworkEthernet);
-    actionCenter.addNotification("System Kernel", "Dave Cutler executive IPC channel healthy", surshell::IconId::Terminal);
+    actionCenter.addNotification("System Kernel", "Barrer Software executive IPC channel healthy", surshell::IconId::Terminal);
     TEST_ASSERT(actionCenter.notificationCount() == initialNotifs + 3, "3 notifications added to history stack");
 
     // Focus Assist toggling
@@ -1677,7 +1677,7 @@ void Test_Storage_Topology_And_Network_Shares() {
     exp.navigateUp();
     TEST_ASSERT(exp.currentPath() == "This PC", "Navigated up from G:\\ root to This PC");
 
-    // 6. Local Windows C:\ Up Traversal to This PC
+    // 6. Local Sovereign C:\ Up Traversal to This PC
     exp.navigateTo("C:\\Windows");
     exp.navigateUp();
     TEST_ASSERT(exp.currentPath() == "C:\\", "Navigated up to C:\\ root");
@@ -2147,8 +2147,8 @@ void Test_Disk_Management_Application() {
         }
     }
     TEST_ASSERT(hasEfi, "Disk 0 contains EFI System Partition");
-    TEST_ASSERT(hasBootC, "Disk 0 contains Boot Windows C: Primary Partition");
-    TEST_ASSERT(hasRecovery, "Disk 0 contains Windows Recovery Partition");
+    TEST_ASSERT(hasBootC, "Disk 0 contains Boot MicaNT C: Primary Partition");
+    TEST_ASSERT(hasRecovery, "Disk 0 contains Sovereign Recovery Partition");
 
     // 2. Selection Handling
     diskMgr.selectVolume("C:");
@@ -2329,7 +2329,7 @@ void Test_Event_Viewer_Application() {
     TEST_ASSERT(!firstRec.message.empty(), "Valid event message content");
 
     // 3. Category Structure
-    TEST_ASSERT(ev.categories().size() == 4, "4 standard Windows event log categories (Application, Security, System, Setup)");
+    TEST_ASSERT(ev.categories().size() == 4, "4 standard system event log categories (Application, Security, System, Setup)");
     bool hasApp = false, hasSec = false, hasSys = false, hasSetup = false;
     for (const auto& cat : ev.categories()) {
         if (cat.name == "Application") hasApp = true;

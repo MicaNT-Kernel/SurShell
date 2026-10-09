@@ -199,7 +199,7 @@ void RegistryEditorContent::initDefaultDatabase() {
     hkcuShell->setValueDword("ClockFormat24H", 0);
     hkcuShell->setValueSz("Version", "2026.1-SOVEREIGN");
 
-    auto hkcuTerm = hkcuMica->addSubkey("WindowsTerminal");
+    auto hkcuTerm = hkcuMica->addSubkey("SovereignTerminal");
     hkcuTerm->setValueSz("DefaultProfile", "cmd.exe");
     hkcuTerm->setValueDword("FontSize", 14);
     hkcuTerm->setValueDword("CursorBlink", 1);
@@ -286,7 +286,7 @@ void RegistryEditorContent::initDefaultDatabase() {
     hklmVer->setValueSz("ProductName", "MicaNT Workstation Pro 64-Bit");
     hklmVer->setValueSz("CurrentBuild", "26100");
     hklmVer->setValueSz("CurrentBuildNumber", "26100.1");
-    hklmVer->setValueSz("DaveCutlerProvenance", "Clean-Room ISO C++23 Native Executive");
+    hklmVer->setValueSz("BarrerSoftwareProvenance", "Clean-Room ISO C++23 Native Executive");
     hklmVer->setValueSz("EnclaveSecurityLevel", "Ring0-CSRSS-Parity");
 
     auto hklmMs = hklmSoft->addSubkey("Microsoft");
@@ -318,12 +318,12 @@ void RegistryEditorContent::initDefaultDatabase() {
         }
         RegCloseKey(hNt);
     } else {
-        hklmNtVer->setValueSz("ProductName", "Windows Server 2025 Standard");
+        hklmNtVer->setValueSz("ProductName", "MicaNT Sovereign Server 2026");
         hklmNtVer->setValueSz("DisplayVersion", "24H2");
         hklmNtVer->setValueSz("CurrentBuild", "26100");
     }
 #else
-    hklmNtVer->setValueSz("ProductName", "Windows Server 2025 Standard");
+    hklmNtVer->setValueSz("ProductName", "MicaNT Sovereign Server 2026");
     hklmNtVer->setValueSz("DisplayVersion", "24H2");
     hklmNtVer->setValueSz("CurrentBuild", "26100");
 #endif
@@ -343,7 +343,7 @@ void RegistryEditorContent::initDefaultDatabase() {
     hklmSec->setValueDword("Type", 16);
 
     auto hklmLpc = hklmSvc->addSubkey("SurWinLpc");
-    hklmLpc->setValueSz("DisplayName", "Dave Cutler Sovereign LPC Subsystem");
+    hklmLpc->setValueSz("DisplayName", "Barrer Software Sovereign LPC Subsystem");
     hklmLpc->setValueSz("PortName", "\\RPC_Control\\SurWinLpc");
     hklmLpc->setValueDword("Start", 1);
 
@@ -663,7 +663,7 @@ void RegistryEditorContent::renderStatusBar(Surface& s, const ThemePalette& pale
     s.fillRect(barR, Color::fromHex(0x0A0E18));
     s.fillRect(Rect{barR.x, barR.y, barR.width, 1}, Color::fromHex(0x1E293B));
 
-    // Full key path on left in Cutler Cyan
+    // Full key path on left in Barrer Cyan
     s.drawString(barR.x + 10, barR.y + 4, addressBarPath_, Color::fromHex(0x00D4FF), 1);
 
     // Value count on right

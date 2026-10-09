@@ -675,7 +675,7 @@ void SurShellDesktop::wireSubsystemCallbacks() {
         toastManager_.showToast("Media Playback", mediaHud_.isPlaying() ? "Resumed: Symphony in C++23" : "Playback Paused", IconId::MediaPlay);
     });
     mediaHud_.setNextCallback([this]() {
-        toastManager_.showToast("Track Changed", "Next: Cutler Kernel Suite Mov. 2", IconId::MediaNext);
+        toastManager_.showToast("Track Changed", "Next: Barrer Kernel Suite Mov. 2", IconId::MediaNext);
     });
     mediaHud_.setPrevCallback([this]() {
         toastManager_.showToast("Track Changed", "Previous: Mica NT Overture", IconId::MediaPrev);
@@ -1026,7 +1026,7 @@ void SurShellDesktop::toggleShowDesktop() {
                 windowManager_.setWindowState(win->id, WindowState::Normal);
             }
         }
-        toastManager_.showToast("Show Desktop", "Windows restored (Win+D)", IconId::Desktop);
+        toastManager_.showToast("Show Desktop", "All windows restored (Win+D)", IconId::Desktop);
     }
 }
 
@@ -1344,7 +1344,7 @@ void SurShellDesktop::render() {
         framebuffer_.fillRect(Rect{0, 25, static_cast<int32_t>(width_), 1}, Color::fromRgba(38, 52, 78, 200));
 
         framebuffer_.drawString(12, 8, "MicaNT 64-Bit OS", Color::fromHex(0x00D4FF), 1);
-        framebuffer_.drawString(140, 8, "|  Dave Cutler 1988 Architecture  |  Zero Telemetry  |  SurWin Subsystem  |  120Hz VSync",
+        framebuffer_.drawString(140, 8, "|  Barrer Software & MicaNT Community  |  Zero Telemetry  |  SurWin Subsystem  |  120Hz VSync",
                                 Color::fromRgba(165, 180, 205, 255), 1);
 
         // Right-aligned header badge

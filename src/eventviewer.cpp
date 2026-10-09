@@ -3,7 +3,7 @@
 // (src/eventviewer.cpp)
 //
 // Sovereign Event Viewer Console (eventvwr.msc Parity)
-// Clean-room ISO C++23, zero telemetry, Windows Event Log integration,
+// Clean-room ISO C++23, zero telemetry, System Event Log integration,
 // category navigation (Application, Security, System, Setup), level filtering,
 // sub-millisecond search, live details preview, and modal XML export.
 // ============================================================================
@@ -338,22 +338,22 @@ void EventViewerContent::scanLog(const std::string& logName) {
             };
         } else if (logName == "Application") {
             records_ = {
-                EventRecord{504, EventLevel::Information, 1001, "2026-10-08 18:01:22", 1791499583, "Windows Error Reporting", "Crash Report", "SUR-SERVER25", "admin", "Fault bucket 142859102, type 5, Event Name: AppCrash.", {}, {}},
+                EventRecord{504, EventLevel::Information, 1001, "2026-10-08 18:01:22", 1791499583, "System Error Reporting", "Crash Report", "SUR-SERVER25", "admin", "Fault bucket 142859102, type 5, Event Name: AppCrash.", {}, {}},
                 EventRecord{503, EventLevel::Information, 0, "2026-10-08 17:45:00", 1791498601, "SurShell", "Compositor", "SUR-SERVER25", "admin", "SurShell Compositor started with sub-surface acrylic blur and double-buffering at 120Hz.", {}, {}},
-                EventRecord{502, EventLevel::Warning, 1530, "2026-10-08 17:12:44", 1791496665, "User Profile Service", "Profile Sync", "SUR-SERVER25", "SYSTEM", "Windows detected your registry file is still in use by other applications or services.", {}, {}},
+                EventRecord{502, EventLevel::Warning, 1530, "2026-10-08 17:12:44", 1791496665, "User Profile Service", "Profile Sync", "SUR-SERVER25", "SYSTEM", "System detected your registry file is still in use by other applications or services.", {}, {}},
                 EventRecord{501, EventLevel::Error, 1000, "2026-10-08 16:40:10", 1791494711, "Application Error", "Application Crash", "SUR-SERVER25", "admin", "Faulting application name: legacy_tool.exe, version: 1.0.0.1, faulting module: ntdll.dll", {"legacy_tool.exe", "1.0.0.1", "ntdll.dll"}, {}},
                 EventRecord{500, EventLevel::Information, 900, "2026-10-08 15:30:00", 1791490501, "Desktop Window Manager", "DWM Composition", "SUR-SERVER25", "admin", "The Desktop Window Manager has registered the primary sovereign display adapter.", {}, {}}
             };
         } else if (logName == "Security") {
             records_ = {
-                EventRecord{303, EventLevel::AuditSuccess, 4624, "2026-10-08 18:00:15", 1791499516, "Microsoft-Windows-Security-Auditing", "Logon", "SUR-SERVER25", "admin", "An account was successfully logged on. Account Name: admin. Logon Type: 2 (Interactive).", {"admin", "2"}, {}},
-                EventRecord{302, EventLevel::AuditSuccess, 4672, "2026-10-08 18:00:15", 1791499516, "Microsoft-Windows-Security-Auditing", "Special Logon", "SUR-SERVER25", "admin", "Special privileges assigned to new logon: SeDebugPrivilege, SeSecurityPrivilege.", {}, {}},
-                EventRecord{301, EventLevel::AuditFailure, 4625, "2026-10-08 17:22:04", 1791497225, "Microsoft-Windows-Security-Auditing", "Logon Failure", "SUR-SERVER25", "SYSTEM", "An account failed to log on. Account Name: guest. Status: 0xC000006D.", {"guest"}, {}},
-                EventRecord{300, EventLevel::AuditSuccess, 4634, "2026-10-08 16:15:00", 1791493201, "Microsoft-Windows-Security-Auditing", "Logoff", "SUR-SERVER25", "admin", "An account was logged off. Account Name: admin.", {"admin"}, {}}
+                EventRecord{303, EventLevel::AuditSuccess, 4624, "2026-10-08 18:00:15", 1791499516, "MicaNT-Security-Auditing", "Logon", "SUR-SERVER25", "admin", "An account was successfully logged on. Account Name: admin. Logon Type: 2 (Interactive).", {"admin", "2"}, {}},
+                EventRecord{302, EventLevel::AuditSuccess, 4672, "2026-10-08 18:00:15", 1791499516, "MicaNT-Security-Auditing", "Special Logon", "SUR-SERVER25", "admin", "Special privileges assigned to new logon: SeDebugPrivilege, SeSecurityPrivilege.", {}, {}},
+                EventRecord{301, EventLevel::AuditFailure, 4625, "2026-10-08 17:22:04", 1791497225, "MicaNT-Security-Auditing", "Logon Failure", "SUR-SERVER25", "SYSTEM", "An account failed to log on. Account Name: guest. Status: 0xC000006D.", {"guest"}, {}},
+                EventRecord{300, EventLevel::AuditSuccess, 4634, "2026-10-08 16:15:00", 1791493201, "MicaNT-Security-Auditing", "Logoff", "SUR-SERVER25", "admin", "An account was logged off. Account Name: admin.", {"admin"}, {}}
             };
         } else {
             records_ = {
-                EventRecord{102, EventLevel::Information, 1, "2026-10-08 12:05:00", 1791478201, "WUSA", "Windows Update", "SUR-SERVER25", "SYSTEM", "Windows update KB5048210 was successfully installed.", {}, {}},
+                EventRecord{102, EventLevel::Information, 1, "2026-10-08 12:05:00", 1791478201, "WUSA", "System Update", "SUR-SERVER25", "SYSTEM", "System update KB5048210 was successfully installed.", {}, {}},
                 EventRecord{101, EventLevel::Information, 2, "2026-10-08 12:01:00", 1791477961, "TrustedInstaller", "Component Servicing", "SUR-SERVER25", "SYSTEM", "Servicing package MicaNT-Sovereign-Core installed successfully.", {}, {}}
             };
         }
@@ -459,7 +459,7 @@ void EventViewerContent::renderSidebar(Surface& s, const Rect& area) {
     s.fillRect(Rect{area.right() - 1, area.y, 1, area.height}, Color::fromHex(0x1E293B));
 
     // Header title
-    s.drawString(area.x + 16, area.y + 14, "Windows Logs", Color::fromHex(0x94A3B8), 1);
+    s.drawString(area.x + 16, area.y + 14, "System Event Logs", Color::fromHex(0x94A3B8), 1);
 
     int32_t itemY = area.y + 40;
     constexpr int32_t itemH = 32;

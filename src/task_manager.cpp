@@ -81,14 +81,14 @@ void TaskManagerContent::refresh() {
     float mem = 13.2f;
 
 #if defined(_WIN32)
-    // 1. Real Memory load from Windows Kernel
+    // 1. Real Memory load from Host Kernel
     MEMORYSTATUSEX memStatus{};
     memStatus.dwLength = sizeof(memStatus);
     if (GlobalMemoryStatusEx(&memStatus)) {
         mem = static_cast<float>(memStatus.dwMemoryLoad);
     }
 
-    // 2. Real CPU utilization from Windows Kernel
+    // 2. Real CPU utilization from Host Kernel
     FILETIME idleTime{}, kernelTime{}, userTime{};
     if (GetSystemTimes(&idleTime, &kernelTime, &userTime)) {
         ULARGE_INTEGER i, k, u;
@@ -435,7 +435,7 @@ void TaskManagerContent::renderProcessesTab(Surface& clientSurface, int32_t w, i
     clientSurface.drawRoundedRect(refreshButtonBounds_, 4, Color::fromHex(0x2A3D58), false);
     clientSurface.drawString(Point{refreshButtonBounds_.x + 18, refreshButtonBounds_.y + 6}, "Refresh", Color::fromHex(0xD0DCF0));
 
-    clientSurface.drawString(Point{16, footerY + 12}, "Dave Cutler NT Executive Sandbox | Protected Subsystem", Color::fromHex(0x566B88));
+    clientSurface.drawString(Point{16, footerY + 12}, "Barrer Software Sovereign Executive Sandbox | Protected Subsystem", Color::fromHex(0x566B88));
 }
 
 void TaskManagerContent::renderPerformanceTab(Surface& clientSurface, int32_t w, int32_t h, int32_t tabH) {

@@ -153,7 +153,7 @@ void DeviceManagerContent::populateDefaultHardwareTree() {
                 .name = "MicaNT PrismX Sovereign Software Compositor",
                 .iconId = IconId::Display,
                 .status = "This device is working properly. (Code 0)",
-                .manufacturer = "Dave Cutler Sovereign Labs",
+                .manufacturer = "Barrer Software & MicaNT Community",
                 .driverVersion = "1.0.26100.0",
                 .hardwareId = "ROOT\\MicaNT_PrismX_Compositor",
                 .location = "Kernel Direct Memory Pipeline",
@@ -245,7 +245,7 @@ void DeviceManagerContent::populateDefaultHardwareTree() {
                 .name = "MicaNT Sovereign SMB NAS Virtual Miniport (\\\\nas.ash-forge.com)",
                 .iconId = IconId::NetworkShare,
                 .status = "This device is working properly. (Code 0)",
-                .manufacturer = "Dave Cutler Sovereign Labs",
+                .manufacturer = "Barrer Software & MicaNT Community",
                 .driverVersion = "1.0.0.1",
                 .hardwareId = "ROOT\\MicaNT_NAS_Miniport",
                 .location = "SMB 3.1.1 Transport Layer",
@@ -380,10 +380,10 @@ void DeviceManagerContent::populateDefaultHardwareTree() {
             },
             {
                 .id = "sys_enclave",
-                .name = "MicaNT Cutler Sovereign Kernel Security Enclave",
+                .name = "MicaNT Barrer Sovereign Kernel Security Enclave",
                 .iconId = IconId::ShieldAdmin,
                 .status = "This device is working properly. (Code 0)",
-                .manufacturer = "Dave Cutler Sovereign Labs",
+                .manufacturer = "Barrer Software & MicaNT Community",
                 .driverVersion = "1.0.0.0",
                 .hardwareId = "ROOT\\MicaNT_Enclave_V1",
                 .location = "Hardware Privilege Level 0 Ring",
@@ -451,7 +451,7 @@ void DeviceManagerContent::collectHostHardwareTelemetry() {
                         {"Device Status", "Working properly"},
                         {"Hardware Name", cpuName},
                         {"Logical Core Index", std::to_string(i)},
-                        {"Driver Provider", "MicaNT Cutler Executive Architecture"}
+                        {"Driver Provider", "Barrer Software & MicaNT Community"}
                     }
                 });
             }
@@ -1037,7 +1037,7 @@ void DeviceManagerContent::render(Surface& clientSurface) {
             clientSurface.drawRoundedRect(driverBox, 4, Color::fromHex(0x131A29), true);
             clientSurface.drawRoundedRect(driverBox, 4, Color::fromHex(0x334155), false);
             clientSurface.drawString(Point{cx + 10, cy + 12}, "Driver files are verified and protected by", Color::fromHex(0x94A3B8));
-            clientSurface.drawString(Point{cx + 10, cy + 30}, "Dave Cutler Sovereign Executive Security Enclave.", Color::fromHex(0x38BDF8));
+            clientSurface.drawString(Point{cx + 10, cy + 30}, "Barrer Software & MicaNT Community Security Enclave.", Color::fromHex(0x38BDF8));
         } else {
             // Details Tab
             clientSurface.drawString(Point{cx, cy}, "Property: Hardware IDs", Color::fromHex(0xCBD5E1));

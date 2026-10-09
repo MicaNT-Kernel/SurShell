@@ -26,7 +26,7 @@ void TerminalContent::addTab(const std::string& title, const std::string& profil
 
     tab.buffer.push_back({"MicaNT [Version 10.0.26100.1-SOVEREIGN]", Color::fromHex(0x00D4FF), true});
     tab.buffer.push_back({"(c) 2026 Sovereign OS Project. Pure Clean-Room NT Architecture.", Color::fromHex(0x7186A4), false});
-    tab.buffer.push_back({"Windows Terminal Modern Host (MIT Architecture Parity)", Color::fromHex(0x00FF9D), false});
+    tab.buffer.push_back({"Sovereign Terminal Modern Host (Pure ISO C++23)", Color::fromHex(0x00FF9D), false});
     tab.buffer.push_back({"", Color::fromHex(0xCBD5E1), false});
     tab.buffer.push_back({"Type 'help' for built-in commands or launch system apps.", Color::fromHex(0x94A3B8), false});
     tab.buffer.push_back({"", Color::fromHex(0xCBD5E1), false});
@@ -144,11 +144,11 @@ void TerminalContent::executeCommand(const std::string& rawCmd) {
         tab.buffer.push_back({"  EXIT       Closes current terminal tab", Color::fromHex(0xFF4D6D), false});
     } else if (lowerCmd == "ver") {
         tab.buffer.push_back({"MicaNT [Version 10.0.26100.1-SOVEREIGN] - Pure ISO C++23", Color::fromHex(0x00D4FF), true});
-        tab.buffer.push_back({"Kernel: Dave Cutler PASSIVE_LEVEL Executive Bridge", Color::fromHex(0x7186A4), false});
+        tab.buffer.push_back({"Kernel: Barrer Executive PASSIVE_LEVEL Bridge", Color::fromHex(0x7186A4), false});
     } else if (lowerCmd == "cls") {
         tab.buffer.clear();
     } else if (lowerCmd == "whoami") {
-        tab.buffer.push_back({"micant\\admin (Dave Cutler Sovereign Administrator)", Color::fromHex(0x00FF9D), false});
+        tab.buffer.push_back({"micant\\admin (Barrer Software Sovereign Administrator)", Color::fromHex(0x00FF9D), false});
     } else if (lowerCmd == "echo") {
         tab.buffer.push_back({args, Color::fromHex(0xCBD5E1), false});
     } else if (lowerCmd == "cd" || lowerCmd == "chdir") {
@@ -378,7 +378,7 @@ void TerminalContent::executeCommand(const std::string& rawCmd) {
 
 void TerminalContent::render(Surface& s) {
     const auto& palette = ThemeManager::instance().palette();
-    s.clear(Color{12, 16, 23, 255}); // Windows Terminal Dark Charcoal
+    s.clear(Color{12, 16, 23, 255}); // Sovereign Terminal Dark Charcoal
 
     renderTabBar(s, palette);
     renderBuffer(s, palette);

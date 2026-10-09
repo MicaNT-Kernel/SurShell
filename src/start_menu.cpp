@@ -230,7 +230,7 @@ StartMenu::StartMenu() {
         .pinnedToStart = true
     });
 
-    // Windows 11-style Interactive Power Flyout Options
+    // Sovereign Interactive Power Flyout Options
     powerOptions_ = {
         PowerOptionItem{.action = PowerAction::Sleep, .label = "Sleep", .description = "Save session in low power", .iconId = IconId::Sleep},
         PowerOptionItem{.action = PowerAction::Hibernate, .label = "Hibernate", .description = "Save session to disk", .iconId = IconId::Hibernate},
@@ -240,7 +240,7 @@ StartMenu::StartMenu() {
         PowerOptionItem{.action = PowerAction::SignOut, .label = "Sign out", .description = "Close apps and sign out", .iconId = IconId::SignOut}
     };
 
-    // Windows 11-style Recommended Recent Activities
+    // Sovereign Recommended Recent Activities
     recommendedItems_ = {
         RecommendedItem{.id = "rec1", .title = "explorer.hpp", .subtitle = "Recent C++ Header - Just now", .path = "C:\\source\\SurShell\\include\\surshell\\explorer.hpp", .iconId = IconId::FileCode},
         RecommendedItem{.id = "rec2", .title = "surshell.cpp", .subtitle = "Recent C++ Source - 10m ago", .path = "C:\\source\\SurShell\\src\\surshell.cpp", .iconId = IconId::FileCode},
@@ -750,7 +750,7 @@ void StartMenu::render(Surface& surface, Rect menuBounds) {
         renderAllAppsView(surface, menuBounds);
     }
 
-    // 5. Bottom User Profile & Windows 11 Power Controls Footer
+    // 5. Bottom User Profile & Sovereign Power Controls Footer
     const int32_t footerY = menuBounds.bottom() - 56;
     surface.fillRect(Rect{menuBounds.x, footerY, menuBounds.width, 1}, palette.startMenuBorder);
 

@@ -152,7 +152,7 @@ void AltTabSwitcher::render(Surface& target, uint32_t screenWidth, uint32_t scre
                                                : Color::fromRgba(18, 25, 40, 200));
         target.drawRoundedRect(cb, 10, cardBg, true);
 
-        // Selection Glowing Ring (Cutler Cyan #00D4FF 2px)
+        // Selection Glowing Ring (Barrer Cyan #00D4FF 2px)
         if (isSelected) {
             target.drawRoundedRect(cb, 10, Color::fromHex(0x00D4FF), false);
             target.drawRoundedRect(cb.inflate(-1, -1), 9, Color::fromHex(0x00D4FF), false);

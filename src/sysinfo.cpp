@@ -50,8 +50,8 @@ void SysInfoContent::populateDiagnosticTree() {
         .iconId = IconId::SystemInfo,
         .entries = {
             {"OS Name", "MicaNT Sovereign Workstation Edition (64-bit)"},
-            {"Version", "10.0.26100 (Windows NT 10.0 Sovereign Parity)"},
-            {"OS Manufacturer", "Dave Cutler Sovereign Labs / MicaNT Community"},
+            {"Version", "10.0.26100 (MicaNT 10.0 Sovereign Parity)"},
+            {"OS Manufacturer", "Barrer Software & MicaNT Community"},
             {"System Name", KernelBridge::queryComputerName()},
             {"System Manufacturer", "Sovereign Workstation Hardware"},
             {"System Model", "x64-based Sovereign PC Workstation"},
@@ -59,7 +59,7 @@ void SysInfoContent::populateDiagnosticTree() {
             {"Processor", "11th Gen Intel(R) Core(TM) i7-11700K @ 3.60GHz, 8 Cores, 16 Logical Processors"},
             {"BIOS Mode", "UEFI (Fast Boot Enforced)"},
             {"Secure Boot State", "Enforced (Zero-Telemetry Sovereign Policy)"},
-            {"Kernel Architecture", "Pure ISO C++23 Cutler Executive Architecture"},
+            {"Kernel Architecture", "Pure ISO C++23 Barrer Executive Architecture"},
             {"Installed Physical Memory (RAM)", "32.0 GB"},
             {"Total Physical Memory", "31.8 GB"},
             {"Available Physical Memory", "26.4 GB"},
@@ -68,7 +68,7 @@ void SysInfoContent::populateDiagnosticTree() {
             {"Page File Space", "4.75 GB"},
             {"Page File", "C:\\pagefile.sys"},
             {"Kernel DMA Protection", "Active & Hardened"},
-            {"Hypervisor Detected", "Cutler Micro-Hypervisor layer active"}
+            {"Hypervisor Detected", "Barrer Micro-Hypervisor layer active"}
         },
         .subcategories = {},
         .isExpanded = true
@@ -609,7 +609,7 @@ bool SysInfoContent::exportReport(const std::string& filePath) {
 
     out << "===============================================================================\r\n";
     out << "SurShell: Sovereign System Information & Hardware Diagnostics Export\r\n";
-    out << "MicaNT Dave Cutler Operating System Architecture | Zero Telemetry Policy\r\n";
+    out << "MicaNT Sovereign Operating System Architecture | Barrer Software & MicaNT Community\r\n";
     out << "===============================================================================\r\n\r\n";
 
     for (const auto& cat : categories_) {

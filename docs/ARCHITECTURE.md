@@ -2,7 +2,7 @@
 
 ## 1. Executive Summary
 
-**SurShell** is the sovereign, clean-room desktop environment and user shell designed specifically for the **MicaNT** operating system kernel and executive. Drawing inspiration from Dave Cutler's historic Windows NT 4.0 "SUR" (Shell Update Release) initiative, SurShell modernizes the classic NT shell architecture into a high-performance, memory-efficient, freestanding ISO C++23 desktop environment.
+**SurShell** is the sovereign, clean-room desktop environment and user shell designed specifically for the **MicaNT** operating system kernel and executive. Engineered by Barrer Software and the MicaNT Community, SurShell modernizes sovereign NT shell architecture into a high-performance, memory-efficient, freestanding ISO C++23 desktop environment.
 
 SurShell implements the **"Mica Prism" Modern 2026 Sovereign Design Language**: centered floating island docks, detached tactile start hubs, 2D procedural vector iconography, and intelligent Snap Layout multitasking—engineered 100% clean-room with **zero copyright or trademark infringement**.
 
@@ -51,7 +51,7 @@ The core renderer operates on 32-bpp BGRA `Surface` framebuffers:
 - **Rounded Rectangle Clipping & Anti-Aliased Borders**: Clean geometric rendering for modern rounded UI surfaces.
 - **Gaussian Shadow Approximation**: Dual-pass box shadows for window elevation and depth hierarchy.
 - **Clean-Room Vector Iconography Engine**:
-  - `drawPrismLogo`: Geometric 3D hexagonal crystal prism start emblem with Cutler Cyan, deep blue, and ice blue illuminated facets.
+  - `drawPrismLogo`: Geometric 3D hexagonal crystal prism start emblem with Barrer Cyan, deep blue, and ice blue illuminated facets.
   - `drawVectorFolder`: Folded cabinet directory icon with cyan accent tab.
   - `drawVectorTerminal`: Monospace prompt window card with `>_` glyph.
   - `drawVectorTaskMgr`: Real-time EKG pulse waveform and background grid.
@@ -67,7 +67,7 @@ Implements the sovereign MicaNT visual identity:
   - Floating Island Dock: `#121928` with `#385078` border
   - Mica Surface: `#20242B`
   - Acrylic Card: `#182030`
-  - Cutler Cyan Accent: `#00D4FF`
+  - Barrer Cyan Accent: `#00D4FF`
   - High-Contrast Text: `#F5F8FF` / `#A0AFC8`
 - **Dynamic Metrics**:
   - Floating taskbar height: 48px (+10px floating bottom margin)
@@ -90,7 +90,7 @@ Manages desktop application surfaces with precise non-client hit-testing:
 ### 3.4 Centered Floating Taskbar (`surshell::taskbar`)
 The modern system anchor (`Shell_TrayWnd`):
 - **Segmented Dual-Island Dock**:
-  - **App Island**: Horizontally centered floating pill dock holding the Mica Prism start button and active tasks with 16px Cutler Cyan indicator bars.
+  - **App Island**: Horizontally centered floating pill dock holding the Mica Prism start button and active tasks with 16px Barrer Cyan indicator bars.
   - **Tray Island**: Floating pill on the right housing the NetBird Mesh status, Zero-Telemetry shield, volume, and clock.
 - **Configurable Alignment**: `TaskbarAlignment::Center` (modern 2026) vs `TaskbarAlignment::Left` (classic SUR).
 
@@ -99,7 +99,7 @@ Quick-launch application catalog and system control:
 - **Detached Floating Card**: Centered directly above the taskbar island with 18px soft drop shadow.
 - **Top Search Pill**: Real-time fuzzy search across installed sovereign tools, executable paths, and app IDs.
 - **Tactile 2-Column Application Grid**: Rich tactile application cards featuring procedural vector badges, bold titles, and descriptive subtitles.
-- **Cutler Power Actions**: Lock, Sleep, Restart, Shutdown handlers.
+- **Sovereign Power Actions**: Lock, Sleep, Restart, Shutdown handlers.
 
 ### 3.6 Desktop Manager (`surshell::desktop`)
 The root workspace surface (`Progman` / `WorkerW`):
@@ -127,7 +127,7 @@ Modern workspace multi-tasking:
 - **Window Pinning**: Allows essential utility windows (e.g., Sentinel monitor) to stay visible across all virtual desktops.
 
 ### 3.10 MicaNT Executive LPC Syscall Bridge (`surshell::kernel_bridge`)
-Integration bridge to MicaNT's Dave Cutler architecture:
+Integration bridge to MicaNT's Barrer Software architecture:
 - **SurWin LPC Port**: Connects directly to `\RPC_Control\SurWinLpc` for window station registration and userland event delivery.
 - **Win32 Message Translation**: Converts raw compositor mouse and keyboard events into standard Win32 message packets (`WM_LBUTTONDOWN`, `WM_MOUSEMOVE`, `WM_KEYDOWN`).
 - **Process Lifecycle Spawning**: Directly coordinates process execution (`micant_kernel.exe`, `sentinel.exe`, `cmd.exe`) with PID tracking and working set telemetry.

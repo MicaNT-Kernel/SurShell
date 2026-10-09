@@ -3,8 +3,7 @@
 // (include/surshell/kernel_bridge.hpp)
 //
 // Clean-Room LPC & Executive Syscall Bridge to MicaNT's SurWin/CSRSS Subsystem.
-// Conforms strictly to Microsoft's MIT-licensed win32metadata and Dave Cutler's
-// Windows NT 4.0 "SUR" (Shell Update Release) taxonomy.
+// Conforms strictly to Barrer Software & MicaNT Community Sovereign NT Architecture.
 // ============================================================================
 
 #pragma once
@@ -38,8 +37,8 @@ struct KernelProcessInfo {
 };
 
 struct KernelVitals {
-    std::string osName{"MicaNT Cutler Edition"};
-    std::string osBuild{"Build 26100.1.cutler.2026"};
+    std::string osName{"MicaNT Barrer Edition"};
+    std::string osBuild{"Build 26100.1.barrer.2026"};
     size_t totalPhysicalMemoryKb{32 * 1024 * 1024}; // 32 GB
     size_t freePhysicalMemoryKb{28 * 1024 * 1024};  // 28 GB
     uint32_t activeProcessCount{48};

@@ -284,7 +284,7 @@ int runInteractiveDesktop() {
 int runSnapshotPipeline() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell: Sovereign Clean-Room Desktop Shell for MicaNT\n";
-    std::cout << "Named in tribute to Dave Cutler's Windows NT 4.0 'SUR' (Shell Update Release)\n";
+    std::cout << "Engineered by Barrer Software and the MicaNT Community\n";
     std::cout << "Standard: ISO C++23 | Zero Telemetry | Sub-15MB Footprint | 120Hz DWM Pipeline\n";
     std::cout << "===============================================================================\n\n";
 
@@ -321,7 +321,7 @@ int runSnapshotPipeline() {
     }
 
     // ------------------------------------------------------------------------
-    // Scene 2b: Start Menu with Windows 11-Style Interactive Power Flyout
+    // Scene 2b: Start Menu with Sovereign Interactive Power Flyout
     // ------------------------------------------------------------------------
     std::cout << "[SurShell] Rendering Scene 2b: Start Menu with Interactive Power Flyout...\n";
     shell.startMenu().setPowerFlyoutOpen(true);
@@ -441,7 +441,7 @@ int runSnapshotPipeline() {
     }
 
     // ------------------------------------------------------------------------
-    // Scene 9: Alt+Tab Task Switcher HUD (Windows 11 / Aero Ergonomics)
+    // Scene 9: Alt+Tab Task Switcher HUD (Sovereign Ergonomics)
     // ------------------------------------------------------------------------
     std::cout << "[SurShell] Rendering Scene 9: Alt+Tab Task Switcher HUD with Live Thumbnails...\n";
     shell.triggerAltTab();
@@ -452,9 +452,9 @@ int runSnapshotPipeline() {
     shell.dismissAltTab();
 
     // ------------------------------------------------------------------------
-    // Scene 10: Taskbar Live Hover Preview (Windows Peek)
+    // Scene 10: Taskbar Live Hover Preview (Sovereign Peek)
     // ------------------------------------------------------------------------
-    std::cout << "[SurShell] Rendering Scene 10: Taskbar Live Hover Preview (Windows Peek)...\n";
+    std::cout << "[SurShell] Rendering Scene 10: Taskbar Live Hover Preview (Sovereign Peek)...\n";
     if (!shell.taskbar().tasks().empty()) {
         shell.taskbar().setHoveredTaskWindowId(static_cast<int32_t>(shell.taskbar().tasks()[0].windowId));
     }
@@ -491,7 +491,7 @@ int runSnapshotPipeline() {
     // ------------------------------------------------------------------------
     std::cout << "[SurShell] Rendering Scene 13: Audio & Media Playback HUD (OSD Overlay)...\n";
     shell.mediaHud().showVolume(85);
-    shell.mediaHud().showMedia("Dave Cutler - Symphony in C++23", "MicaNT Sovereign Philharmonic");
+    shell.mediaHud().showMedia("Barrer Software - Symphony in C++23", "MicaNT Sovereign Philharmonic");
     shell.render();
     if (shell.exportSnapshot("surshell_media_hud.bmp")) {
         std::cout << "  -> Exported: surshell_media_hud.bmp (1920x1080 32-bpp)\n";
@@ -614,9 +614,9 @@ int runSnapshotPipeline() {
     shell.lockScreen().unlock();
 
     // ------------------------------------------------------------------------
-    // Scene 21: Windows Terminal System with Tabs (microsoft/terminal Architecture)
+    // Scene 21: Sovereign Terminal System with Tabs (Pure ISO C++23 Architecture)
     // ------------------------------------------------------------------------
-    std::cout << "[SurShell] Rendering Scene 21: Windows Terminal System with Tabs...\n";
+    std::cout << "[SurShell] Rendering Scene 21: Sovereign Terminal System with Tabs...\n";
     const uint32_t termWin = shell.openTerminalWindow("C:\\Users\\admin");
     shell.windowManager().setWindowActive(termWin);
     if (auto* w = shell.windowManager().findWindow(termWin)) {
@@ -627,7 +627,7 @@ int runSnapshotPipeline() {
             term->executeCurrentCommand();
             term->inputString("dir");
             term->executeCurrentCommand();
-            term->inputString("echo MicaNT Dave Cutler Sovereign Executive Online");
+            term->inputString("echo MicaNT Barrer Software Sovereign Executive Online");
             term->executeCurrentCommand();
             term->render(w->clientSurface);
         }
@@ -671,7 +671,7 @@ int runSnapshotPipeline() {
     shell.desktop().closeContextMenu();
 
     // ------------------------------------------------------------------------
-    // Scene 25: Sovereign Photo & Image Viewer (Windows Photos Parity)
+    // Scene 25: Sovereign Photo & Image Viewer (Clean-Room Parity)
     // ------------------------------------------------------------------------
     std::cout << "[SurShell] Rendering Scene 25: Sovereign Photo & Image Viewer...\n";
     const uint32_t imgWin = shell.openImageViewerWindow("surshell_desktop_context_menu.bmp");

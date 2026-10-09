@@ -26,7 +26,7 @@ void TextViewerContent::newDocument() {
     fileName_ = "Untitled.txt";
     lines_ = {
         "// Sovereign Notepad - Clean-Room ISO C++23 Code & Text Editor",
-        "// Dave Cutler 1988 System Architecture | Zero Telemetry",
+        "// Barrer Software & MicaNT Community System Architecture | Zero Telemetry",
         "",
         "Welcome to SurShell Sovereign Text Editor 2.0.",
         "Type anywhere to edit, use Ctrl+S to save, or open any file on the system.",
@@ -88,7 +88,7 @@ void TextViewerContent::loadFile(const std::string& filePath) {
             fileSizeBytes_ = 328;
         } else if (fileName_ == "win.ini") {
             lines_ = {
-                "; Sovereign Windows Configuration",
+                "; Sovereign MicaNT Configuration",
                 "[fonts]",
                 "Segoe UI=default",
                 "Consolas=monospace",

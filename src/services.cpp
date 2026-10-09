@@ -99,9 +99,9 @@ void ServicesContent::scanServices() {
                             } else if (entry.name == "Dhcp") {
                                 entry.description = "Registers and updates IP addresses and DNS records for this computer. If this service is stopped, dynamic IP addressing fails.";
                             } else if (entry.name == "AudioSrv") {
-                                entry.description = "Manages audio for Windows-based programs. If this service is stopped, audio devices and effects will not function properly.";
+                                entry.description = "Manages audio for system programs. If this service is stopped, audio devices and effects will not function properly.";
                             } else if (entry.name == "AudioEndpointBuilder") {
-                                entry.description = "Manages audio devices for the Windows Audio service. If this service is stopped, audio devices and effects will not function properly.";
+                                entry.description = "Manages audio devices for the System Audio service. If this service is stopped, audio devices and effects will not function properly.";
                             } else if (entry.name == "Spooler") {
                                 entry.description = "This service spools print jobs and handles interaction with the printer. If you turn off this service, you won't be able to print.";
                             } else if (entry.name == "LanmanWorkstation") {
@@ -138,7 +138,7 @@ void ServicesContent::scanServices() {
     }
 #endif
 
-    // Fallback if not on Windows or if enumeration returned empty
+    // Fallback if host service enumeration returned empty
     if (services_.empty()) {
         services_ = {
             ServiceEntry{
@@ -152,7 +152,7 @@ void ServicesContent::scanServices() {
             },
             ServiceEntry{
                 .name = "EventLog",
-                .displayName = "Windows Event Log",
+                .displayName = "System Event Log",
                 .state = ServiceState::Running,
                 .startup = ServiceStartup::Automatic,
                 .pid = 964,
@@ -161,21 +161,21 @@ void ServicesContent::scanServices() {
             },
             ServiceEntry{
                 .name = "AudioSrv",
-                .displayName = "Windows Audio",
+                .displayName = "System Audio",
                 .state = ServiceState::Running,
                 .startup = ServiceStartup::Automatic,
                 .pid = 1432,
                 .logOnAs = "NT AUTHORITY\\LocalService",
-                .description = "Manages audio for Windows-based programs. If this service is stopped, audio devices and effects will not function properly."
+                .description = "Manages audio for system programs. If this service is stopped, audio devices and effects will not function properly."
             },
             ServiceEntry{
                 .name = "AudioEndpointBuilder",
-                .displayName = "Windows Audio Endpoint Builder",
+                .displayName = "System Audio Endpoint Builder",
                 .state = ServiceState::Running,
                 .startup = ServiceStartup::Automatic,
                 .pid = 1436,
                 .logOnAs = "NT AUTHORITY\\LocalService",
-                .description = "Manages audio devices for the Windows Audio service. If this service is stopped, audio devices and effects will not function properly."
+                .description = "Manages audio devices for the System Audio service. If this service is stopped, audio devices and effects will not function properly."
             },
             ServiceEntry{
                 .name = "Spooler",
@@ -206,7 +206,7 @@ void ServicesContent::scanServices() {
             },
             ServiceEntry{
                 .name = "Winmgmt",
-                .displayName = "Windows Management Instrumentation",
+                .displayName = "System Management Instrumentation",
                 .state = ServiceState::Running,
                 .startup = ServiceStartup::Automatic,
                 .pid = 1012,
@@ -215,7 +215,7 @@ void ServicesContent::scanServices() {
             },
             ServiceEntry{
                 .name = "W32Time",
-                .displayName = "Windows Time",
+                .displayName = "System Time Service",
                 .state = ServiceState::Running,
                 .startup = ServiceStartup::Manual,
                 .pid = 2192,
@@ -242,21 +242,21 @@ void ServicesContent::scanServices() {
             },
             ServiceEntry{
                 .name = "MpsSvc",
-                .displayName = "Windows Defender Firewall",
+                .displayName = "System Enclave Firewall",
                 .state = ServiceState::Running,
                 .startup = ServiceStartup::Automatic,
                 .pid = 1380,
                 .logOnAs = "NT AUTHORITY\\LocalService",
-                .description = "Windows Defender Firewall helps protect your computer by preventing unauthorized users from gaining access through the Internet or network."
+                .description = "System Enclave Firewall helps protect your computer by preventing unauthorized users from gaining access through the Internet or network."
             },
             ServiceEntry{
                 .name = "wuauserv",
-                .displayName = "Windows Update",
+                .displayName = "System Update",
                 .state = ServiceState::Stopped,
                 .startup = ServiceStartup::Manual,
                 .pid = 0,
                 .logOnAs = "LocalSystem",
-                .description = "Enables the detection, download, and installation of updates for Windows and other programs."
+                .description = "Enables the detection, download, and installation of updates for sovereign system components."
             },
             ServiceEntry{
                 .name = "DiagTrack",
@@ -274,7 +274,7 @@ void ServicesContent::scanServices() {
                 .startup = ServiceStartup::Automatic,
                 .pid = 824,
                 .logOnAs = "LocalSystem",
-                .description = "MicaNT Dave Cutler Clean-Room Zero-Telemetry Kernel Enclave Defense Service."
+                .description = "MicaNT Barrer Software Clean-Room Zero-Telemetry Kernel Enclave Defense Service."
             }
         };
     }
@@ -755,7 +755,7 @@ bool ServicesContent::onMouseDown(Point localPt, MouseButton button) {
     if (btnRefresh_.contains(localPt)) {
         scanServices();
         if (onToast_) {
-            onToast_("Services Refreshed", "Live Windows SCM status updated", IconId::Services);
+            onToast_("Services Refreshed", "Live System SCM status updated", IconId::Services);
         }
         return true;
     }

@@ -2,8 +2,8 @@
 // SurShell: Sovereign Clean-Room Modern ISO C++23 Desktop Shell for MicaNT
 // (include/surshell/types.hpp)
 //
-// Named in tribute to Dave Cutler's historic Windows NT 4.0 "SUR" (Shell Update Release).
-// Conforms strictly to Microsoft's MIT-licensed win32metadata specifications.
+// Engineered by Barrer Software and the MicaNT Community.
+// Conforms strictly to Sovereign NT Architecture specifications.
 // ============================================================================
 
 #pragma once
