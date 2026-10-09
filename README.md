@@ -33,7 +33,7 @@ SurShell implements the **"Mica Prism" Modern 2026 Sovereign Design Language**: 
 |                    |  [T]  TaskMgr     [*] Settings     |                               |
 |                    |  [S]  Sentinel    [N] NetBird      |                               |
 |                    |  --------------------------------  |                               |
-|                    |  ssfdre38              [Power v]   |                               |
+|                    |  admin                 [Power v]   |                               |
 |                    +------------------------------------+                               |
 |                                                                                         |
 |             +-------------------------------------------------------------+             |
@@ -79,7 +79,7 @@ SurShell implements the **"Mica Prism" Modern 2026 Sovereign Design Language**: 
 - Centered floating card with 14px rounded corners and 18px soft drop shadow.
 - Integrated modern search pill with live fuzzy filtering across app IDs, titles, and executable paths.
 - Tactile 2-column card grid with rich subtitles (e.g., "Command Prompt - Sovereign NT C++23 CLI").
-- Bottom user profile footer (`ssfdre38` / `Administrator`) and Cutler power action buttons (Lock, Sleep, Restart, Shutdown).
+- Bottom user profile footer (`admin` / active host user) and Cutler power action buttons (Lock, Sleep, Restart, Shutdown).
 
 ### 📁 Sovereign File Explorer (`surshell::FileExplorer`)
 - Freestanding cabinet explorer with breadcrumb address bar.

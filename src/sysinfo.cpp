@@ -8,6 +8,7 @@
 // ============================================================================
 
 #include "surshell/sysinfo.hpp"
+#include "surshell/kernel_bridge.hpp"
 #include <algorithm>
 #include <fstream>
 #include <sstream>
@@ -51,7 +52,7 @@ void SysInfoContent::populateDiagnosticTree() {
             {"OS Name", "MicaNT Sovereign Workstation Edition (64-bit)"},
             {"Version", "10.0.26100 (Windows NT 10.0 Sovereign Parity)"},
             {"OS Manufacturer", "Dave Cutler Sovereign Labs / MicaNT Community"},
-            {"System Name", "MS1003135"},
+            {"System Name", KernelBridge::queryComputerName()},
             {"System Manufacturer", "Sovereign Workstation Hardware"},
             {"System Model", "x64-based Sovereign PC Workstation"},
             {"System Type", "x64-based PC"},
@@ -142,6 +143,7 @@ void SysInfoContent::populateDiagnosticTree() {
     };
 
     // 3. Components
+    const auto primaryNet = KernelBridge::queryPrimaryNetworkAdapter();
     SysInfoCategory compNode{
         .id = "components",
         .title = "Components",
@@ -192,14 +194,14 @@ void SysInfoContent::populateDiagnosticTree() {
                 .title = "Network Adapters",
                 .iconId = IconId::NetworkEthernet,
                 .entries = {
-                    {"Network Interface", "Intel(R) Ethernet Connection I219-V"},
+                    {"Network Interface", primaryNet.description.empty() ? "Intel(R) Ethernet Controller" : primaryNet.description},
                     {"Product Type", "Gigabit Ethernet Adapter"},
-                    {"Link Speed", "1.0 Gbps Full Duplex"},
-                    {"MAC Address", "00:1A:2B:3C:4D:5E"},
-                    {"DHCP Enabled", "Yes (Dynamic IP Assignment)"},
-                    {"IPv4 Address", "192.168.1.142 / 24"},
-                    {"Default Gateway", "192.168.1.1"},
-                    {"DNS Servers", "1.1.1.1, 8.8.8.8"},
+                    {"Link Speed", primaryNet.linkSpeed},
+                    {"MAC Address", primaryNet.macAddress.empty() ? "00:1A:2B:3C:4D:5E" : primaryNet.macAddress},
+                    {"DHCP Enabled", primaryNet.isDhcp ? "Yes (Dynamic IP Assignment)" : "No (Static IP)"},
+                    {"IPv4 Address", primaryNet.ipv4Address + " / " + (primaryNet.ipv4Mask.empty() ? "255.255.255.0" : primaryNet.ipv4Mask)},
+                    {"Default Gateway", primaryNet.defaultGateway.empty() ? "None" : primaryNet.defaultGateway},
+                    {"DNS Servers", primaryNet.dnsServer.empty() ? "1.1.1.1, 8.8.8.8" : primaryNet.dnsServer},
                     {"Telemetry Firewall", "Active (Zero Cloud Data Transmission)"}
                 }
             }
@@ -484,6 +486,21 @@ void SysInfoContent::collectLiveHostTelemetry() {
             if (!realEnv.empty()) {
                 swEnv->entries = std::move(realEnv);
             }
+        }
+    }
+
+    // 7. Components -> Live Network Adapters
+    SysInfoCategory* compNet = findCategory("comp_net");
+    if (compNet) {
+        const auto net = KernelBridge::queryPrimaryNetworkAdapter();
+        for (auto& entry : compNet->entries) {
+            if (entry.item == "Network Interface") entry.value = net.description;
+            else if (entry.item == "Link Speed") entry.value = net.linkSpeed;
+            else if (entry.item == "MAC Address") entry.value = net.macAddress;
+            else if (entry.item == "IPv4 Address") entry.value = net.ipv4Address + " / " + (net.ipv4Mask.empty() ? "255.255.255.0" : net.ipv4Mask);
+            else if (entry.item == "Default Gateway") entry.value = net.defaultGateway;
+            else if (entry.item == "DNS Servers") entry.value = net.dnsServer;
+            else if (entry.item == "DHCP Enabled") entry.value = net.isDhcp ? "Yes (Dynamic IP Assignment)" : "No (Static IP)";
         }
     }
 #endif

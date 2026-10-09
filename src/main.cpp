@@ -479,8 +479,8 @@ int runSnapshotPipeline() {
     // Scene 12: Sovereign Acrylic Desktop Toast Notifications
     // ------------------------------------------------------------------------
     std::cout << "[SurShell] Rendering Scene 12: Sovereign Acrylic Desktop Toast Notifications...\n";
-    shell.toastManager().showToast("SentinelSec Guard", "Kernel Enclave verified. Zero telemetry active.", surshell::IconId::SentinelSec, surshell::Color::fromHex(0x00FF9D));
-    shell.toastManager().showToast("Network Telemetry", "Ethernet 1 Gbps Connected. IPv4: 192.168.1.105", surshell::IconId::NetworkEthernet, surshell::Color::fromHex(0x00D4FF));
+    const auto netInfo = surshell::KernelBridge::queryPrimaryNetworkAdapter();
+    shell.toastManager().showToast("Network Telemetry", "Ethernet " + netInfo.linkSpeed + " Connected. IPv4: " + netInfo.ipv4Address, surshell::IconId::NetworkEthernet, surshell::Color::fromHex(0x00D4FF));
     shell.render();
     if (shell.exportSnapshot("surshell_toast_notifications.bmp")) {
         std::cout << "  -> Exported: surshell_toast_notifications.bmp (1920x1080 32-bpp)\n";

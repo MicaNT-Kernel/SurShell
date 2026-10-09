@@ -603,6 +603,21 @@ void Test_MicaNT_Kernel_Bridge() {
     TEST_ASSERT(handle > 0, "Valid SurWin window handle returned");
     TEST_ASSERT(bridge.unregisterWindowWithSurWin(handle), "Unregister window succeeds");
 
+    // Real Host Identity & Network Telemetry
+    std::string user = surshell::KernelBridge::queryCurrentUserName();
+    TEST_ASSERT(!user.empty(), "Live host username queried successfully");
+
+    std::string comp = surshell::KernelBridge::queryComputerName();
+    TEST_ASSERT(!comp.empty(), "Live host computer name queried successfully");
+
+    auto net = surshell::KernelBridge::queryPrimaryNetworkAdapter();
+    TEST_ASSERT(!net.ipv4Address.empty(), "Primary network adapter has IPv4 address");
+    TEST_ASSERT(!net.description.empty(), "Primary network adapter has description");
+    TEST_ASSERT(!net.linkSpeed.empty(), "Primary network adapter has link speed");
+
+    auto netList = surshell::KernelBridge::queryNetworkAdapters();
+    TEST_ASSERT(!netList.empty(), "Network adapters list is non-empty");
+
     std::cout << "[TEST] Suite 12: MicaNT Executive LPC Syscall Bridge PASSED.\n";
 }
 

@@ -6,6 +6,7 @@
 // ============================================================================
 
 #include "surshell/devicemanager.hpp"
+#include "surshell/kernel_bridge.hpp"
 #include <algorithm>
 #include <sstream>
 #include <iomanip>
@@ -216,6 +217,7 @@ void DeviceManagerContent::populateDefaultHardwareTree() {
     };
 
     // 6. Network adapters
+    const auto primaryNet = KernelBridge::queryPrimaryNetworkAdapter();
     DeviceCategory netCat{
         .id = "network",
         .name = "Network adapters",
@@ -224,18 +226,18 @@ void DeviceManagerContent::populateDefaultHardwareTree() {
         .devices = {
             {
                 .id = "net_eth",
-                .name = "Intel(R) Ethernet Controller I225-V (2.5 Gbps)",
+                .name = primaryNet.description.empty() ? "Intel(R) Ethernet Controller (Gigabit)" : primaryNet.description,
                 .iconId = IconId::NetworkEthernet,
                 .status = "This device is working properly. (Code 0)",
                 .manufacturer = "Intel Corporation",
-                .driverVersion = "2.1.3.15",
-                .hardwareId = "PCI\\VEN_8086&DEV_15F3&SUBSYS_00008086",
-                .location = "PCI Bus 3, Device 0, Function 0",
+                .driverVersion = "10.0.26100.1",
+                .hardwareId = "PCI\\VEN_8086&DEV_NET_PRIMARY",
+                .location = "PCI Bus Network Interface",
                 .isEnabled = true,
                 .properties = {
-                    {"Link Speed", "1.0 Gbps Full Duplex"},
-                    {"MAC Address", "00:1A:7D:DA:71:11"},
-                    {"IPv4 Address", "192.168.1.135"}
+                    {"Link Speed", primaryNet.linkSpeed},
+                    {"MAC Address", primaryNet.macAddress},
+                    {"IPv4 Address", primaryNet.ipv4Address}
                 }
             },
             {
@@ -544,7 +546,8 @@ void DeviceManagerContent::collectHostHardwareTelemetry() {
                 cat.devices = std::move(realDisplays);
             }
         } else if (cat.id == "network") {
-            // 4. Real Network Adapters from Registry
+            // 4. Real Network Adapters from Registry & NDIS
+            const auto primaryNet = KernelBridge::queryPrimaryNetworkAdapter();
             HKEY hNetClass{};
             if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e972-e325-11ce-bfc1-08002be10318}", 0, KEY_READ, &hNetClass) == ERROR_SUCCESS) {
                 std::vector<DeviceItem> realNets;
@@ -569,6 +572,8 @@ void DeviceManagerContent::collectHostHardwareTelemetry() {
                                     DWORD verSize = sizeof(ver);
                                     RegQueryValueExA(hAdapterKey, "DriverVersion", nullptr, nullptr, reinterpret_cast<LPBYTE>(ver), &verSize);
 
+                                    const bool isPrimary = (d.find(primaryNet.description) != std::string::npos || realNets.empty());
+
                                     realNets.push_back({
                                         .id = realNets.empty() ? "net_eth" : ("net_eth_" + std::to_string(realNets.size())),
                                         .name = d,
@@ -581,8 +586,10 @@ void DeviceManagerContent::collectHostHardwareTelemetry() {
                                         .isEnabled = true,
                                         .properties = {
                                             {"Device Status", "Working properly"},
-                                            {"Link Speed", "10.0 Gbps Full Duplex"},
-                                            {"Driver Provider", prov[0] != '\0' ? prov : "Intel"}
+                                            {"Link Speed", isPrimary ? primaryNet.linkSpeed : "1.0 Gbps Full Duplex"},
+                                            {"Driver Provider", prov[0] != '\0' ? prov : "Intel Corporation"},
+                                            {"MAC Address", isPrimary ? primaryNet.macAddress : "00:1A:7D:DA:71:11"},
+                                            {"IPv4 Address", isPrimary ? primaryNet.ipv4Address : "None"}
                                         }
                                     });
                                 }

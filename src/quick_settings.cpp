@@ -5,6 +5,7 @@
 
 #include "surshell/quick_settings.hpp"
 #include "surshell/icons.hpp"
+#include "surshell/kernel_bridge.hpp"
 #include <algorithm>
 
 #if defined(_WIN32)
@@ -248,7 +249,8 @@ void QuickSettingsFlyout::render(Surface& surface, const ThemePalette& theme) {
 
     // 7. Footer Divider & Action Controls
     surface.fillRect(Rect{bounds_.x + 16, bounds_.bottom() - 50, bounds_.width - 32, 1}, Color::fromRgba(255, 255, 255, 25));
-    surface.drawString(bounds_.x + 18, bounds_.bottom() - 32, "Host: Cutler-Node1", theme.textSecondary, 1);
+    const std::string hostName = KernelBridge::queryComputerName();
+    surface.drawString(bounds_.x + 18, bounds_.bottom() - 32, "Host: " + hostName, theme.textSecondary, 1);
 
     // Settings Button
     surface.drawRoundedRect(settingsButtonBounds_, 6, theme.startCardBg, true);

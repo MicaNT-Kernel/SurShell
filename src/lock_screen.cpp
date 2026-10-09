@@ -4,11 +4,14 @@
 // ============================================================================
 
 #include "surshell/lock_screen.hpp"
+#include "surshell/kernel_bridge.hpp"
 #include <algorithm>
 
 namespace surshell {
 
-LockScreen::LockScreen() = default;
+LockScreen::LockScreen() {
+    username_ = KernelBridge::queryCurrentUserName() + " (MicaNT Executive)";
+}
 
 void LockScreen::lock() noexcept {
     isLocked_ = true;

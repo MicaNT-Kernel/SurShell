@@ -601,7 +601,8 @@ void SurShellDesktop::wireSubsystemCallbacks() {
         if (id == "clock") {
             openActionCenter();
         } else if (id == "network") {
-            toastManager_.showToast("Network Telemetry", "Ethernet Connected: 1000/1000 Mbps | IPv4: 192.168.1.105", IconId::NetworkEthernet, Color::fromHex(0x00FF9D));
+            const auto net = KernelBridge::queryPrimaryNetworkAdapter();
+            toastManager_.showToast("Network Telemetry", "Ethernet Connected: " + net.linkSpeed + " | IPv4: " + net.ipv4Address, IconId::NetworkEthernet, Color::fromHex(0x00FF9D));
         } else if (id == "security") {
             toastManager_.showToast("SentinelSec Security", "Zero-Telemetry Protection Active | System Enclave Secure", IconId::SentinelSec, Color::fromHex(0x00D4FF));
         }

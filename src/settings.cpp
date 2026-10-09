@@ -4,12 +4,15 @@
 // ============================================================================
 
 #include "surshell/settings.hpp"
+#include "surshell/kernel_bridge.hpp"
 #include <algorithm>
 #include <sstream>
 
 namespace surshell {
 
 SettingsContent::SettingsContent() {
+    deviceName_ = KernelBridge::queryComputerName();
+
     accentColors_ = {
         {"Cutler Cyan",   Color::fromHex(0x00D4FF), {}},
         {"Emerald Neon",  Color::fromHex(0x00FF9D), {}},
@@ -449,17 +452,18 @@ void SettingsContent::renderNetworkPage(Surface& s, const ThemePalette& palette,
     curY += 28;
 
     // 1. Ethernet Card
+    const auto net = KernelBridge::queryPrimaryNetworkAdapter();
     const Rect cardR{startX, curY, r.width - 48, 140};
     s.drawRoundedRect(cardR, 8, Color::fromHex(0x161F2E), true);
     s.drawRoundedRect(cardR, 8, Color::fromHex(0x283850), false);
 
     IconRenderer::draw(s, IconId::NetworkEthernet, Point{cardR.x + 16, cardR.y + 16}, 28, Color::fromHex(0x00FF9D));
-    s.drawString(cardR.x + 56, cardR.y + 16, "Gigabit Ethernet (Clean-Room Realtek Driver)", palette.textPrimary, 1);
-    s.drawString(cardR.x + 56, cardR.y + 34, "Status: Connected | 1000/1000 Mbps Full Duplex", Color::fromHex(0x00FF9D), 1);
+    s.drawString(cardR.x + 56, cardR.y + 16, net.description.empty() ? "Gigabit Ethernet Adapter" : net.description, palette.textPrimary, 1);
+    s.drawString(cardR.x + 56, cardR.y + 34, "Status: Connected | " + net.linkSpeed, Color::fromHex(0x00FF9D), 1);
 
-    s.drawString(cardR.x + 16, cardR.y + 60,  "IPv4 Address:       192.168.1.105 / 24 (Static Local)", palette.textSecondary, 1);
-    s.drawString(cardR.x + 16, cardR.y + 78,  "Subnet Mask:        255.255.255.0", palette.textSecondary, 1);
-    s.drawString(cardR.x + 16, cardR.y + 96,  "Default Gateway:    192.168.1.1", palette.textSecondary, 1);
+    s.drawString(cardR.x + 16, cardR.y + 60,  "IPv4 Address:       " + net.ipv4Address + " / 24" + (net.isDhcp ? " (DHCP Assigned)" : " (Static Local)"), palette.textSecondary, 1);
+    s.drawString(cardR.x + 16, cardR.y + 78,  "Subnet Mask:        " + (net.ipv4Mask.empty() ? "255.255.255.0" : net.ipv4Mask), palette.textSecondary, 1);
+    s.drawString(cardR.x + 16, cardR.y + 96,  "Default Gateway:    " + (net.defaultGateway.empty() ? "None" : net.defaultGateway), palette.textSecondary, 1);
     s.drawString(cardR.x + 16, cardR.y + 114, "External Telemetry: 0 Bytes Transmitted (Zero Collection)", Color::fromHex(0x00D4FF), 1);
 
     curY += 152;

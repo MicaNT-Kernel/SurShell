@@ -47,6 +47,19 @@ struct KernelVitals {
     uint64_t uptimeSeconds{3600};
 };
 
+struct KernelNetworkAdapter {
+    std::string adapterName{};
+    std::string description{};
+    std::string macAddress{};
+    std::string ipv4Address{};
+    std::string ipv4Mask{};
+    std::string defaultGateway{};
+    std::string dnsServer{};
+    std::string linkSpeed{"1.0 Gbps Full Duplex"};
+    bool isConnected{true};
+    bool isDhcp{true};
+};
+
 class KernelBridge {
 public:
     KernelBridge();
@@ -73,6 +86,12 @@ public:
     // Power Management
     bool setPowerState(std::string_view state);
     [[nodiscard]] std::string powerState() const;
+
+    // Real Host Identity & Hardware Queries
+    [[nodiscard]] static std::string queryCurrentUserName();
+    [[nodiscard]] static std::string queryComputerName();
+    [[nodiscard]] static KernelNetworkAdapter queryPrimaryNetworkAdapter();
+    [[nodiscard]] static std::vector<KernelNetworkAdapter> queryNetworkAdapters();
 
 private:
     bool isConnected_{false};

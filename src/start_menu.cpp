@@ -6,6 +6,7 @@
 #include "surshell/start_menu.hpp"
 #include "surshell/theme.hpp"
 #include "surshell/icons.hpp"
+#include "surshell/kernel_bridge.hpp"
 #include <algorithm>
 #include <filesystem>
 
@@ -763,7 +764,7 @@ void StartMenu::render(Surface& surface, Rect menuBounds) {
     surface.drawRoundedRect(avatarBox, 16, palette.accentColor, true);
     IconRenderer::draw(surface, IconId::User, Rect{avatarBox.x + 6, avatarBox.y + 6, 20, 20}, Color::fromHex(0x06090F));
 
-    surface.drawString(avatarBox.right() + 10, userBtn.y + 6, "ssfdre38", palette.textPrimary, 1);
+    surface.drawString(avatarBox.right() + 10, userBtn.y + 6, KernelBridge::queryCurrentUserName(), palette.textPrimary, 1);
     surface.drawString(avatarBox.right() + 10, userBtn.y + 20, "MicaNT Administrator", palette.textSecondary, 1);
 
     // Dedicated Power Button with Universal IEC 5009 Standby Vector Icon

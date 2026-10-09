@@ -28,12 +28,20 @@ TaskManagerContent::TaskManagerContent(KernelBridge* bridge)
         bridge_ = fallbackBridge_.get();
     }
 
-    // Seed mock telemetry history
+    // Initialize baseline telemetry history with genuine host memory load
+    float initialMem = 12.0f;
+#if defined(_WIN32)
+    MEMORYSTATUSEX memStatus{};
+    memStatus.dwLength = sizeof(memStatus);
+    if (GlobalMemoryStatusEx(&memStatus)) {
+        initialMem = static_cast<float>(memStatus.dwMemoryLoad);
+    }
+#endif
     for (size_t i = 0; i < 36; ++i) {
-        cpuHistory_.push_back(8.0f + 6.0f * std::sin(static_cast<float>(i) * 0.35f));
-        memHistory_.push_back(13.0f + 0.5f * std::cos(static_cast<float>(i) * 0.2f));
-        diskHistory_.push_back(std::max(0.5f, 3.0f + 2.5f * std::sin(static_cast<float>(i) * 0.5f)));
-        netHistory_.push_back(std::max(0.2f, 2.0f + 1.8f * std::cos(static_cast<float>(i) * 0.4f)));
+        cpuHistory_.push_back(0.0f);
+        memHistory_.push_back(initialMem);
+        diskHistory_.push_back(0.0f);
+        netHistory_.push_back(0.0f);
     }
 
     refresh();
