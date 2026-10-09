@@ -4,6 +4,7 @@
 // ============================================================================
 
 #include "surshell/surshell.hpp"
+#include "surshell/winget.hpp"
 #include <iostream>
 #include <cassert>
 #include <vector>
@@ -2606,6 +2607,156 @@ void Test_Winget_App_Hub() {
     std::cout << "[TEST] Suite 35: Winget Sovereign App Hub & Retail Suite (winget.exe) PASSED.\n";
 }
 
+void Test_Winget_Pkgs_Repo_Settings_And_StartMenu_Catalog() {
+    std::cout << "[TEST] Running Suite 36: winget-pkgs Ingestion, App Hub Settings & Start Menu Catalog...\n";
+
+    // 1. WinGetManager Repository Settings & Active Source
+    auto& engine = winget::WinGetManager::Instance();
+    TEST_ASSERT(engine.getSources().size() >= 4, "Default package sources initialized (including winget-pkgs)");
+
+    bool foundWingetPkgs = false;
+    for (const auto& src : engine.getSources()) {
+        if (src.name == "winget-pkgs") {
+            foundWingetPkgs = true;
+            TEST_ASSERT(src.argument == "https://github.com/microsoft/winget-pkgs", "winget-pkgs points to official repository");
+            TEST_ASSERT(src.type == "Microsoft.Git.ManifestTree", "winget-pkgs uses Microsoft.Git.ManifestTree provider");
+            break;
+        }
+    }
+    TEST_ASSERT(foundWingetPkgs, "winget-pkgs repository source present");
+
+    TEST_ASSERT(engine.getActiveSource() == "winget-pkgs", "Default active repository source is winget-pkgs");
+    engine.setActiveSource("sovereign");
+    TEST_ASSERT(engine.getActiveSource() == "sovereign", "Active repository changed to sovereign");
+    engine.setActiveSource("winget-pkgs");
+    TEST_ASSERT(engine.getActiveSource() == "winget-pkgs", "Active repository restored to winget-pkgs");
+
+    // 2. FIPS 180-4 SHA-256 and Architecture Settings
+    TEST_ASSERT(engine.isStrictFipsVerification() == true, "Strict FIPS 180-4 verification enabled by default");
+    engine.setStrictFipsVerification(false);
+    TEST_ASSERT(engine.isStrictFipsVerification() == false, "Permissive mode toggled");
+    engine.setStrictFipsVerification(true);
+    TEST_ASSERT(engine.isStrictFipsVerification() == true, "Strict mode re-engaged");
+
+    TEST_ASSERT(engine.getPreferredArch() == "x64", "Preferred architecture defaults to x64");
+    engine.setPreferredArch("arm64");
+    TEST_ASSERT(engine.getPreferredArch() == "arm64", "Preferred architecture changed to arm64");
+    engine.setPreferredArch("x64");
+    TEST_ASSERT(engine.getPreferredArch() == "x64", "Preferred architecture restored to x64");
+
+    // 3. Manifest Tree Ingestion (simulating microsoft/winget-pkgs directory layout)
+    const std::filesystem::path testDir = "test_winget_repo_tree";
+    const std::filesystem::path pkgDir = testDir / "manifests" / "m" / "MicaNT" / "DiagnosticTool" / "2.4.0";
+    std::error_code ec;
+    std::filesystem::create_directories(pkgDir, ec);
+
+    const std::filesystem::path manifestFile = pkgDir / "MicaNT.DiagnosticTool.yaml";
+    {
+        std::ofstream ofs(manifestFile);
+        ofs << "PackageIdentifier: MicaNT.DiagnosticTool\n"
+            << "PackageVersion: 2.4.0\n"
+            << "PackageName: MicaNT Hardware Diagnostic Tool\n"
+            << "Publisher: MicaNT Systems\n"
+            << "License: MIT\n"
+            << "ShortDescription: Zero-telemetry hardware diagnostics utility\n"
+            << "Installers:\n"
+            << "  - Architecture: x64\n"
+            << "    InstallerType: portable\n"
+            << "    InstallerUrl: https://micant.org/downloads/diag-2.4.0-x64.zip\n"
+            << "    InstallerSha256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n";
+    }
+
+    size_t ingested = engine.loadManifestsFromDirectory(testDir);
+    TEST_ASSERT(ingested >= 1, "loadManifestsFromDirectory ingested manifest successfully");
+
+    const auto* foundPkg = engine.findPackage("MicaNT.DiagnosticTool");
+    TEST_ASSERT(foundPkg != nullptr, "Ingested package found in catalog");
+    TEST_ASSERT(foundPkg->packageName == "MicaNT Hardware Diagnostic Tool", "Ingested package title parsed correctly");
+    TEST_ASSERT(foundPkg->packageVersion == "2.4.0", "Ingested package version parsed correctly");
+    TEST_ASSERT(foundPkg->license == "MIT", "Ingested package license parsed correctly");
+
+    std::filesystem::remove_all(testDir, ec);
+
+    // 4. Sovereign App Hub Settings UI
+    surshell::AppHubContent hub;
+    hub.setCategory(surshell::AppHubCategory::Settings);
+    TEST_ASSERT(hub.activeCategory() == surshell::AppHubCategory::Settings, "App Hub category set to Settings & Sources");
+
+    surshell::Surface hubSurf(960, 640, surshell::Color{0, 0, 0, 255});
+    hub.render(hubSurf);
+
+    bool drewSettingsVisuals = false;
+    for (uint32_t y = 80; y < 300 && !drewSettingsVisuals; ++y) {
+        for (uint32_t x = 40; x < 500 && !drewSettingsVisuals; ++x) {
+            if (hubSurf.getPixel(x, y).toRgba() != surshell::Color{0, 0, 0, 255}.toRgba()) {
+                drewSettingsVisuals = true;
+            }
+        }
+    }
+    TEST_ASSERT(drewSettingsVisuals, "Settings & Sources view rendered to surface");
+
+    // 5. Start Menu All Apps Catalog & Icon Engine Verification
+    surshell::StartMenu sm;
+    const auto& apps = sm.allApps();
+    TEST_ASSERT(apps.size() >= 18, "Start Menu registered full application catalog");
+
+    auto hasApp = [&](std::string_view id) {
+        return std::any_of(apps.begin(), apps.end(), [&](const surshell::ShellAppEntry& a) { return a.id == id; });
+    };
+    TEST_ASSERT(hasApp("terminal"), "Sovereign Terminal registered in Start Menu");
+    TEST_ASSERT(hasApp("taskview"), "Task View registered in Start Menu");
+    TEST_ASSERT(hasApp("7zip"), "7-Zip registered in Start Menu");
+    TEST_ASSERT(hasApp("notepadplusplus"), "Notepad++ registered in Start Menu");
+    TEST_ASSERT(hasApp("vlc"), "VLC registered in Start Menu");
+    TEST_ASSERT(hasApp("winmerge"), "WinMerge registered in Start Menu");
+    TEST_ASSERT(hasApp("everything"), "Everything registered in Start Menu");
+    TEST_ASSERT(hasApp("sumatrapdf"), "SumatraPDF registered in Start Menu");
+    TEST_ASSERT(hasApp("wiztree"), "WizTree registered in Start Menu");
+    TEST_ASSERT(hasApp("putty"), "PuTTY registered in Start Menu");
+    TEST_ASSERT(hasApp("wt"), "Windows Terminal registered in Start Menu");
+
+    // Verify Icon Mappings
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("terminal") == surshell::IconId::Terminal, "terminal icon mapping");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("taskview") == surshell::IconId::TaskView, "taskview icon mapping");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("7zip") == surshell::IconId::FileArchive, "7zip icon mapping");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("notepadplusplus") == surshell::IconId::FileCode, "notepad++ icon mapping");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("vlc") == surshell::IconId::MediaPlay, "vlc icon mapping");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("winmerge") == surshell::IconId::Edit, "winmerge icon mapping");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("everything") == surshell::IconId::Search, "everything icon mapping");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("sumatrapdf") == surshell::IconId::FileText, "sumatrapdf icon mapping");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("wiztree") == surshell::IconId::DiskManagement, "wiztree icon mapping");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("putty") == surshell::IconId::Terminal, "putty icon mapping");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("wt") == surshell::IconId::Terminal, "wt icon mapping");
+
+    // 6. Start Menu All Apps View & Mouse Wheel / Keyboard Scrolling
+    sm.open();
+    sm.setViewMode(surshell::StartViewMode::AllApps);
+    TEST_ASSERT(sm.viewMode() == surshell::StartViewMode::AllApps, "Start Menu in AllApps mode");
+
+    const surshell::Rect smBounds = sm.calculateBounds(1920, 1080, 48);
+    surshell::Surface smSurf(1920, 1080, surshell::Color{0, 0, 0, 255});
+    sm.render(smSurf, smBounds);
+
+    // Scroll Down via Mouse Wheel
+    const surshell::Point centerPt{smBounds.x + smBounds.width / 2, smBounds.y + smBounds.height / 2};
+    bool scrolledWheel = sm.onMouseWheel(centerPt, -1, smBounds);
+    TEST_ASSERT(scrolledWheel, "Mouse wheel down scrolls AllApps view");
+
+    // Scroll with Arrow Keys
+    bool scrolledDown = sm.onKeyDown(surshell::KeyCode::Down, smBounds);
+    TEST_ASSERT(scrolledDown, "Down arrow scrolls AllApps view");
+
+    bool scrolledUp = sm.onKeyDown(surshell::KeyCode::Up, smBounds);
+    TEST_ASSERT(scrolledUp, "Up arrow scrolls AllApps view");
+
+    // Escape closes Start Menu
+    bool closedEsc = sm.onKeyDown(surshell::KeyCode::Escape, smBounds);
+    TEST_ASSERT(closedEsc, "Escape key handled by Start Menu");
+    TEST_ASSERT(!sm.isOpen(), "Start Menu closed after Escape");
+
+    std::cout << "[TEST] Suite 36: winget-pkgs Ingestion, App Hub Settings & Start Menu Catalog PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -2647,9 +2798,10 @@ int main() {
     Test_Services_Management_Application();
     Test_Event_Viewer_Application();
     Test_Winget_App_Hub();
+    Test_Winget_Pkgs_Repo_Settings_And_StartMenu_Catalog();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 35 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 36 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

@@ -922,6 +922,27 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openEventViewerWindow();
         } else if (app.executablePath == "C:\\Windows\\System32\\winget.exe" || app.id == "app_hub" || app.id == "winget" || app.id == "store") {
             openAppHubWindow();
+        } else if (app.id == "terminal" || app.id == "wt") {
+            openTerminalWindow("C:\\Users\\admin");
+        } else if (app.id == "taskview") {
+            virtualDesktops_.toggleSwitcher();
+            if (virtualDesktops_.isSwitcherVisible()) {
+                virtualDesktops_.updateLayout(width_, height_, taskbar_.bounds().height);
+                quickSettings_.close();
+                actionCenter_.hide();
+                searchHub_.hide();
+            }
+        } else if (app.id == "7zip" || app.id == "notepadplusplus" || app.id == "vlc" ||
+                   app.id == "winmerge" || app.id == "everything" || app.id == "sumatrapdf" ||
+                   app.id == "wiztree" || app.id == "putty") {
+            std::error_code ec;
+            if (std::filesystem::exists(app.executablePath, ec)) {
+                kernelBridge_.spawnProcess(app.executablePath, app.arguments);
+                toastManager_.showToast("Launched Native Application", app.title, IconRenderer::iconForAppId(app.id));
+            } else {
+                openAppHubWindow(app.title);
+                toastManager_.showToast("Sovereign App Hub", "Package details for " + app.title, IconRenderer::iconForAppId(app.id));
+            }
         } else {
             const bool spawned = kernelBridge_.spawnProcess(app.executablePath, app.arguments).has_value();
             toastManager_.showToast("Launched Application", app.title, IconRenderer::iconForAppId(app.id));
@@ -1229,6 +1250,12 @@ void SurShellDesktop::onDoubleClick(Point pt) {
 
 void SurShellDesktop::onMouseWheel(Point pt, int32_t delta) {
     currentMousePos_ = pt;
+    if (startMenu_.isOpen()) {
+        const Rect smBounds = startMenu_.calculateBounds(width_, height_, taskbar_.bounds().height);
+        if (startMenu_.onMouseWheel(pt, delta, smBounds)) {
+            return;
+        }
+    }
     windowManager_.onMouseWheel(pt, delta);
 }
 
@@ -1269,6 +1296,13 @@ void SurShellDesktop::onKeyDown(KeyCode key, bool ctrl, bool shift, bool alt, bo
     if (actionCenter_.isVisible()) {
         if (key == KeyCode::Escape) {
             actionCenter_.hide();
+            return;
+        }
+    }
+
+    if (startMenu_.isOpen()) {
+        const Rect smBounds = startMenu_.calculateBounds(width_, height_, taskbar_.bounds().height);
+        if (startMenu_.onKeyDown(key, smBounds)) {
             return;
         }
     }

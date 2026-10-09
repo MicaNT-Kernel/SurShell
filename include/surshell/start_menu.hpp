@@ -79,8 +79,8 @@ public:
     [[nodiscard]] const std::vector<RecommendedItem>& recommendedItems() const noexcept { return recommendedItems_; }
 
     [[nodiscard]] StartViewMode viewMode() const noexcept { return viewMode_; }
-    void setViewMode(StartViewMode mode) noexcept { viewMode_ = mode; }
-    void toggleViewMode() noexcept { viewMode_ = (viewMode_ == StartViewMode::Pinned) ? StartViewMode::AllApps : StartViewMode::Pinned; }
+    void setViewMode(StartViewMode mode) noexcept { viewMode_ = mode; allAppsScrollY_ = 0; }
+    void toggleViewMode() noexcept { viewMode_ = (viewMode_ == StartViewMode::Pinned) ? StartViewMode::AllApps : StartViewMode::Pinned; allAppsScrollY_ = 0; }
 
     [[nodiscard]] bool isPowerFlyoutOpen() const noexcept { return isPowerFlyoutOpen_; }
     void setPowerFlyoutOpen(bool open) noexcept { isPowerFlyoutOpen_ = open; if (open) isUserFlyoutOpen_ = false; }
@@ -94,6 +94,8 @@ public:
 
     void onMouseDown(Point pt, MouseButton button, Rect menuBounds);
     void onMouseMove(Point pt, Rect menuBounds);
+    bool onMouseWheel(Point pt, int32_t delta, Rect menuBounds);
+    bool onKeyDown(KeyCode key, Rect menuBounds);
 
     void render(Surface& surface, Rect menuBounds);
 
@@ -123,6 +125,9 @@ private:
     bool isAllAppsButtonHovered_{false};
     bool isPowerButtonHovered_{false};
     bool isUserButtonHovered_{false};
+
+    int32_t allAppsScrollY_{0};
+    int32_t allAppsMaxScrollY_{0};
 
     LaunchCallback launchCallback_{};
     PowerCallback powerCallback_{};

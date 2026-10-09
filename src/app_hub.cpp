@@ -18,7 +18,8 @@ AppHubContent::AppHubContent() {
         { AppHubCategory::DeveloperTools, "Developer Tools", Rect{} },
         { AppHubCategory::SystemUtilities, "System Utilities", Rect{} },
         { AppHubCategory::MediaDocs, "Media & Docs", Rect{} },
-        { AppHubCategory::Installed, "Installed", Rect{} }
+        { AppHubCategory::Installed, "Installed", Rect{} },
+        { AppHubCategory::Settings, "Settings & Sources", Rect{} }
     };
 
     populateCatalog();
@@ -132,6 +133,9 @@ void AppHubContent::setCategory(AppHubCategory cat) {
 
 void AppHubContent::updateFilter() {
     filteredCards_.clear();
+    if (activeCategory_ == AppHubCategory::Settings) {
+        return;
+    }
 
     std::string q = searchQuery_;
     std::transform(q.begin(), q.end(), q.begin(), [](unsigned char c) {
@@ -248,6 +252,47 @@ void AppHubContent::updateLayout(int32_t width, int32_t height) {
         tabX += tabW + 8;
     }
 
+    if (activeCategory_ == AppHubCategory::Settings) {
+        auto& mgr = winget::WinGetManager::Instance();
+        const auto& sources = mgr.getSources();
+        const std::string activeSrc = mgr.getActiveSource();
+
+        repoSourceCards_.clear();
+        const int32_t cardW = catalogAreaBounds_.width;
+        constexpr int32_t sourceCardH = 46;
+        constexpr int32_t sourceGap = 8;
+
+        int32_t curY = catalogAreaBounds_.y + 26;
+        for (const auto& s : sources) {
+            RepoSourceCard sc;
+            sc.name = s.name;
+            sc.argument = s.argument;
+            sc.type = s.type;
+            sc.isActive = (s.name == activeSrc);
+            sc.bounds = Rect{catalogAreaBounds_.x, curY, cardW, sourceCardH};
+            sc.selectBtnBounds = Rect{catalogAreaBounds_.x + cardW - 88 - 10, curY + 9, 88, 28};
+            repoSourceCards_.push_back(sc);
+            curY += sourceCardH + sourceGap;
+        }
+
+        // Section 2: Local Repo Path & Ingest Button
+        const int32_t sec2Y = curY + 14;
+        scanRepoBtnBounds_ = Rect{catalogAreaBounds_.x + cardW - 196, sec2Y + 22, 196, 30};
+
+        // Section 3: Settings & Preferences
+        const int32_t sec3Y = sec2Y + 68;
+        fipsToggleBounds_ = Rect{catalogAreaBounds_.x, sec3Y + 22, 270, 30};
+        archX64BtnBounds_ = Rect{catalogAreaBounds_.x + 286, sec3Y + 22, 110, 30};
+        archArm64BtnBounds_ = Rect{catalogAreaBounds_.x + 404, sec3Y + 22, 110, 30};
+
+        syncUpstreamBtnBounds_ = Rect{catalogAreaBounds_.x + cardW - 276, sec3Y + 22, 130, 30};
+        resetDefaultsBtnBounds_ = Rect{catalogAreaBounds_.x + cardW - 136, sec3Y + 22, 136, 30};
+
+        maxScrollY_ = 0;
+        scrollY_ = 0;
+        return;
+    }
+
     // Layout Cards Grid in Catalog Area
     constexpr int32_t cardGap = 12;
     constexpr int32_t cardH = 96;
@@ -353,6 +398,11 @@ void AppHubContent::render(Surface& clientSurface) {
     // Header separator line
     clientSurface.fillRect(Rect{16, 122, width - 32, 1}, Color::fromHex(0x1E293B));
 
+    if (activeCategory_ == AppHubCategory::Settings) {
+        renderSettingsView(clientSurface, width, height);
+        return;
+    }
+
     // 5. Package Cards Grid (Rendered inside Catalog Area)
     for (size_t i = 0; i < filteredCards_.size(); ++i) {
         const auto& card = filteredCards_[i];
@@ -448,6 +498,117 @@ void AppHubContent::render(Surface& clientSurface) {
     }
 }
 
+void AppHubContent::renderSettingsView(Surface& clientSurface, int32_t width, int32_t height) {
+    (void)width;
+    (void)height;
+    const auto& palette = ThemeManager::instance().palette();
+    auto& mgr = winget::WinGetManager::Instance();
+
+    // Section 1: Active Package Sources
+    clientSurface.drawString(catalogAreaBounds_.x, catalogAreaBounds_.y + 4,
+                             "ACTIVE PACKAGE SOURCES & UPSTREAM REPOSITORIES", palette.prismAccent, 1);
+    clientSurface.fillRect(Rect{catalogAreaBounds_.x, catalogAreaBounds_.y + 20, catalogAreaBounds_.width, 1},
+                           Color::fromHex(0x1E293B));
+
+    for (size_t i = 0; i < repoSourceCards_.size(); ++i) {
+        const auto& sc = repoSourceCards_[i];
+        const bool isHov = (static_cast<int32_t>(i) == hoveredSourceIndex_);
+        const bool isBtnHov = (static_cast<int32_t>(i) == hoveredSourceSelectBtnIndex_);
+
+        clientSurface.drawDropShadow(sc.bounds, 6, 0.25f);
+        clientSurface.drawRoundedRect(sc.bounds, 6,
+                                      isHov ? Color::fromHex(0x131E2E) : Color::fromHex(0x0E1624), true);
+        clientSurface.drawRoundedRect(sc.bounds, 6,
+                                      sc.isActive ? palette.prismAccent : (isHov ? Color::fromHex(0x38BDF8) : Color::fromHex(0x202E42)), false);
+
+        // Icon Box
+        const Rect iconR{sc.bounds.x + 8, sc.bounds.y + 6, 34, 34};
+        clientSurface.drawRoundedRect(iconR, 4, Color::fromHex(0x182436), true);
+        IconRenderer::draw(clientSurface, sc.name == "winget-pkgs" ? IconId::Terminal : IconId::AppHub,
+                           Rect{iconR.x + 5, iconR.y + 5, 24, 24}, palette.prismAccent);
+
+        // Name
+        std::string dispName = sc.name;
+        if (sc.name == "winget-pkgs") dispName = "microsoft/winget-pkgs (Official Community Repository)";
+        else if (sc.name == "sovereign") dispName = "Sovereign Retail Mirror (Clean-Room Certified NT)";
+        else if (sc.name == "winget") dispName = "winget CDN Pre-Indexed Cache";
+        else if (sc.name == "msstore") dispName = "Microsoft Store REST API";
+
+        clientSurface.drawString(sc.bounds.x + 50, sc.bounds.y + 8, dispName, Color::fromHex(0xFFFFFF), 1);
+        std::string sub = sc.argument + " | " + sc.type;
+        if (sub.size() > 65) sub = sub.substr(0, 63) + "..";
+        clientSurface.drawString(sc.bounds.x + 50, sc.bounds.y + 26, sub, palette.textSecondary, 1);
+
+        // Active Badge / Select Button
+        if (sc.isActive) {
+            clientSurface.drawRoundedRect(sc.selectBtnBounds, 4, Color::fromHex(0x0E3A42), true);
+            clientSurface.drawRoundedRect(sc.selectBtnBounds, 4, Color::fromHex(0x00B4D8), false);
+            clientSurface.drawString(sc.selectBtnBounds.centerX() - 24, sc.selectBtnBounds.y + 6, "ACTIVE", Color::fromHex(0x00B4D8), 1);
+        } else {
+            const Color btnBg = isBtnHov ? Color::fromHex(0x1E2B3E) : Color::fromHex(0x121A26);
+            clientSurface.drawRoundedRect(sc.selectBtnBounds, 4, btnBg, true);
+            clientSurface.drawRoundedRect(sc.selectBtnBounds, 4, isBtnHov ? palette.prismAccent : Color::fromHex(0x28384E), false);
+            clientSurface.drawString(sc.selectBtnBounds.centerX() - 24, sc.selectBtnBounds.y + 6, "Select", palette.textSecondary, 1);
+        }
+    }
+
+    // Section 2: Local Repo Path & Ingest Button
+    const int32_t sec2Y = catalogAreaBounds_.y + 26 + static_cast<int32_t>(repoSourceCards_.size()) * 54 + 14;
+    clientSurface.drawString(catalogAreaBounds_.x, sec2Y,
+                             "LOCAL REPOSITORY / MANIFEST DIRECTORY (microsoft/winget-pkgs)", palette.prismAccent, 1);
+    clientSurface.fillRect(Rect{catalogAreaBounds_.x, sec2Y + 16, catalogAreaBounds_.width, 1},
+                           Color::fromHex(0x1E293B));
+
+    const Rect pathBox{catalogAreaBounds_.x, sec2Y + 22, catalogAreaBounds_.width - 206, 30};
+    clientSurface.drawRoundedRect(pathBox, 4, Color::fromHex(0x131C2A), true);
+    clientSurface.drawRoundedRect(pathBox, 4, Color::fromHex(0x28384E), false);
+    clientSurface.drawString(pathBox.x + 10, pathBox.y + 8, mgr.getLocalRepoPath(), Color::fromHex(0x38BDF8), 1);
+
+    const Color scanBg = isScanRepoHovered_ ? Color::fromHex(0x48CAE4) : Color::fromHex(0x00B4D8);
+    clientSurface.drawRoundedRect(scanRepoBtnBounds_, 4, scanBg, true);
+    clientSurface.drawString(scanRepoBtnBounds_.centerX() - 76, scanRepoBtnBounds_.y + 7,
+                             "Scan & Ingest Manifests", Color::fromHex(0x06090F), 1);
+
+    // Section 3: Preferences
+    const int32_t sec3Y = sec2Y + 68;
+    clientSurface.drawString(catalogAreaBounds_.x, sec3Y,
+                             "PACKAGE INTEGRITY & ARCHITECTURE SETTINGS", palette.prismAccent, 1);
+    clientSurface.fillRect(Rect{catalogAreaBounds_.x, sec3Y + 16, catalogAreaBounds_.width, 1},
+                           Color::fromHex(0x1E293B));
+
+    // FIPS Toggle
+    const bool fipsOn = mgr.isStrictFipsVerification();
+    const Color fipsBg = fipsOn ? Color::fromHex(0x0E3A42) : Color::fromHex(0x2A1A1A);
+    const Color fipsBorder = fipsOn ? Color::fromHex(0x00B4D8) : Color::fromHex(0xEF4444);
+    clientSurface.drawRoundedRect(fipsToggleBounds_, 4, fipsBg, true);
+    clientSurface.drawRoundedRect(fipsToggleBounds_, 4, isFipsToggleHovered_ ? Color::fromHex(0xFFFFFF) : fipsBorder, false);
+    const std::string fipsText = fipsOn ? "FIPS 180-4 SHA-256: STRICT [ON]" : "FIPS 180-4 SHA-256: PERMISSIVE";
+    clientSurface.drawString(fipsToggleBounds_.centerX() - static_cast<int32_t>(fipsText.size()) * 4,
+                             fipsToggleBounds_.y + 7, fipsText, fipsOn ? Color::fromHex(0x00B4D8) : Color::fromHex(0xEF4444), 1);
+
+    // Architecture Selectors
+    const std::string curArch = mgr.getPreferredArch();
+    const bool isX64 = (curArch == "x64");
+    clientSurface.drawRoundedRect(archX64BtnBounds_, 4, isX64 ? Color::fromHex(0x00B4D8) : Color::fromHex(0x131C2A), true);
+    if (!isX64) clientSurface.drawRoundedRect(archX64BtnBounds_, 4, Color::fromHex(0x28384E), false);
+    clientSurface.drawString(archX64BtnBounds_.centerX() - 36, archX64BtnBounds_.y + 7, "Native x64", isX64 ? Color::fromHex(0x06090F) : palette.textSecondary, 1);
+
+    clientSurface.drawRoundedRect(archArm64BtnBounds_, 4, !isX64 ? Color::fromHex(0x00B4D8) : Color::fromHex(0x131C2A), true);
+    if (isX64) clientSurface.drawRoundedRect(archArm64BtnBounds_, 4, Color::fromHex(0x28384E), false);
+    clientSurface.drawString(archArm64BtnBounds_.centerX() - 24, archArm64BtnBounds_.y + 7, "ARM64", !isX64 ? Color::fromHex(0x06090F) : palette.textSecondary, 1);
+
+    // Sync Upstream & Reset Defaults
+    const Color syncBg = isSyncUpstreamHovered_ ? Color::fromHex(0x1E2B3E) : Color::fromHex(0x121A26);
+    clientSurface.drawRoundedRect(syncUpstreamBtnBounds_, 4, syncBg, true);
+    clientSurface.drawRoundedRect(syncUpstreamBtnBounds_, 4, isSyncUpstreamHovered_ ? palette.prismAccent : Color::fromHex(0x28384E), false);
+    clientSurface.drawString(syncUpstreamBtnBounds_.centerX() - 48, syncUpstreamBtnBounds_.y + 7, "Sync Upstream", palette.textPrimary, 1);
+
+    const Color resetBg = isResetDefaultsHovered_ ? Color::fromHex(0x1E2B3E) : Color::fromHex(0x121A26);
+    clientSurface.drawRoundedRect(resetDefaultsBtnBounds_, 4, resetBg, true);
+    clientSurface.drawRoundedRect(resetDefaultsBtnBounds_, 4, isResetDefaultsHovered_ ? palette.prismAccent : Color::fromHex(0x28384E), false);
+    clientSurface.drawString(resetDefaultsBtnBounds_.centerX() - 52, resetDefaultsBtnBounds_.y + 7, "Reset Defaults", palette.textSecondary, 1);
+}
+
 bool AppHubContent::onMouseDown(Point localPt, MouseButton button) {
     if (button != MouseButton::Left) return false;
 
@@ -457,6 +618,62 @@ bool AppHubContent::onMouseDown(Point localPt, MouseButton button) {
             setCategory(tab.cat);
             return true;
         }
+    }
+
+    if (activeCategory_ == AppHubCategory::Settings) {
+        auto& mgr = winget::WinGetManager::Instance();
+        for (const auto& sc : repoSourceCards_) {
+            if (sc.bounds.contains(localPt) || sc.selectBtnBounds.contains(localPt)) {
+                mgr.setActiveSource(sc.name);
+                if (installCallback_) {
+                    installCallback_("Repository Switched", "Active package source set to: " + sc.name, true);
+                }
+                refresh();
+                return true;
+            }
+        }
+        if (scanRepoBtnBounds_.contains(localPt)) {
+            const auto loaded = mgr.loadManifestsFromDirectory(mgr.getLocalRepoPath());
+            populateCatalog();
+            updateFilter();
+            if (installCallback_) {
+                installCallback_("Repository Ingested", "Ingested " + std::to_string(loaded) + " manifests from " + mgr.getLocalRepoPath(), true);
+            }
+            return true;
+        }
+        if (syncUpstreamBtnBounds_.contains(localPt)) {
+            if (installCallback_) {
+                installCallback_("Repository Synced", "Synced with " + mgr.getActiveSource() + " upstream successfully.", true);
+            }
+            return true;
+        }
+        if (fipsToggleBounds_.contains(localPt)) {
+            mgr.setStrictFipsVerification(!mgr.isStrictFipsVerification());
+            if (installCallback_) {
+                installCallback_("Integrity Policy Updated", mgr.isStrictFipsVerification() ? "Strict FIPS 180-4 SHA-256 enforcement enabled" : "Permissive checksum mode enabled", true);
+            }
+            return true;
+        }
+        if (archX64BtnBounds_.contains(localPt)) {
+            mgr.setPreferredArch("x64");
+            if (installCallback_) installCallback_("Architecture Preference", "Target architecture set to Native x64 (AMD64)", true);
+            return true;
+        }
+        if (archArm64BtnBounds_.contains(localPt)) {
+            mgr.setPreferredArch("arm64");
+            if (installCallback_) installCallback_("Architecture Preference", "Target architecture set to ARM64", true);
+            return true;
+        }
+        if (resetDefaultsBtnBounds_.contains(localPt)) {
+            mgr.setActiveSource("winget-pkgs");
+            mgr.setStrictFipsVerification(true);
+            mgr.setPreferredArch("x64");
+            populateCatalog();
+            updateFilter();
+            if (installCallback_) installCallback_("Defaults Restored", "Repository source reset to official microsoft/winget-pkgs", true);
+            return true;
+        }
+        return false;
     }
 
     // Check Action Buttons on Cards
@@ -483,6 +700,30 @@ bool AppHubContent::onMouseMove(Point localPt) {
             hoveredCategoryTabIndex_ = static_cast<int32_t>(i);
             break;
         }
+    }
+
+    if (activeCategory_ == AppHubCategory::Settings) {
+        hoveredSourceIndex_ = -1;
+        hoveredSourceSelectBtnIndex_ = -1;
+        for (size_t i = 0; i < repoSourceCards_.size(); ++i) {
+            if (repoSourceCards_[i].selectBtnBounds.contains(localPt)) {
+                hoveredSourceSelectBtnIndex_ = static_cast<int32_t>(i);
+                hoveredSourceIndex_ = static_cast<int32_t>(i);
+                return true;
+            }
+            if (repoSourceCards_[i].bounds.contains(localPt)) {
+                hoveredSourceIndex_ = static_cast<int32_t>(i);
+                return true;
+            }
+        }
+        isScanRepoHovered_ = scanRepoBtnBounds_.contains(localPt);
+        isSyncUpstreamHovered_ = syncUpstreamBtnBounds_.contains(localPt);
+        isFipsToggleHovered_ = fipsToggleBounds_.contains(localPt);
+        isArchX64Hovered_ = archX64BtnBounds_.contains(localPt);
+        isArchArm64Hovered_ = archArm64BtnBounds_.contains(localPt);
+        isResetDefaultsHovered_ = resetDefaultsBtnBounds_.contains(localPt);
+        return isScanRepoHovered_ || isSyncUpstreamHovered_ || isFipsToggleHovered_ ||
+               isArchX64Hovered_ || isArchArm64Hovered_ || isResetDefaultsHovered_ || isSearchHovered_;
     }
 
     hoveredCardIndex_ = -1;

@@ -848,6 +848,8 @@ int runSnapshotPipeline() {
     }
 
     // ------------------------------------------------------------------------
+    // Scene 34: Sovereign Winget App Hub & Retail Suite (Retail Packages View)
+    // ------------------------------------------------------------------------
     std::cout << "[SurShell] Rendering Scene 34: Sovereign Winget App Hub & Retail Suite...\n";
     const uint32_t hubWin = shell.openAppHubWindow();
     shell.windowManager().setWindowActive(hubWin);
@@ -862,7 +864,22 @@ int runSnapshotPipeline() {
         std::cout << "  -> Exported: surshell_app_hub.bmp (1920x1080 32-bpp)\n";
     }
 
-    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (35 high-resolution scenes generated).\n";
+    // ------------------------------------------------------------------------
+    // Scene 35: Sovereign App Hub Settings & Source Repository Configuration
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 35: Sovereign App Hub Settings & Sources Console...\n";
+    if (auto* w = shell.windowManager().findWindow(hubWin)) {
+        if (auto hub = std::dynamic_pointer_cast<surshell::AppHubContent>(w->content)) {
+            hub->setCategory(surshell::AppHubCategory::Settings);
+            hub->render(w->clientSurface);
+        }
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_app_hub_settings.bmp")) {
+        std::cout << "  -> Exported: surshell_app_hub_settings.bmp (1920x1080 32-bpp)\n";
+    }
+
+    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (36 high-resolution scenes generated).\n";
     return 0;
 }
 

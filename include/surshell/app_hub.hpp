@@ -30,7 +30,8 @@ enum class AppHubCategory {
     DeveloperTools,
     SystemUtilities,
     MediaDocs,
-    Installed
+    Installed,
+    Settings
 };
 
 struct AppHubCard {
@@ -110,9 +111,36 @@ private:
 
     InstallCallback installCallback_{};
 
+    // Settings & Sources UI state
+    struct RepoSourceCard {
+        std::string name;
+        std::string argument;
+        std::string type;
+        bool isActive{false};
+        Rect bounds{};
+        Rect selectBtnBounds{};
+    };
+    std::vector<RepoSourceCard> repoSourceCards_{};
+    Rect scanRepoBtnBounds_{};
+    Rect syncUpstreamBtnBounds_{};
+    Rect fipsToggleBounds_{};
+    Rect archX64BtnBounds_{};
+    Rect archArm64BtnBounds_{};
+    Rect resetDefaultsBtnBounds_{};
+
+    int32_t hoveredSourceIndex_{-1};
+    int32_t hoveredSourceSelectBtnIndex_{-1};
+    bool isScanRepoHovered_{false};
+    bool isSyncUpstreamHovered_{false};
+    bool isFipsToggleHovered_{false};
+    bool isArchX64Hovered_{false};
+    bool isArchArm64Hovered_{false};
+    bool isResetDefaultsHovered_{false};
+
     void populateCatalog();
     void updateFilter();
     void updateLayout(int32_t width, int32_t height);
+    void renderSettingsView(Surface& clientSurface, int32_t width, int32_t height);
 };
 
 } // namespace surshell

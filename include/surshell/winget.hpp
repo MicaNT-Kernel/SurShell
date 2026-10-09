@@ -56,6 +56,8 @@
 #include <regex>
 #include <functional>
 #include <iostream>
+#include <filesystem>
+#include <fstream>
 
 namespace winget {
 
@@ -565,6 +567,82 @@ public:
         return false;
     }
 
+    // Active Source Selection
+    std::string getActiveSource() const {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_activeSource;
+    }
+
+    void setActiveSource(const std::string& name) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_activeSource = name;
+    }
+
+    // Local Repo Path for microsoft/winget-pkgs
+    std::string getLocalRepoPath() const {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_localRepoPath;
+    }
+
+    void setLocalRepoPath(std::string p) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_localRepoPath = std::move(p);
+    }
+
+    // Security & Arch Preferences
+    bool isStrictFipsVerification() const noexcept { return m_strictFipsVerification; }
+    void setStrictFipsVerification(bool v) noexcept { m_strictFipsVerification = v; }
+
+    std::string getPreferredArch() const {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_preferredArch;
+    }
+
+    void setPreferredArch(std::string arch) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_preferredArch = std::move(arch);
+    }
+
+    // Directory Ingestion for microsoft/winget-pkgs manifest tree
+    size_t loadManifestsFromDirectory(const std::filesystem::path& dirPath) {
+        std::error_code ec;
+        if (!std::filesystem::exists(dirPath, ec) || !std::filesystem::is_directory(dirPath, ec)) {
+            return 0;
+        }
+        size_t loaded = 0;
+        for (std::filesystem::recursive_directory_iterator it(dirPath, std::filesystem::directory_options::skip_permission_denied, ec), end;
+             it != end; it.increment(ec)) {
+            if (ec) { ec.clear(); continue; }
+            if (!it->is_regular_file(ec)) continue;
+            const auto ext = it->path().extension().string();
+            if (ext != ".yaml" && ext != ".yml") continue;
+
+            std::ifstream file(it->path(), std::ios::binary);
+            if (!file) continue;
+            std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+            PackageManifest manifest;
+            if (ManifestParser::parse(content, manifest) && manifest.isValid()) {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                m_catalog[manifest.packageIdentifier] = manifest;
+                ++loaded;
+            }
+        }
+        return loaded;
+    }
+
+    bool loadManifestFile(const std::filesystem::path& filePath) {
+        std::ifstream file(filePath, std::ios::binary);
+        if (!file) return false;
+        std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        PackageManifest manifest;
+        if (ManifestParser::parse(content, manifest) && manifest.isValid()) {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_catalog[manifest.packageIdentifier] = manifest;
+            return true;
+        }
+        return false;
+    }
+
     // Catalog Search
     std::vector<const PackageManifest*> search(const std::string& query) const {
         std::vector<const PackageManifest*> results;
@@ -745,9 +823,10 @@ public:
 
 private:
     void seedDefaultSources() {
-        m_sources.push_back({"winget", "https://cdn.winget.microsoft.com/cache", "Microsoft.PreIndexed.Package", true});
-        m_sources.push_back({"msstore", "https://storeedgefd.dsx.mp.microsoft.com/v9.0", "Microsoft.Rest", true});
+        m_sources.push_back({"winget-pkgs", "https://github.com/microsoft/winget-pkgs", "Microsoft.Git.ManifestTree", true});
         m_sources.push_back({"sovereign", "local://catalog/repo.idx", "Sovereign.LocalIndex", true});
+        m_sources.push_back({"winget", "https://cdn.winget.microsoft.com/cache", "Microsoft.PreIndexed.Package", false});
+        m_sources.push_back({"msstore", "https://storeedgefd.dsx.mp.microsoft.com/v9.0", "Microsoft.Rest", false});
     }
 
     void seedDefaultCatalog() {
@@ -1090,6 +1169,10 @@ private:
     std::unordered_map<std::string, InstalledPackage> m_installed;
     std::vector<RepositorySource> m_sources;
     uint32_t m_totalInstallsPerformed{0};
+    std::string m_activeSource{"winget-pkgs"};
+    std::string m_localRepoPath{"C:\\Users\\admin\\source\\winget-pkgs\\manifests"};
+    bool m_strictFipsVerification{true};
+    std::string m_preferredArch{"x64"};
 };
 
 // ============================================================================

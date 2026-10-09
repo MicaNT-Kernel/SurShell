@@ -242,6 +242,139 @@ StartMenu::StartMenu() {
         .pinnedToStart = true
     });
 
+    registerApp(ShellAppEntry{
+        .id = "terminal",
+        .title = "Sovereign Terminal",
+        .subtitle = "Tabbed ISO C++23 Modern Terminal",
+        .executablePath = "C:\\Windows\\System32\\terminal.exe",
+        .arguments = "",
+        .iconGlyph = ">_",
+        .category = AppCategory::Development,
+        .pinnedToTaskbar = true,
+        .pinnedToStart = true
+    });
+
+    registerApp(ShellAppEntry{
+        .id = "taskview",
+        .title = "Task View & Virtual Desktops",
+        .subtitle = "Multi-Workspace Desktop Switcher",
+        .executablePath = "C:\\Windows\\System32\\taskview.exe",
+        .arguments = "",
+        .iconGlyph = "[WIN]",
+        .category = AppCategory::SystemTools,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = false
+    });
+
+    // Certified MicaNT Retail Applications (100% Native NT)
+    registerApp(ShellAppEntry{
+        .id = "7zip",
+        .title = "7-Zip Archiver",
+        .subtitle = "High-Ratio File Compression (LGPL-2.1)",
+        .executablePath = "C:\\Program Files\\7-Zip\\7zFM.exe",
+        .arguments = "",
+        .iconGlyph = "[7Z]",
+        .category = AppCategory::Utilities,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = false
+    });
+
+    registerApp(ShellAppEntry{
+        .id = "notepadplusplus",
+        .title = "Notepad++",
+        .subtitle = "Source Code & Text Editor (GPL-3.0)",
+        .executablePath = "C:\\Program Files\\Notepad++\\notepad++.exe",
+        .arguments = "",
+        .iconGlyph = "[N++]",
+        .category = AppCategory::Development,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = false
+    });
+
+    registerApp(ShellAppEntry{
+        .id = "vlc",
+        .title = "VLC Media Player",
+        .subtitle = "Universal Media Player (GPL-2.0)",
+        .executablePath = "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe",
+        .arguments = "",
+        .iconGlyph = "[VLC]",
+        .category = AppCategory::Multimedia,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = false
+    });
+
+    registerApp(ShellAppEntry{
+        .id = "winmerge",
+        .title = "WinMerge",
+        .subtitle = "Visual Differencing & Merging (GPL-2.0)",
+        .executablePath = "C:\\Program Files\\WinMerge\\WinMergeU.exe",
+        .arguments = "",
+        .iconGlyph = "[MRG]",
+        .category = AppCategory::Development,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = false
+    });
+
+    registerApp(ShellAppEntry{
+        .id = "everything",
+        .title = "Everything Search",
+        .subtitle = "Instant Filename Search (Freeware)",
+        .executablePath = "C:\\Program Files\\Everything\\Everything.exe",
+        .arguments = "",
+        .iconGlyph = "[FND]",
+        .category = AppCategory::Utilities,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = false
+    });
+
+    registerApp(ShellAppEntry{
+        .id = "sumatrapdf",
+        .title = "SumatraPDF",
+        .subtitle = "Fast PDF & eBook Reader (GPL-3.0)",
+        .executablePath = "C:\\Program Files\\SumatraPDF\\SumatraPDF.exe",
+        .arguments = "",
+        .iconGlyph = "[PDF]",
+        .category = AppCategory::Accessories,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = false
+    });
+
+    registerApp(ShellAppEntry{
+        .id = "wiztree",
+        .title = "WizTree",
+        .subtitle = "High-Speed MFT Disk Space Analyzer",
+        .executablePath = "C:\\Program Files\\WizTree\\WizTree64.exe",
+        .arguments = "",
+        .iconGlyph = "[WIZ]",
+        .category = AppCategory::SystemTools,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = false
+    });
+
+    registerApp(ShellAppEntry{
+        .id = "putty",
+        .title = "PuTTY",
+        .subtitle = "SSH & Telnet Terminal Client (MIT)",
+        .executablePath = "C:\\Program Files\\PuTTY\\putty.exe",
+        .arguments = "",
+        .iconGlyph = "[PUT]",
+        .category = AppCategory::Development,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = false
+    });
+
+    registerApp(ShellAppEntry{
+        .id = "wt",
+        .title = "Windows Terminal",
+        .subtitle = "Modern Tabbed Enterprise Terminal",
+        .executablePath = "C:\\Windows\\System32\\wt.exe",
+        .arguments = "",
+        .iconGlyph = "[WT]",
+        .category = AppCategory::Development,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = false
+    });
+
     // Sovereign Interactive Power Flyout Options
     powerOptions_ = {
         PowerOptionItem{.action = PowerAction::Sleep, .label = "Sleep", .description = "Save session in low power", .iconId = IconId::Sleep},
@@ -396,6 +529,7 @@ void StartMenu::open() noexcept {
     isPowerFlyoutOpen_ = false;
     isUserFlyoutOpen_ = false;
     searchQuery_.clear();
+    allAppsScrollY_ = 0;
     refreshFilter();
 }
 
@@ -431,6 +565,7 @@ void StartMenu::handleBackspace() {
 }
 
 void StartMenu::refreshFilter() {
+    allAppsScrollY_ = 0;
     filteredApps_.clear();
     if (searchQuery_.empty()) {
         filteredApps_ = allApps_;
@@ -601,19 +736,26 @@ void StartMenu::onMouseMove(Point pt, Rect menuBounds) {
             }
         }
     } else {
-        // All Apps vertical list
+        // All Apps vertical list with scrolling
         const int32_t listStartX = menuBounds.x + 20;
-        const int32_t listStartY = menuBounds.y + 110;
-        const int32_t rowW = menuBounds.width - 40;
-        const int32_t rowH = 40;
+        const int32_t listStartY = menuBounds.y + 106;
+        const int32_t footerY = menuBounds.bottom() - 56;
+        const int32_t viewportH = (footerY - 10) - listStartY;
+        const int32_t rowW = menuBounds.width - 56;
+        const int32_t rowH = 42;
         const int32_t rowGap = 4;
-        const size_t maxDisplay = std::min(filteredApps_.size(), static_cast<size_t>(8));
+        const int32_t rowStride = rowH + rowGap;
 
-        for (size_t i = 0; i < maxDisplay; ++i) {
-            Rect rowRect{listStartX, listStartY + static_cast<int32_t>(i) * (rowH + rowGap), rowW, rowH};
-            if (rowRect.contains(pt)) {
-                hoveredAppIndex_ = static_cast<int32_t>(i);
-                break;
+        if (pt.x >= listStartX && pt.x <= listStartX + rowW && pt.y >= listStartY && pt.y <= listStartY + viewportH) {
+            for (size_t i = 0; i < filteredApps_.size(); ++i) {
+                const int32_t itemY = listStartY + static_cast<int32_t>(i) * rowStride - allAppsScrollY_;
+                if (itemY >= listStartY && (itemY + rowH) <= (listStartY + viewportH)) {
+                    Rect rowRect{listStartX, itemY, rowW, rowH};
+                    if (rowRect.contains(pt)) {
+                        hoveredAppIndex_ = static_cast<int32_t>(i);
+                        break;
+                    }
+                }
             }
         }
     }
@@ -688,6 +830,19 @@ void StartMenu::onMouseDown(Point pt, MouseButton button, Rect menuBounds) {
         return;
     }
 
+    // 5b. Scrollbar track click in All Apps mode
+    if (viewMode_ == StartViewMode::AllApps && allAppsMaxScrollY_ > 0) {
+        const int32_t listStartY = menuBounds.y + 106;
+        const int32_t footerY = menuBounds.bottom() - 56;
+        const int32_t viewportH = (footerY - 10) - listStartY;
+        const Rect sbTrackRect{menuBounds.right() - 32, listStartY, 14, viewportH};
+        if (sbTrackRect.contains(pt)) {
+            const float ratio = static_cast<float>(pt.y - listStartY) / static_cast<float>(std::max(1, viewportH));
+            allAppsScrollY_ = std::clamp(static_cast<int32_t>(ratio * allAppsMaxScrollY_), 0, allAppsMaxScrollY_);
+            return;
+        }
+    }
+
     // 6. View Mode specific clicks
     if (viewMode_ == StartViewMode::Pinned) {
         // App Card Click
@@ -726,6 +881,39 @@ void StartMenu::onMouseDown(Point pt, MouseButton button, Rect menuBounds) {
             return;
         }
     }
+}
+
+bool StartMenu::onMouseWheel(Point pt, int32_t delta, Rect menuBounds) {
+    if (!isOpen_ || viewMode_ != StartViewMode::AllApps) return false;
+    if (!menuBounds.contains(pt)) return false;
+
+    const int32_t step = (delta > 0) ? -46 : 46;
+    allAppsScrollY_ = std::clamp(allAppsScrollY_ + step, 0, allAppsMaxScrollY_);
+    return true;
+}
+
+bool StartMenu::onKeyDown(KeyCode key, Rect menuBounds) {
+    if (!isOpen_) return false;
+    if (key == KeyCode::Escape) {
+        close();
+        return true;
+    }
+    if (viewMode_ == StartViewMode::AllApps) {
+        if (key == KeyCode::Up) {
+            allAppsScrollY_ = std::clamp(allAppsScrollY_ - 46, 0, allAppsMaxScrollY_);
+            return true;
+        } else if (key == KeyCode::Down) {
+            allAppsScrollY_ = std::clamp(allAppsScrollY_ + 46, 0, allAppsMaxScrollY_);
+            return true;
+        } else if (key == KeyCode::PageUp) {
+            allAppsScrollY_ = std::clamp(allAppsScrollY_ - 184, 0, allAppsMaxScrollY_);
+            return true;
+        } else if (key == KeyCode::PageDown) {
+            allAppsScrollY_ = std::clamp(allAppsScrollY_ + 184, 0, allAppsMaxScrollY_);
+            return true;
+        }
+    }
+    return false;
 }
 
 void StartMenu::render(Surface& surface, Rect menuBounds) {
@@ -899,20 +1087,35 @@ void StartMenu::renderAllAppsView(Surface& surface, Rect menuBounds) {
     IconRenderer::draw(surface, IconId::NavBack, Rect{backBtn.x + 8, backBtn.y + 5, 14, 14}, palette.accentColor);
     surface.drawString(backBtn.x + 26, backBtn.y + 6, "Back", palette.accentColor, 1);
 
-    surface.drawString(menuBounds.x + 24, menuBounds.y + 76, "ALL APPLICATIONS (A-Z)", palette.accentColor, 1);
+    std::string countTitle = "ALL APPLICATIONS (" + std::to_string(filteredApps_.size()) + ")";
+    surface.drawString(menuBounds.x + 24, menuBounds.y + 76, countTitle, palette.accentColor, 1);
     surface.fillRect(Rect{menuBounds.x + 24, menuBounds.y + 96, menuBounds.width - 48, 1}, palette.startCardBorder);
 
     // Vertical List of Applications
     const int32_t listStartX = menuBounds.x + 20;
     const int32_t listStartY = menuBounds.y + 106;
-    const int32_t rowW = menuBounds.width - 40;
+    const int32_t footerY = menuBounds.bottom() - 56;
+    const int32_t viewportH = (footerY - 10) - listStartY;
+    const int32_t rowW = menuBounds.width - 56; // Leave space for scrollbar
     const int32_t rowH = 42;
     const int32_t rowGap = 4;
-    const size_t maxDisplay = std::min(filteredApps_.size(), static_cast<size_t>(8));
+    const int32_t rowStride = rowH + rowGap;
 
-    for (size_t i = 0; i < maxDisplay; ++i) {
+    const int32_t totalHeight = static_cast<int32_t>(filteredApps_.size()) * rowStride;
+    const int32_t visibleRows = viewportH / rowStride;
+    allAppsMaxScrollY_ = (filteredApps_.size() > static_cast<size_t>(visibleRows))
+        ? static_cast<int32_t>(filteredApps_.size() - visibleRows) * rowStride
+        : 0;
+    allAppsScrollY_ = std::clamp(allAppsScrollY_, 0, allAppsMaxScrollY_);
+
+    for (size_t i = 0; i < filteredApps_.size(); ++i) {
+        const int32_t itemY = listStartY + static_cast<int32_t>(i) * rowStride - allAppsScrollY_;
+        if (itemY < listStartY || (itemY + rowH) > (listStartY + viewportH)) {
+            continue;
+        }
+
         const auto& app = filteredApps_[i];
-        Rect rowRect{listStartX, listStartY + static_cast<int32_t>(i) * (rowH + rowGap), rowW, rowH};
+        Rect rowRect{listStartX, itemY, rowW, rowH};
 
         const bool isHovered = (static_cast<int32_t>(i) == hoveredAppIndex_);
         Color rowBg = isHovered ? palette.startCardHover : palette.startCardBg;
@@ -926,7 +1129,9 @@ void StartMenu::renderAllAppsView(Surface& surface, Rect menuBounds) {
 
         // App Title and Subtitle
         surface.drawString(rowRect.x + 44, rowRect.y + 8, app.title, palette.textPrimary, 1);
-        surface.drawString(rowRect.x + 44, rowRect.y + 24, app.subtitle, palette.textSecondary, 1);
+        std::string dispSub = app.subtitle.empty() ? app.executablePath : app.subtitle;
+        if (dispSub.size() > 28) dispSub = dispSub.substr(0, 26) + "..";
+        surface.drawString(rowRect.x + 44, rowRect.y + 24, dispSub, palette.textSecondary, 1);
 
         // Category Tag on far right
         const char* catStr = "Tool";
@@ -934,7 +1139,25 @@ void StartMenu::renderAllAppsView(Surface& surface, Rect menuBounds) {
         else if (app.category == AppCategory::Development) catStr = "Dev";
         else if (app.category == AppCategory::Multimedia) catStr = "Media";
         else if (app.category == AppCategory::Settings) catStr = "Config";
+        else if (app.category == AppCategory::Accessories) catStr = "Access";
         surface.drawString(rowRect.right() - 56, rowRect.y + 16, catStr, palette.accentSecondary, 1);
+    }
+
+    // Scrollbar track and thumb
+    if (allAppsMaxScrollY_ > 0) {
+        const int32_t sbTrackX = menuBounds.right() - 26;
+        const int32_t sbTrackY = listStartY;
+        const int32_t sbTrackW = 6;
+        const int32_t sbTrackH = viewportH;
+
+        surface.drawRoundedRect(Rect{sbTrackX, sbTrackY, sbTrackW, sbTrackH}, 3, Color::fromRgba(255, 255, 255, 18), true);
+
+        const float viewRatio = static_cast<float>(viewportH) / static_cast<float>(std::max(1, totalHeight));
+        const int32_t thumbH = std::clamp(static_cast<int32_t>(sbTrackH * viewRatio), 28, sbTrackH);
+        const float scrollRatio = static_cast<float>(allAppsScrollY_) / static_cast<float>(allAppsMaxScrollY_);
+        const int32_t thumbY = sbTrackY + static_cast<int32_t>((sbTrackH - thumbH) * scrollRatio);
+
+        surface.drawRoundedRect(Rect{sbTrackX, thumbY, sbTrackW, thumbH}, 3, palette.accentColor, true);
     }
 }
 
