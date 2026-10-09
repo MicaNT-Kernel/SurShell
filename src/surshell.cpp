@@ -354,6 +354,8 @@ uint32_t SurShellDesktop::openRunDialogWindow() {
                 openSystemInfoWindow();
             } else if (lowerCmd == "devmgmt" || lowerCmd == "devmgmt.msc" || lowerCmd == "devices" || lowerCmd == "devicemanager") {
                 openDeviceManagerWindow();
+            } else if (lowerCmd == "diskmgmt" || lowerCmd == "diskmgmt.msc" || lowerCmd == "diskmanagement" || lowerCmd == "partitions" || lowerCmd == "disks") {
+                openDiskManagementWindow();
             } else {
                 kernelBridge_.spawnProcess(cmd, "");
             }
@@ -476,6 +478,21 @@ uint32_t SurShellDesktop::openDeviceManagerWindow() {
     return winId;
 }
 
+uint32_t SurShellDesktop::openDiskManagementWindow() {
+    const uint32_t winId = windowManager_.createWindow("Disk Management", Rect{200, 60, 920, 620}, "[DSK]", IconId::DiskManagement);
+    virtualDesktops_.assignWindowToDesktop(winId, virtualDesktops_.activeIndex());
+    auto* win = windowManager_.findWindow(winId);
+    if (win) {
+        auto diskMgr = std::make_shared<DiskManagementContent>();
+        diskMgr->setToastCallback([this](const std::string& title, const std::string& msg, IconId icon) {
+            toastManager_.showToast(title, msg, icon);
+        });
+        win->content = diskMgr;
+        diskMgr->render(win->clientSurface);
+    }
+    return winId;
+}
+
 void SurShellDesktop::openSearchHub() {
     searchHub_.toggle();
     if (searchHub_.isVisible()) {
@@ -571,6 +588,7 @@ void SurShellDesktop::wireSubsystemCallbacks() {
         else if (targetApp == "paint" || targetApp == "mspaint" || targetApp == "draw" || targetApp == "canvas") openPaintWindow(args);
         else if (targetApp == "sysinfo" || targetApp == "msinfo32" || targetApp == "systeminfo") openSystemInfoWindow();
         else if (targetApp == "devmgmt" || targetApp == "devmgmt.msc" || targetApp == "devices" || targetApp == "devicemanager") openDeviceManagerWindow();
+        else if (targetApp == "diskmgmt" || targetApp == "diskmgmt.msc" || targetApp == "diskmanagement" || targetApp == "partitions" || targetApp == "disks") openDiskManagementWindow();
         else kernelBridge_.spawnProcess(targetApp, args);
     });
 
@@ -708,6 +726,8 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openSystemInfoWindow();
         } else if (icon.executable == "C:\\Windows\\System32\\devmgmt.msc" || icon.id == "devmgmt" || icon.id == "devices") {
             openDeviceManagerWindow();
+        } else if (icon.executable == "C:\\Windows\\System32\\diskmgmt.msc" || icon.id == "diskmgmt" || icon.id == "disks" || icon.id == "diskmanagement") {
+            openDiskManagementWindow();
         } else {
             const bool spawned = kernelBridge_.spawnProcess(icon.executable, icon.arguments).has_value();
             toastManager_.showToast("Launched", icon.label, icon.iconId);
@@ -765,6 +785,7 @@ void SurShellDesktop::wireSubsystemCallbacks() {
                     else if (icon.id == "cmd") openTerminalWindow("C:\\Users\\admin");
                     else if (icon.id == "settings") openSettingsWindow();
                     else if (icon.id == "calc") openCalculatorWindow();
+                    else if (icon.id == "diskmgmt") openDiskManagementWindow();
                     else kernelBridge_.spawnProcess(icon.executable, icon.arguments);
                     break;
                 }
@@ -829,6 +850,8 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openSystemInfoWindow();
         } else if (app.executablePath == "C:\\Windows\\System32\\devmgmt.msc" || app.id == "devmgmt" || app.id == "devmgmt.msc") {
             openDeviceManagerWindow();
+        } else if (app.executablePath == "C:\\Windows\\System32\\diskmgmt.msc" || app.id == "diskmgmt" || app.id == "diskmgmt.msc") {
+            openDiskManagementWindow();
         } else {
             const bool spawned = kernelBridge_.spawnProcess(app.executablePath, app.arguments).has_value();
             toastManager_.showToast("Launched Application", app.title, IconRenderer::iconForAppId(app.id));

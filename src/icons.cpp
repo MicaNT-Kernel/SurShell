@@ -221,6 +221,9 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
         case IconId::DeviceManager:
             drawDeviceManager(surface, bounds, tintOverride);
             break;
+        case IconId::DiskManagement:
+            drawDiskManagement(surface, bounds, tintOverride);
+            break;
         case IconId::CloudDrive:
             drawCloudDrive(surface, bounds, tintOverride);
             break;
@@ -272,6 +275,7 @@ IconId IconRenderer::iconForAppId(std::string_view appId) {
     if (appId == "paint" || appId == "mspaint" || appId == "draw" || appId == "canvas") return IconId::Paint;
     if (appId == "sysinfo" || appId == "msinfo32" || appId == "systeminfo" || appId == "specs" || appId == "system_information" || appId == "msinfo") return IconId::SystemInfo;
     if (appId == "devmgmt" || appId == "devmgmt.msc" || appId == "devices" || appId == "devicemanager" || appId == "device_manager") return IconId::DeviceManager;
+    if (appId == "diskmgmt" || appId == "diskmgmt.msc" || appId == "diskmanagement" || appId == "partitions" || appId == "partition" || appId == "disks") return IconId::DiskManagement;
     if (appId == "cloud" || appId == "gdrive" || appId == "google_drive") return IconId::CloudDrive;
     if (appId == "nas" || appId == "share" || appId == "storage") return IconId::NetworkShare;
     if (appId == "cd" || appId == "dvd" || appId == "optical") return IconId::OpticalDrive;
@@ -1709,6 +1713,56 @@ void IconRenderer::drawDeviceManager(Surface& s, Rect r, std::optional<Color> ti
     // Silicon dot / activity LED
     if (chipRect.width >= 3 && chipRect.height >= 3) {
         s.putPixel(chipRect.centerX(), chipRect.centerY(), Color::fromHex(0x00FF9D));
+    }
+}
+
+void IconRenderer::drawDiskManagement(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color frameCol = tint.value_or(Color::fromHex(0x38BDF8));
+    const int32_t pad = std::max(1, r.width / 12);
+    const Rect diskRect{r.x + pad, r.y + pad, r.width - pad * 2, r.height - pad * 2};
+
+    // 1. Hard Drive Chassis (Dark Slate Body)
+    s.drawRoundedRect(diskRect, 2, Color::fromHex(0x131A29), true);
+    s.drawRoundedRect(diskRect, 2, frameCol, false);
+
+    // 2. Segmented Top Partition Ribbon Bar (The iconic partition slices!)
+    const int32_t ribbonH = std::max(3, diskRect.height / 4);
+    const Rect ribbonRect{diskRect.x + 2, diskRect.y + 2, diskRect.width - 4, ribbonH};
+    
+    // Slice 1: EFI System Partition (Cutler Cyan - 25% width)
+    const int32_t s1W = ribbonRect.width / 4;
+    s.fillRect(Rect{ribbonRect.x, ribbonRect.y, s1W, ribbonH}, Color::fromHex(0x00D4FF));
+
+    // Slice 2: Primary OS Partition C: (Cobalt Blue - 50% width)
+    const int32_t s2W = ribbonRect.width / 2;
+    s.fillRect(Rect{ribbonRect.x + s1W + 1, ribbonRect.y, s2W - 1, ribbonH}, Color::fromHex(0x2563EB));
+
+    // Slice 3: Data / Recovery Partition (Neon Mint - remaining width)
+    const int32_t s3X = ribbonRect.x + s1W + s2W + 1;
+    const int32_t s3W = ribbonRect.right() - s3X;
+    if (s3W > 0) {
+        s.fillRect(Rect{s3X, ribbonRect.y, s3W, ribbonH}, Color::fromHex(0x00FF9D));
+    }
+
+    // 3. Spindle & Actuator Platter Area (Bottom Half)
+    const int32_t platterY = ribbonRect.bottom() + 2;
+    const int32_t platterH = diskRect.bottom() - platterY - 2;
+    if (platterH >= 4 && diskRect.width >= 8) {
+        const int32_t cx = diskRect.centerX();
+        const int32_t cy = platterY + platterH / 2;
+        const int32_t rad = std::max(2, std::min(diskRect.width / 3, platterH / 2));
+        
+        // Platter disk circle
+        s.drawRoundedRect(Rect{cx - rad, cy - rad, rad * 2, rad * 2}, rad, Color::fromHex(0x0A0E17), true);
+        s.drawRoundedRect(Rect{cx - rad, cy - rad, rad * 2, rad * 2}, rad, Color::fromHex(0x64748B), false);
+
+        // Center spindle hub
+        const int32_t hubR = std::max(1, rad / 2);
+        s.drawRoundedRect(Rect{cx - hubR, cy - hubR, hubR * 2, hubR * 2}, hubR, Color::fromHex(0x38BDF8), true);
+
+        // Actuator arm trace line from bottom left corner to spindle
+        s.putPixel(cx - rad + 1, cy + rad - 1, Color::fromHex(0xF59E0B));
+        s.putPixel(cx - 1, cy + 1, Color::fromHex(0xF59E0B));
     }
 }
 

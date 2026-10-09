@@ -38,6 +38,7 @@
 #include "paint.hpp"
 #include "sysinfo.hpp"
 #include "devicemanager.hpp"
+#include "diskmgmt.hpp"
 
 namespace surshell {
 
@@ -104,6 +105,7 @@ public:
     uint32_t openPaintWindow(std::string filePath = "");
     uint32_t openSystemInfoWindow();
     uint32_t openDeviceManagerWindow();
+    uint32_t openDiskManagementWindow();
 
     // Master Render Loop
     void render();

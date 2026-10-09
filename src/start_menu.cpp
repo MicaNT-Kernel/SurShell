@@ -193,6 +193,18 @@ StartMenu::StartMenu() {
         .pinnedToStart = true
     });
 
+    registerApp(ShellAppEntry{
+        .id = "diskmgmt",
+        .title = "Disk Management",
+        .subtitle = "Volume Partitioning & Storage Geometry",
+        .executablePath = "C:\\Windows\\System32\\diskmgmt.msc",
+        .arguments = "",
+        .iconGlyph = "[DSK]",
+        .category = AppCategory::SystemTools,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = true
+    });
+
     // Windows 11-style Interactive Power Flyout Options
     powerOptions_ = {
         PowerOptionItem{.action = PowerAction::Sleep, .label = "Sleep", .description = "Save session in low power", .iconId = IconId::Sleep},

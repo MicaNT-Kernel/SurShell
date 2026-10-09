@@ -2110,6 +2110,95 @@ void Test_Device_Manager_Application() {
     std::cout << "[TEST] Suite 31: Sovereign Device Manager & Hardware Tree PASSED.\n";
 }
 
+void Test_Disk_Management_Application() {
+    std::cout << "[TEST] Running Suite 32: Sovereign Disk Management & Volume Partitioning (diskmgmt.msc)...\n";
+
+    surshell::DiskManagementContent diskMgr;
+
+    // 1. Initial State & Disk/Volume Enumeration
+    TEST_ASSERT(diskMgr.diskCount() >= 3, "Disk Management enumerates at least 3 physical/virtual disks");
+    TEST_ASSERT(diskMgr.volumeCount() >= 3, "Disk Management contains at least 3 detected volumes");
+
+    bool hasEfi = false;
+    bool hasBootC = false;
+    bool hasRecovery = false;
+    for (const auto& disk : diskMgr.disks()) {
+        for (const auto& part : disk.partitions) {
+            if (part.kind == surshell::PartitionKind::EFI) hasEfi = true;
+            if (part.driveLetter == "C:" && part.isBoot) hasBootC = true;
+            if (part.kind == surshell::PartitionKind::Recovery) hasRecovery = true;
+        }
+    }
+    TEST_ASSERT(hasEfi, "Disk 0 contains EFI System Partition");
+    TEST_ASSERT(hasBootC, "Disk 0 contains Boot Windows C: Primary Partition");
+    TEST_ASSERT(hasRecovery, "Disk 0 contains Windows Recovery Partition");
+
+    // 2. Selection Handling
+    diskMgr.selectVolume("C:");
+    const auto* cPart = diskMgr.selectedPartition();
+    TEST_ASSERT(cPart != nullptr, "Selected C: partition exists");
+    TEST_ASSERT(cPart->driveLetter == "C:", "Selected partition is C:");
+
+    diskMgr.selectPartition(1, 0); // Disk 1, Partition 0 (Data D:)
+    TEST_ASSERT(diskMgr.selectedDiskIndex() == 1, "Selected disk index is 1");
+    TEST_ASSERT(diskMgr.selectedPartitionIndex() == 0, "Selected partition index is 0");
+    const auto* dPart = diskMgr.selectedPartition();
+    TEST_ASSERT(dPart != nullptr, "Selected D: partition exists");
+    TEST_ASSERT(dPart->driveLetter == "D:", "Selected partition is D:");
+
+    // 3. Drive Letter Change Operation
+    TEST_ASSERT(diskMgr.changeDriveLetter("D:", "E:"), "Change drive letter D: to E: succeeds");
+    TEST_ASSERT(diskMgr.selectedPartition()->driveLetter == "E:", "Drive letter updated to E:");
+    TEST_ASSERT(diskMgr.changeDriveLetter("E:", "D:"), "Revert drive letter E: to D: succeeds");
+    TEST_ASSERT(diskMgr.selectedPartition()->driveLetter == "D:", "Drive letter restored to D:");
+    TEST_ASSERT(!diskMgr.changeDriveLetter("Z:", "X:"), "Changing nonexistent drive letter fails gracefully");
+
+    // 4. Shrink and Extend Volume Operations
+    const uint64_t origCap = dPart->capacityMb;
+    const size_t origPartCount = diskMgr.disks()[1].partitions.size();
+    TEST_ASSERT(diskMgr.shrinkVolume("D:", 50000), "Shrink volume D: by ~50GB succeeds");
+    TEST_ASSERT(diskMgr.disks()[1].partitions.size() == origPartCount + 1, "Unallocated space inserted after shrunk partition");
+    TEST_ASSERT(diskMgr.disks()[1].partitions[1].kind == surshell::PartitionKind::Unallocated, "New partition is Unallocated");
+    TEST_ASSERT(diskMgr.disks()[1].partitions[0].capacityMb == origCap - 50000, "Volume D: capacity reduced accurately");
+
+    TEST_ASSERT(diskMgr.extendVolume("D:", 50000), "Extend volume D: by 50GB into adjacent unallocated space succeeds");
+    TEST_ASSERT(diskMgr.disks()[1].partitions.size() == origPartCount, "Unallocated partition cleanly absorbed");
+    TEST_ASSERT(diskMgr.disks()[1].partitions[0].capacityMb == origCap, "Volume D: capacity restored to original");
+
+    // 5. Properties Dialog Modal State
+    TEST_ASSERT(!diskMgr.isPropertiesDialogOpen(), "Properties dialog starts closed");
+    diskMgr.openPropertiesDialog();
+    TEST_ASSERT(diskMgr.isPropertiesDialogOpen(), "Properties dialog opened");
+    diskMgr.closePropertiesDialog();
+    TEST_ASSERT(!diskMgr.isPropertiesDialogOpen(), "Properties dialog closed");
+
+    // 6. Surface Rendering & Modal Overlay
+    surshell::Surface clientSurf(920, 620);
+    diskMgr.render(clientSurf);
+    TEST_ASSERT(clientSurf.width() == 920 && clientSurf.height() == 620, "Disk Management rendered to 920x620 surface");
+
+    diskMgr.openPropertiesDialog();
+    diskMgr.render(clientSurf);
+    diskMgr.closePropertiesDialog();
+
+    // 7. Desktop Coordinator Integration
+    surshell::SurShellDesktop shell(1920, 1080);
+    const uint32_t diskWinId = shell.openDiskManagementWindow();
+    TEST_ASSERT(diskWinId != 0, "openDiskManagementWindow spawned valid window");
+    auto* win = shell.windowManager().findWindow(diskWinId);
+    TEST_ASSERT(win != nullptr, "Disk Management window found in WindowManager");
+    TEST_ASSERT(win->title.find("Disk Management") != std::string::npos, "Window title is Disk Management");
+    TEST_ASSERT(win->iconId == surshell::IconId::DiskManagement, "Window icon matches IconId::DiskManagement");
+
+    // 8. Icon and App ID Mappings
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("diskmgmt") == surshell::IconId::DiskManagement, "iconForAppId('diskmgmt') matches DiskManagement");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("diskmgmt.msc") == surshell::IconId::DiskManagement, "iconForAppId('diskmgmt.msc') matches DiskManagement");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("partitions") == surshell::IconId::DiskManagement, "iconForAppId('partitions') matches DiskManagement");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("diskmanagement") == surshell::IconId::DiskManagement, "iconForAppId('diskmanagement') matches DiskManagement");
+
+    std::cout << "[TEST] Suite 32: Sovereign Disk Management & Volume Partitioning PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -2147,9 +2236,10 @@ int main() {
     Test_Paint_Studio_And_Vector_Canvas();
     Test_System_Information_Application();
     Test_Device_Manager_Application();
+    Test_Disk_Management_Application();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 31 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 32 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

@@ -36,6 +36,7 @@ set(SURSHELL_SOURCES
     src/paint.cpp
     src/sysinfo.cpp
     src/devicemanager.cpp
+    src/diskmgmt.cpp
     src/surshell.cpp
 )
 

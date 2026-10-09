@@ -791,7 +791,24 @@ int runSnapshotPipeline() {
         std::cout << "  -> Exported: surshell_device_manager.bmp (1920x1080 32-bpp)\n";
     }
 
-    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (31 high-resolution scenes generated).\n";
+    // ------------------------------------------------------------------------
+    // Scene 31: Sovereign Disk Management & Volume Partitioning (diskmgmt.msc Parity)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 31: Sovereign Disk Management & Volume Partitioning...\n";
+    const uint32_t diskWin = shell.openDiskManagementWindow();
+    shell.windowManager().setWindowActive(diskWin);
+    if (auto* w = shell.windowManager().findWindow(diskWin)) {
+        if (auto diskMgr = std::dynamic_pointer_cast<surshell::DiskManagementContent>(w->content)) {
+            diskMgr->selectVolume("C:");
+            diskMgr->render(w->clientSurface);
+        }
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_disk_management.bmp")) {
+        std::cout << "  -> Exported: surshell_disk_management.bmp (1920x1080 32-bpp)\n";
+    }
+
+    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (32 high-resolution scenes generated).\n";
     return 0;
 }
 
