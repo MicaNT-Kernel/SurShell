@@ -39,6 +39,7 @@
 #include "sysinfo.hpp"
 #include "devicemanager.hpp"
 #include "diskmgmt.hpp"
+#include "services.hpp"
 
 namespace surshell {
 
@@ -106,6 +107,7 @@ public:
     uint32_t openSystemInfoWindow();
     uint32_t openDeviceManagerWindow();
     uint32_t openDiskManagementWindow();
+    uint32_t openServicesWindow();
 
     // Master Render Loop
     void render();

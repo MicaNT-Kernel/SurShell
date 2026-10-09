@@ -169,7 +169,36 @@ void DiskManagementContent::populateDefaultDisks() {
 
 void DiskManagementContent::collectLiveStorageTopology() {
 #if defined(_WIN32)
-    // Read live C: and D: disk capacity and free space from Windows host
+    // 1. Query Real Physical Disk Models from Windows Registry
+    HKEY hDiskEnum{};
+    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Services\\disk\\Enum", 0, KEY_READ, &hDiskEnum) == ERROR_SUCCESS) {
+        DWORD count = 0;
+        DWORD countSize = sizeof(count);
+        RegQueryValueExA(hDiskEnum, "Count", nullptr, nullptr, reinterpret_cast<LPBYTE>(&count), &countSize);
+
+        for (DWORD i = 0; i < count && i < disks_.size(); ++i) {
+            char instId[512]{};
+            DWORD instIdSize = sizeof(instId);
+            std::string valName = std::to_string(i);
+            if (RegQueryValueExA(hDiskEnum, valName.c_str(), nullptr, nullptr, reinterpret_cast<LPBYTE>(instId), &instIdSize) == ERROR_SUCCESS) {
+                std::string enumKeyPath = std::string("SYSTEM\\CurrentControlSet\\Enum\\") + instId;
+                HKEY hDevKey{};
+                if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, enumKeyPath.c_str(), 0, KEY_READ, &hDevKey) == ERROR_SUCCESS) {
+                    char friendly[256]{};
+                    DWORD friendlySize = sizeof(friendly);
+                    if (RegQueryValueExA(hDevKey, "FriendlyName", nullptr, nullptr, reinterpret_cast<LPBYTE>(friendly), &friendlySize) == ERROR_SUCCESS) {
+                        if (friendly[0] != '\0') {
+                            disks_[i].model = friendly;
+                        }
+                    }
+                    RegCloseKey(hDevKey);
+                }
+            }
+        }
+        RegCloseKey(hDiskEnum);
+    }
+
+    // 2. Query Real Drive Volumes and Capacity
     auto queryDrive = [this](char letter, const std::string& targetLetter) {
         std::string root = std::string(1, letter) + ":\\";
         ULARGE_INTEGER freeBytesAvail{}, totalBytes{}, totalFreeBytes{};
@@ -177,13 +206,24 @@ void DiskManagementContent::collectLiveStorageTopology() {
             const uint64_t totMb = totalBytes.QuadPart / (1024 * 1024);
             const uint64_t freeMb = totalFreeBytes.QuadPart / (1024 * 1024);
 
+            char volName[MAX_PATH + 1]{};
+            char fsName[MAX_PATH + 1]{};
+            DWORD serial = 0, maxComponentLen = 0, flags = 0;
+            GetVolumeInformationA(root.c_str(), volName, sizeof(volName), &serial, &maxComponentLen, &flags, fsName, sizeof(fsName));
+
             for (auto& disk : disks_) {
                 for (auto& part : disk.partitions) {
                     if (part.driveLetter == targetLetter) {
                         part.capacityMb = totMb;
                         part.freeSpaceMb = freeMb;
+                        if (fsName[0] != '\0') {
+                            part.fileSystem = fsName;
+                        }
+                        if (volName[0] != '\0') {
+                            part.name = std::string(volName) + " (" + targetLetter + ")";
+                        }
                         if (part.isBoot) {
-                            disk.totalMb = totMb + 1100; // Account for EFI + Recovery
+                            disk.totalMb = totMb + 1350; // Account for EFI (350MB) + Recovery (1000MB)
                         } else if (disk.partitions.size() == 1) {
                             disk.totalMb = totMb;
                         }

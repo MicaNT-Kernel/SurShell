@@ -808,7 +808,24 @@ int runSnapshotPipeline() {
         std::cout << "  -> Exported: surshell_disk_management.bmp (1920x1080 32-bpp)\n";
     }
 
-    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (32 high-resolution scenes generated).\n";
+    // ------------------------------------------------------------------------
+    // Scene 32: Sovereign Services Management Console (services.msc Parity)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 32: Sovereign Services Management Console...\n";
+    const uint32_t svcWin = shell.openServicesWindow();
+    shell.windowManager().setWindowActive(svcWin);
+    if (auto* w = shell.windowManager().findWindow(svcWin)) {
+        if (auto svcMgr = std::dynamic_pointer_cast<surshell::ServicesContent>(w->content)) {
+            svcMgr->selectServiceByName("EventLog");
+            svcMgr->render(w->clientSurface);
+        }
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_services_management.bmp")) {
+        std::cout << "  -> Exported: surshell_services_management.bmp (1920x1080 32-bpp)\n";
+    }
+
+    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (33 high-resolution scenes generated).\n";
     return 0;
 }
 

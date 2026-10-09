@@ -8,6 +8,12 @@
 #include <sstream>
 #include <iomanip>
 
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 namespace surshell {
 
 std::string RegistryValue::formatDisplayData() const {
@@ -203,12 +209,76 @@ void RegistryEditorContent::initDefaultDatabase() {
     auto hklmHw = hklm->addSubkey("HARDWARE");
     auto hklmDesc = hklmHw->addSubkey("DESCRIPTION");
     auto hklmSys = hklmDesc->addSubkey("System");
+
+    auto hklmBios = hklmSys->addSubkey("BIOS");
+#if defined(_WIN32)
+    HKEY hBios = nullptr;
+    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "HARDWARE\\DESCRIPTION\\System\\BIOS", 0, KEY_READ, &hBios) == ERROR_SUCCESS) {
+        char buf[256] = {0};
+        DWORD sz = sizeof(buf) - 1;
+        if (RegQueryValueExA(hBios, "BaseBoardManufacturer", nullptr, nullptr, reinterpret_cast<LPBYTE>(buf), &sz) == ERROR_SUCCESS) {
+            hklmBios->setValueSz("BaseBoardManufacturer", buf);
+        }
+        sz = sizeof(buf) - 1;
+        if (RegQueryValueExA(hBios, "BaseBoardProduct", nullptr, nullptr, reinterpret_cast<LPBYTE>(buf), &sz) == ERROR_SUCCESS) {
+            hklmBios->setValueSz("BaseBoardProduct", buf);
+        }
+        sz = sizeof(buf) - 1;
+        if (RegQueryValueExA(hBios, "BIOSVersion", nullptr, nullptr, reinterpret_cast<LPBYTE>(buf), &sz) == ERROR_SUCCESS) {
+            hklmBios->setValueSz("BIOSVersion", buf);
+        }
+        sz = sizeof(buf) - 1;
+        if (RegQueryValueExA(hBios, "SystemManufacturer", nullptr, nullptr, reinterpret_cast<LPBYTE>(buf), &sz) == ERROR_SUCCESS) {
+            hklmBios->setValueSz("SystemManufacturer", buf);
+        }
+        RegCloseKey(hBios);
+    } else {
+        hklmBios->setValueSz("BaseBoardManufacturer", "ASRockRack");
+        hklmBios->setValueSz("BaseBoardProduct", "E3C246D4U2-2T");
+        hklmBios->setValueSz("BIOSVersion", "L2.61A");
+    }
+#else
+    hklmBios->setValueSz("BaseBoardManufacturer", "ASRockRack");
+    hklmBios->setValueSz("BaseBoardProduct", "E3C246D4U2-2T");
+    hklmBios->setValueSz("BIOSVersion", "L2.61A");
+#endif
+
     auto hklmCpu = hklmSys->addSubkey("CentralProcessor");
     auto hklmCpu0 = hklmCpu->addSubkey("0");
+#if defined(_WIN32)
+    HKEY hCpu = nullptr;
+    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &hCpu) == ERROR_SUCCESS) {
+        char buf[256] = {0};
+        DWORD sz = sizeof(buf) - 1;
+        if (RegQueryValueExA(hCpu, "ProcessorNameString", nullptr, nullptr, reinterpret_cast<LPBYTE>(buf), &sz) == ERROR_SUCCESS) {
+            hklmCpu0->setValueSz("ProcessorNameString", buf);
+        }
+        sz = sizeof(buf) - 1;
+        if (RegQueryValueExA(hCpu, "Identifier", nullptr, nullptr, reinterpret_cast<LPBYTE>(buf), &sz) == ERROR_SUCCESS) {
+            hklmCpu0->setValueSz("Identifier", buf);
+        }
+        sz = sizeof(buf) - 1;
+        if (RegQueryValueExA(hCpu, "VendorIdentifier", nullptr, nullptr, reinterpret_cast<LPBYTE>(buf), &sz) == ERROR_SUCCESS) {
+            hklmCpu0->setValueSz("VendorIdentifier", buf);
+        }
+        DWORD mhz = 0;
+        DWORD mhzSz = sizeof(mhz);
+        if (RegQueryValueExA(hCpu, "~MHz", nullptr, nullptr, reinterpret_cast<LPBYTE>(&mhz), &mhzSz) == ERROR_SUCCESS) {
+            hklmCpu0->setValueDword("~MHz", mhz);
+        }
+        RegCloseKey(hCpu);
+    } else {
+        hklmCpu0->setValueSz("ProcessorNameString", "Intel(R) Xeon(R) E-2236 CPU @ 3.40GHz");
+        hklmCpu0->setValueSz("Identifier", "Intel64 Family 6 Model 158 Stepping 10");
+        hklmCpu0->setValueSz("VendorIdentifier", "GenuineIntel");
+        hklmCpu0->setValueDword("~MHz", 3400);
+    }
+#else
     hklmCpu0->setValueSz("ProcessorNameString", "MicaNT Sovereign vCPU @ 3.80 GHz");
     hklmCpu0->setValueSz("Identifier", "x86 Family 6 Model 158 Stepping 10");
     hklmCpu0->setValueSz("VendorIdentifier", "MicaNT GenuineProcessor");
     hklmCpu0->setValueDword("~MHz", 3800);
+#endif
 
     auto hklmSoft = hklm->addSubkey("SOFTWARE");
     auto hklmMica = hklmSoft->addSubkey("MicaNT");
@@ -218,6 +288,45 @@ void RegistryEditorContent::initDefaultDatabase() {
     hklmVer->setValueSz("CurrentBuildNumber", "26100.1");
     hklmVer->setValueSz("DaveCutlerProvenance", "Clean-Room ISO C++23 Native Executive");
     hklmVer->setValueSz("EnclaveSecurityLevel", "Ring0-CSRSS-Parity");
+
+    auto hklmMs = hklmSoft->addSubkey("Microsoft");
+    auto hklmNt = hklmMs->addSubkey("Windows NT");
+    auto hklmNtVer = hklmNt->addSubkey("CurrentVersion");
+#if defined(_WIN32)
+    HKEY hNt = nullptr;
+    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_READ, &hNt) == ERROR_SUCCESS) {
+        char buf[256] = {0};
+        DWORD sz = sizeof(buf) - 1;
+        if (RegQueryValueExA(hNt, "ProductName", nullptr, nullptr, reinterpret_cast<LPBYTE>(buf), &sz) == ERROR_SUCCESS) {
+            hklmNtVer->setValueSz("ProductName", buf);
+        }
+        sz = sizeof(buf) - 1;
+        if (RegQueryValueExA(hNt, "DisplayVersion", nullptr, nullptr, reinterpret_cast<LPBYTE>(buf), &sz) == ERROR_SUCCESS) {
+            hklmNtVer->setValueSz("DisplayVersion", buf);
+        }
+        sz = sizeof(buf) - 1;
+        if (RegQueryValueExA(hNt, "CurrentBuild", nullptr, nullptr, reinterpret_cast<LPBYTE>(buf), &sz) == ERROR_SUCCESS) {
+            hklmNtVer->setValueSz("CurrentBuild", buf);
+        }
+        sz = sizeof(buf) - 1;
+        if (RegQueryValueExA(hNt, "CurrentBuildNumber", nullptr, nullptr, reinterpret_cast<LPBYTE>(buf), &sz) == ERROR_SUCCESS) {
+            hklmNtVer->setValueSz("CurrentBuildNumber", buf);
+        }
+        sz = sizeof(buf) - 1;
+        if (RegQueryValueExA(hNt, "CompositionEditionID", nullptr, nullptr, reinterpret_cast<LPBYTE>(buf), &sz) == ERROR_SUCCESS) {
+            hklmNtVer->setValueSz("CompositionEditionID", buf);
+        }
+        RegCloseKey(hNt);
+    } else {
+        hklmNtVer->setValueSz("ProductName", "Windows Server 2025 Standard");
+        hklmNtVer->setValueSz("DisplayVersion", "24H2");
+        hklmNtVer->setValueSz("CurrentBuild", "26100");
+    }
+#else
+    hklmNtVer->setValueSz("ProductName", "Windows Server 2025 Standard");
+    hklmNtVer->setValueSz("DisplayVersion", "24H2");
+    hklmNtVer->setValueSz("CurrentBuild", "26100");
+#endif
 
     auto hklmSysRoot = hklm->addSubkey("SYSTEM");
     auto hklmCcs = hklmSysRoot->addSubkey("CurrentControlSet");

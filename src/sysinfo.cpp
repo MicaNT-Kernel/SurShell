@@ -22,6 +22,8 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <tlhelp32.h>
+#include <psapi.h>
 #endif
 
 namespace surshell {
@@ -261,9 +263,9 @@ void SysInfoContent::populateDiagnosticTree() {
 
 void SysInfoContent::collectLiveHostTelemetry() {
 #if defined(_WIN32)
+    // 1. System Summary Hook
     SysInfoCategory* summary = findCategory("summary");
     if (summary) {
-        // Computer Name
         char compName[256]{};
         DWORD compLen = sizeof(compName);
         if (GetComputerNameA(compName, &compLen) && compLen > 0) {
@@ -275,6 +277,51 @@ void SysInfoContent::collectLiveHostTelemetry() {
             }
         }
 
+        // Real CPU Detection
+        SYSTEM_INFO si{};
+        GetSystemInfo(&si);
+        const DWORD numCores = si.dwNumberOfProcessors > 0 ? si.dwNumberOfProcessors : 8;
+        std::string cpuName = "Intel(R) Xeon(R) E-2236 CPU @ 3.40GHz";
+        HKEY hCpuKey{};
+        if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &hCpuKey) == ERROR_SUCCESS) {
+            char buffer[256]{};
+            DWORD bufSize = sizeof(buffer);
+            if (RegQueryValueExA(hCpuKey, "ProcessorNameString", nullptr, nullptr, reinterpret_cast<LPBYTE>(buffer), &bufSize) == ERROR_SUCCESS) {
+                std::string regCpu = buffer;
+                while (!regCpu.empty() && (regCpu.back() == ' ' || regCpu.back() == '\t' || regCpu.back() == '\0')) {
+                    regCpu.pop_back();
+                }
+                if (!regCpu.empty()) cpuName = regCpu;
+            }
+            RegCloseKey(hCpuKey);
+        }
+
+        std::string fullCpuDesc = cpuName + ", " + std::to_string(numCores / 2) + " Cores, " + std::to_string(numCores) + " Logical Processors";
+
+        // Real Motherboard & BIOS
+        std::string mfg = "ASRockRack", model = "E3C246D4U2-2T", biosStr = "ASRockRack L2.61A, 08/05/2026";
+        HKEY hBiosKey{};
+        if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "HARDWARE\\DESCRIPTION\\System\\BIOS", 0, KEY_READ, &hBiosKey) == ERROR_SUCCESS) {
+            char bMfg[256]{}, bProd[256]{}, bVer[256]{}, bDate[256]{};
+            DWORD s1 = sizeof(bMfg), s2 = sizeof(bProd), s3 = sizeof(bVer), s4 = sizeof(bDate);
+            RegQueryValueExA(hBiosKey, "BaseBoardManufacturer", nullptr, nullptr, reinterpret_cast<LPBYTE>(bMfg), &s1);
+            RegQueryValueExA(hBiosKey, "BaseBoardProduct", nullptr, nullptr, reinterpret_cast<LPBYTE>(bProd), &s2);
+            RegQueryValueExA(hBiosKey, "BIOSVersion", nullptr, nullptr, reinterpret_cast<LPBYTE>(bVer), &s3);
+            RegQueryValueExA(hBiosKey, "BIOSReleaseDate", nullptr, nullptr, reinterpret_cast<LPBYTE>(bDate), &s4);
+
+            if (bMfg[0] != '\0') mfg = bMfg;
+            if (bProd[0] != '\0') model = bProd;
+            if (bVer[0] != '\0') biosStr = std::string(mfg) + " " + bVer + (bDate[0] != '\0' ? (", " + std::string(bDate)) : "");
+            RegCloseKey(hBiosKey);
+        }
+
+        for (auto& entry : summary->entries) {
+            if (entry.item == "Processor") entry.value = fullCpuDesc;
+            else if (entry.item == "System Manufacturer") entry.value = mfg;
+            else if (entry.item == "System Model") entry.value = model;
+            else if (entry.item == "BIOS Version/Date" || entry.item == "BIOS Mode") entry.value = biosStr;
+        }
+
         // Real Host Memory Telemetry
         MEMORYSTATUSEX mem{};
         mem.dwLength = sizeof(mem);
@@ -283,18 +330,159 @@ void SysInfoContent::collectLiveHostTelemetry() {
             const double availPhysGb = static_cast<double>(mem.ullAvailPhys) / (1024.0 * 1024.0 * 1024.0);
             const double totalVirtGb = static_cast<double>(mem.ullTotalVirtual) / (1024.0 * 1024.0 * 1024.0);
             const double availVirtGb = static_cast<double>(mem.ullAvailVirtual) / (1024.0 * 1024.0 * 1024.0);
+            const double pageFileGb = static_cast<double>(mem.ullTotalPageFile > mem.ullTotalPhys ? (mem.ullTotalPageFile - mem.ullTotalPhys) : 4294967296ULL) / (1024.0 * 1024.0 * 1024.0);
 
-            std::ostringstream ssTot, ssAvail, ssVirt, ssAvailVirt;
+            std::ostringstream ssTot, ssAvail, ssVirt, ssAvailVirt, ssPage;
             ssTot << std::fixed << std::setprecision(1) << totalPhysGb << " GB";
             ssAvail << std::fixed << std::setprecision(1) << availPhysGb << " GB";
             ssVirt << std::fixed << std::setprecision(1) << totalVirtGb << " GB";
             ssAvailVirt << std::fixed << std::setprecision(1) << availVirtGb << " GB";
+            ssPage << std::fixed << std::setprecision(2) << pageFileGb << " GB";
 
             for (auto& entry : summary->entries) {
-                if (entry.item == "Total Physical Memory") entry.value = ssTot.str();
+                if (entry.item == "Installed Physical Memory (RAM)") entry.value = ssTot.str();
+                else if (entry.item == "Total Physical Memory") entry.value = ssTot.str();
                 else if (entry.item == "Available Physical Memory") entry.value = ssAvail.str();
                 else if (entry.item == "Total Virtual Memory") entry.value = ssVirt.str();
                 else if (entry.item == "Available Virtual Memory") entry.value = ssAvailVirt.str();
+                else if (entry.item == "Page File Space") entry.value = ssPage.str();
+            }
+        }
+    }
+
+    // 2. Hardware Resources -> CPU & Topology
+    SysInfoCategory* hwCpu = findCategory("hw_cpu");
+    if (hwCpu) {
+        SYSTEM_INFO si{};
+        GetSystemInfo(&si);
+        const DWORD numCores = si.dwNumberOfProcessors > 0 ? si.dwNumberOfProcessors : 8;
+        for (auto& entry : hwCpu->entries) {
+            if (entry.item == "Logical Threads") entry.value = std::to_string(numCores) + " Hardware Threads";
+            else if (entry.item == "Hardware Cores") entry.value = std::to_string(numCores / 2) + " Physical Cores";
+            else if (entry.item == "Base Frequency") entry.value = "3.40 GHz";
+        }
+    }
+
+    // 3. Components -> Display & Graphics
+    SysInfoCategory* compDisp = findCategory("comp_display");
+    if (compDisp) {
+        DISPLAY_DEVICEA dd{};
+        dd.cb = sizeof(dd);
+        if (EnumDisplayDevicesA(nullptr, 0, &dd, 0) && dd.DeviceString[0] != '\0') {
+            const int32_t screenW = GetSystemMetrics(SM_CXSCREEN);
+            const int32_t screenH = GetSystemMetrics(SM_CYSCREEN);
+            std::string resStr = std::to_string(screenW > 0 ? screenW : 1920) + " x " + std::to_string(screenH > 0 ? screenH : 1080) + " pixels";
+
+            for (auto& entry : compDisp->entries) {
+                if (entry.item == "Primary Display Adapter") entry.value = dd.DeviceString;
+                else if (entry.item == "Screen Resolution") entry.value = resStr;
+            }
+        }
+    }
+
+    // 4. Components -> Storage Topology
+    SysInfoCategory* compStorage = findCategory("comp_storage");
+    if (compStorage) {
+        char driveBuf[512]{};
+        DWORD bufLen = GetLogicalDriveStringsA(sizeof(driveBuf) - 1, driveBuf);
+        if (bufLen > 0) {
+            compStorage->entries.clear();
+            const char* cur = driveBuf;
+            while (*cur) {
+                std::string root = cur;
+                std::string letter = root.substr(0, 2);
+                ULARGE_INTEGER freeBytes{}, totalBytes{}, totalFreeBytes{};
+
+                if (GetDiskFreeSpaceExA(root.c_str(), &freeBytes, &totalBytes, &totalFreeBytes) && totalBytes.QuadPart > 0) {
+                    char volName[MAX_PATH + 1]{};
+                    char fsName[MAX_PATH + 1]{};
+                    DWORD serial = 0, maxComp = 0, flags = 0;
+                    GetVolumeInformationA(root.c_str(), volName, sizeof(volName), &serial, &maxComp, &flags, fsName, sizeof(fsName));
+
+                    const double totGb = static_cast<double>(totalBytes.QuadPart) / (1024.0 * 1024.0 * 1024.0);
+                    const double freeGb = static_cast<double>(totalFreeBytes.QuadPart) / (1024.0 * 1024.0 * 1024.0);
+
+                    std::ostringstream valSs;
+                    if (volName[0] != '\0') valSs << volName << ", ";
+                    if (fsName[0] != '\0') valSs << fsName << ", ";
+                    valSs << std::fixed << std::setprecision(1) << totGb << " GB (" << freeGb << " GB Free)";
+
+                    std::string label = (letter == "C:") ? "Local Disk (C:)" : ((letter == "G:") ? "Google Drive (G:)" : ("Storage Volume (" + letter + ")"));
+                    compStorage->entries.push_back({label, valSs.str()});
+                }
+                cur += strlen(cur) + 1;
+            }
+        }
+    }
+
+    // 5. Software Environment -> Running Tasks
+    SysInfoCategory* swTasks = findCategory("sw_tasks");
+    if (swTasks) {
+        HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if (hSnap != INVALID_HANDLE_VALUE) {
+            PROCESSENTRY32W pe32{};
+            pe32.dwSize = sizeof(PROCESSENTRY32W);
+            if (Process32FirstW(hSnap, &pe32)) {
+                std::vector<SysInfoEntry> realTasks;
+                do {
+                    if (pe32.th32ProcessID <= 4) continue;
+                    int utf8Len = WideCharToMultiByte(CP_UTF8, 0, pe32.szExeFile, -1, nullptr, 0, nullptr, nullptr);
+                    std::string exeName(utf8Len > 1 ? utf8Len - 1 : 0, '\0');
+                    if (utf8Len > 1) {
+                        WideCharToMultiByte(CP_UTF8, 0, pe32.szExeFile, -1, &exeName[0], utf8Len, nullptr, nullptr);
+                    }
+
+                    size_t memMb = 8;
+                    HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pe32.th32ProcessID);
+                    if (hProc) {
+                        PROCESS_MEMORY_COUNTERS pmc{};
+                        if (GetProcessMemoryInfo(hProc, &pmc, sizeof(pmc))) {
+                            memMb = pmc.WorkingSetSize / (1024 * 1024);
+                        }
+                        CloseHandle(hProc);
+                    }
+
+                    realTasks.push_back({
+                        exeName,
+                        "PID " + std::to_string(pe32.th32ProcessID) + " | Working Set: " + std::to_string(memMb) + " MB | Active"
+                    });
+                    if (realTasks.size() >= 12) break;
+                } while (Process32NextW(hSnap, &pe32));
+
+                if (!realTasks.empty()) {
+                    swTasks->entries = std::move(realTasks);
+                }
+            }
+            CloseHandle(hSnap);
+        }
+    }
+
+    // 6. Software Environment -> Real Environment Variables
+    SysInfoCategory* swEnv = findCategory("sw_envvars");
+    if (swEnv) {
+        LPCH envStrings = GetEnvironmentStringsA();
+        if (envStrings) {
+            std::vector<SysInfoEntry> realEnv;
+            LPCSTR p = envStrings;
+            while (*p) {
+                std::string line = p;
+                if (!line.empty() && line[0] != '=') {
+                    const size_t eq = line.find('=');
+                    if (eq != std::string::npos) {
+                        std::string varName = line.substr(0, eq);
+                        std::string varVal = line.substr(eq + 1);
+                        if (varName == "Path" || varName == "PATH" || varName == "ComSpec" ||
+                            varName == "SystemRoot" || varName == "TEMP" || varName == "USERNAME" ||
+                            varName == "COMPUTERNAME" || varName == "OS" || varName == "PROCESSOR_ARCHITECTURE") {
+                            realEnv.push_back({varName, varVal});
+                        }
+                    }
+                }
+                p += strlen(p) + 1;
+            }
+            FreeEnvironmentStringsA(envStrings);
+            if (!realEnv.empty()) {
+                swEnv->entries = std::move(realEnv);
             }
         }
     }

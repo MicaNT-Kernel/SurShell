@@ -8,6 +8,16 @@
 #include <sstream>
 #include <cmath>
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 namespace surshell {
 
 TaskManagerContent::TaskManagerContent(KernelBridge* bridge)
@@ -59,17 +69,47 @@ void TaskManagerContent::addNetSample(float val) {
 void TaskManagerContent::refresh() {
     updateVitals();
 
-    // Push new simulated telemetry samples
     float cpu = 12.0f;
+    float mem = 13.2f;
+
+#if defined(_WIN32)
+    // 1. Real Memory load from Windows Kernel
+    MEMORYSTATUSEX memStatus{};
+    memStatus.dwLength = sizeof(memStatus);
+    if (GlobalMemoryStatusEx(&memStatus)) {
+        mem = static_cast<float>(memStatus.dwMemoryLoad);
+    }
+
+    // 2. Real CPU utilization from Windows Kernel
+    FILETIME idleTime{}, kernelTime{}, userTime{};
+    if (GetSystemTimes(&idleTime, &kernelTime, &userTime)) {
+        ULARGE_INTEGER i, k, u;
+        i.LowPart = idleTime.dwLowDateTime; i.HighPart = idleTime.dwHighDateTime;
+        k.LowPart = kernelTime.dwLowDateTime; k.HighPart = kernelTime.dwHighDateTime;
+        u.LowPart = userTime.dwLowDateTime; u.HighPart = userTime.dwHighDateTime;
+
+        static uint64_t prevIdle = 0, prevKernel = 0, prevUser = 0;
+        if (prevKernel > 0 && prevUser > 0) {
+            const uint64_t total = (k.QuadPart - prevKernel) + (u.QuadPart - prevUser);
+            const uint64_t idle = (i.QuadPart - prevIdle);
+            if (total > 0 && total >= idle) {
+                cpu = static_cast<float>(total - idle) * 100.0f / static_cast<float>(total);
+            }
+        }
+        prevIdle = i.QuadPart;
+        prevKernel = k.QuadPart;
+        prevUser = u.QuadPart;
+    }
+#else
     if (!cpuHistory_.empty()) {
         cpu = std::clamp(cpuHistory_.back() + ((rand() % 7) - 3.0f), 4.0f, 40.0f);
     }
-    addCpuSample(cpu);
-
-    float mem = 13.2f;
     if (!memHistory_.empty()) {
         mem = std::clamp(memHistory_.back() + ((rand() % 3) - 1.0f) * 0.1f, 12.0f, 16.0f);
     }
+#endif
+
+    addCpuSample(cpu);
     addMemSample(mem);
 
     float disk = 2.4f;
@@ -432,9 +472,15 @@ void TaskManagerContent::renderPerformanceTab(Surface& clientSurface, int32_t w,
     const float curCpu = cpuHistory_.empty() ? 12.0f : cpuHistory_.back();
     std::ostringstream cpuVal;
     cpuVal << std::fixed << std::setprecision(1) << curCpu << "%";
-    drawPerfCard(perfCardCpu_, topY, PerformanceResource::CPU, "CPU", cpuVal.str() + " 3.8 GHz", cpuHistory_, Color::fromHex(0x00D4FF));
+    drawPerfCard(perfCardCpu_, topY, PerformanceResource::CPU, "CPU", cpuVal.str() + " 3.4 GHz", cpuHistory_, Color::fromHex(0x00D4FF));
 
-    drawPerfCard(perfCardMem_, topY + cardH + cardGap, PerformanceResource::Memory, "Memory", "4.2/32.0 GB (13%)", memHistory_, Color::fromHex(0x00FF9D));
+    const double totGb = static_cast<double>(vitals_.totalPhysicalMemoryKb) / (1024.0 * 1024.0);
+    const double freeGb = static_cast<double>(vitals_.freePhysicalMemoryKb) / (1024.0 * 1024.0);
+    const double usedGb = std::max(0.1, totGb - freeGb);
+    const int memPct = totGb > 0 ? static_cast<int>((usedGb / totGb) * 100.0) : 13;
+    std::ostringstream memSs;
+    memSs << std::fixed << std::setprecision(1) << usedGb << "/" << totGb << " GB (" << memPct << "%)";
+    drawPerfCard(perfCardMem_, topY + cardH + cardGap, PerformanceResource::Memory, "Memory", memSs.str(), memHistory_, Color::fromHex(0x00FF9D));
     drawPerfCard(perfCardDisk_, topY + (cardH + cardGap) * 2, PerformanceResource::Disk, "Disk 0 (C:)", "2.4 MB/s (1%)", diskHistory_, Color::fromHex(0xFFB703));
     drawPerfCard(perfCardNet_, topY + (cardH + cardGap) * 3, PerformanceResource::Network, "Ethernet", "1.2 / 0.4 Mbps", netHistory_, Color::fromHex(0x9D4EDD));
 
@@ -451,7 +497,9 @@ void TaskManagerContent::renderPerformanceTab(Surface& clientSurface, int32_t w,
 
     if (selectedResource_ == PerformanceResource::Memory) {
         titleStr = "Memory - Physical RAM Composition";
-        specStr = "In use: 4.2 GB | Available: 27.8 GB | Speed: 6000 MT/s";
+        std::ostringstream memDetail;
+        memDetail << "In use: " << std::fixed << std::setprecision(1) << usedGb << " GB | Available: " << freeGb << " GB | Hardware: Host RAM";
+        specStr = memDetail.str();
         themeCol = Color::fromHex(0x00FF9D);
         activeHist = &memHistory_;
     } else if (selectedResource_ == PerformanceResource::Disk) {
@@ -466,7 +514,7 @@ void TaskManagerContent::renderPerformanceTab(Surface& clientSurface, int32_t w,
         activeHist = &netHistory_;
     } else {
         titleStr = "CPU - 60 Second Telemetry (Historical Graph)";
-        specStr = "% Utilization: " + cpuVal.str() + " | Sockets: 1 | Cores: 8 | Threads: 16";
+        specStr = "% Utilization: " + cpuVal.str() + " | Sockets: 1 | Cores: " + std::to_string(vitals_.cpuThreadCount > 0 ? vitals_.cpuThreadCount : 12);
     }
 
     clientSurface.drawString(Point{mainX, topY}, titleStr, themeCol, 1);
@@ -549,18 +597,29 @@ void TaskManagerContent::renderPerformanceTab(Surface& clientSurface, int32_t w,
         const int32_t colW = mainW / 3;
         // Col 1
         clientSurface.drawString(Point{specsRect.x + 12, specsRect.y + 8}, "Utilization: " + cpuVal.str(), Color::fromHex(0xD0DCF0));
-        clientSurface.drawString(Point{specsRect.x + 12, specsRect.y + 24}, "Speed: 3.80 GHz", Color::fromHex(0x8EA2BE));
-        clientSurface.drawString(Point{specsRect.x + 12, specsRect.y + 40}, "Sockets: 1 (8 Cores)", Color::fromHex(0x8EA2BE));
+        clientSurface.drawString(Point{specsRect.x + 12, specsRect.y + 24}, "Speed: 3.40 GHz", Color::fromHex(0x8EA2BE));
+        clientSurface.drawString(Point{specsRect.x + 12, specsRect.y + 40}, "Sockets: 1 (" + std::to_string(vitals_.cpuThreadCount > 0 ? vitals_.cpuThreadCount : 12) + " Cores)", Color::fromHex(0x8EA2BE));
 
         // Col 2
         clientSurface.drawString(Point{specsRect.x + colW + 8, specsRect.y + 8}, "Processes: " + std::to_string(processes_.size()), Color::fromHex(0xD0DCF0));
-        clientSurface.drawString(Point{specsRect.x + colW + 8, specsRect.y + 24}, "Threads: 1,420", Color::fromHex(0x8EA2BE));
-        clientSurface.drawString(Point{specsRect.x + colW + 8, specsRect.y + 40}, "Handles: 42,190", Color::fromHex(0x8EA2BE));
+        clientSurface.drawString(Point{specsRect.x + colW + 8, specsRect.y + 24}, "Threads: " + std::to_string(processes_.size() * 12), Color::fromHex(0x8EA2BE));
+        clientSurface.drawString(Point{specsRect.x + colW + 8, specsRect.y + 40}, "Handles: " + std::to_string(processes_.size() * 180), Color::fromHex(0x8EA2BE));
 
         // Col 3
+        const uint64_t upSec = vitals_.uptimeSeconds;
+        const uint64_t upDays = upSec / 86400;
+        const uint64_t upHours = (upSec % 86400) / 3600;
+        const uint64_t upMins = (upSec % 3600) / 60;
+        const uint64_t upSecs = upSec % 60;
+        std::ostringstream upSs;
+        upSs << "Up: " << upDays << ":" 
+             << (upHours < 10 ? "0" : "") << upHours << ":" 
+             << (upMins < 10 ? "0" : "") << upMins << ":" 
+             << (upSecs < 10 ? "0" : "") << upSecs;
+
         clientSurface.drawString(Point{specsRect.x + colW * 2 + 8, specsRect.y + 8}, "Virt: Enabled", Color::fromHex(0x00FF9D));
-        clientSurface.drawString(Point{specsRect.x + colW * 2 + 8, specsRect.y + 24}, "L3 Cache: 32 MB", Color::fromHex(0x8EA2BE));
-        clientSurface.drawString(Point{specsRect.x + colW * 2 + 8, specsRect.y + 40}, "Up: 0:14:22:08", Color::fromHex(0x8EA2BE));
+        clientSurface.drawString(Point{specsRect.x + colW * 2 + 8, specsRect.y + 24}, "L3 Cache: 12 MB", Color::fromHex(0x8EA2BE));
+        clientSurface.drawString(Point{specsRect.x + colW * 2 + 8, specsRect.y + 40}, upSs.str(), Color::fromHex(0x8EA2BE));
     }
 }
 

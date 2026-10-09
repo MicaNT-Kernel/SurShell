@@ -37,6 +37,7 @@ set(SURSHELL_SOURCES
     src/sysinfo.cpp
     src/devicemanager.cpp
     src/diskmgmt.cpp
+    src/services.cpp
     src/surshell.cpp
 )
 

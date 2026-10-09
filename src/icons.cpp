@@ -224,6 +224,9 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
         case IconId::DiskManagement:
             drawDiskManagement(surface, bounds, tintOverride);
             break;
+        case IconId::Services:
+            drawServices(surface, bounds, tintOverride);
+            break;
         case IconId::CloudDrive:
             drawCloudDrive(surface, bounds, tintOverride);
             break;
@@ -276,6 +279,7 @@ IconId IconRenderer::iconForAppId(std::string_view appId) {
     if (appId == "sysinfo" || appId == "msinfo32" || appId == "systeminfo" || appId == "specs" || appId == "system_information" || appId == "msinfo") return IconId::SystemInfo;
     if (appId == "devmgmt" || appId == "devmgmt.msc" || appId == "devices" || appId == "devicemanager" || appId == "device_manager") return IconId::DeviceManager;
     if (appId == "diskmgmt" || appId == "diskmgmt.msc" || appId == "diskmanagement" || appId == "partitions" || appId == "partition" || appId == "disks") return IconId::DiskManagement;
+    if (appId == "services" || appId == "services.msc" || appId == "service" || appId == "daemons") return IconId::Services;
     if (appId == "cloud" || appId == "gdrive" || appId == "google_drive") return IconId::CloudDrive;
     if (appId == "nas" || appId == "share" || appId == "storage") return IconId::NetworkShare;
     if (appId == "cd" || appId == "dvd" || appId == "optical") return IconId::OpticalDrive;
@@ -1790,6 +1794,45 @@ void IconRenderer::drawOpticalDrive(Surface& s, Rect r, std::optional<Color> tin
     s.drawRoundedRect(trayRect, 1, Color::fromHex(0x1E293B), true);
     s.drawRoundedRect(trayRect, 1, Color::fromHex(0x475569), false);
     s.putPixel(trayRect.right() - 2, trayRect.y + 1, Color::fromHex(0x00FF9D));
+}
+
+void IconRenderer::drawServices(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color gear1Col = tint.value_or(Color::fromHex(0x38BDF8));
+    const Color gear2Col = tint.value_or(Color::fromHex(0x818CF8));
+
+    // Gear 1 (Primary / Lower Left)
+    const int32_t r1 = std::max(3, r.width * 7 / 24);
+    const int32_t cx1 = r.x + r1 + 1;
+    const int32_t cy1 = r.bottom() - r1 - 1;
+
+    // Body disc
+    s.drawRoundedRect(Rect{cx1 - r1, cy1 - r1, r1 * 2, r1 * 2}, r1, gear1Col, true);
+    // 4 cardinal teeth
+    const int32_t tw1 = std::max(2, r1 / 2);
+    s.fillRect(Rect{cx1 - tw1 / 2, cy1 - r1 - 2, tw1, 2}, gear1Col);
+    s.fillRect(Rect{cx1 - tw1 / 2, cy1 + r1, tw1, 2}, gear1Col);
+    s.fillRect(Rect{cx1 - r1 - 2, cy1 - tw1 / 2, 2, tw1}, gear1Col);
+    s.fillRect(Rect{cx1 + r1, cy1 - tw1 / 2, 2, tw1}, gear1Col);
+    // Center axle hole
+    const int32_t hole1 = std::max(1, r1 / 3);
+    s.drawRoundedRect(Rect{cx1 - hole1, cy1 - hole1, hole1 * 2, hole1 * 2}, hole1, Color::fromHex(0x0E1420), true);
+
+    // Gear 2 (Secondary / Upper Right)
+    const int32_t r2 = std::max(2, r.width * 5 / 24);
+    const int32_t cx2 = r.right() - r2 - 1;
+    const int32_t cy2 = r.y + r2 + 1;
+
+    // Body disc
+    s.drawRoundedRect(Rect{cx2 - r2, cy2 - r2, r2 * 2, r2 * 2}, r2, gear2Col, true);
+    // 4 cardinal teeth
+    const int32_t tw2 = std::max(1, r2 / 2);
+    s.fillRect(Rect{cx2 - tw2 / 2, cy2 - r2 - 2, tw2, 2}, gear2Col);
+    s.fillRect(Rect{cx2 - tw2 / 2, cy2 + r2, tw2, 2}, gear2Col);
+    s.fillRect(Rect{cx2 - r2 - 2, cy2 - tw2 / 2, 2, tw2}, gear2Col);
+    s.fillRect(Rect{cx2 + r2, cy2 - tw2 / 2, 2, tw2}, gear2Col);
+    // Center axle hole
+    const int32_t hole2 = std::max(1, r2 / 3);
+    s.drawRoundedRect(Rect{cx2 - hole2, cy2 - hole2, hole2 * 2, hole2 * 2}, hole2, Color::fromHex(0x0E1420), true);
 }
 
 } // namespace surshell

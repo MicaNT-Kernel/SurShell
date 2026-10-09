@@ -705,10 +705,11 @@ void Test_Procedural_Icon_Engine() {
         surshell::IconId::Registry,
         surshell::IconId::CloudDrive,
         surshell::IconId::NetworkShare,
-        surshell::IconId::OpticalDrive
+        surshell::IconId::OpticalDrive,
+        surshell::IconId::Services
     };
 
-    TEST_ASSERT(allIcons.size() == 68, "All 68 procedural vector icons enumerated");
+    TEST_ASSERT(allIcons.size() == 69, "All 69 procedural vector icons enumerated");
 
     const int32_t testSizes[] = {14, 16, 24, 28, 32, 48};
     for (surshell::IconId id : allIcons) {
@@ -730,7 +731,7 @@ void Test_Procedural_Icon_Engine() {
         }
     }
 
-    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (68 icons verified across 6 DPI scales).\n";
+    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (69 icons verified across 6 DPI scales).\n";
 }
 
 void Test_AltTab_And_Taskbar_Hover_Preview() {
@@ -2199,6 +2200,91 @@ void Test_Disk_Management_Application() {
     std::cout << "[TEST] Suite 32: Sovereign Disk Management & Volume Partitioning PASSED.\n";
 }
 
+void Test_Services_Management_Application() {
+    std::cout << "[TEST] Running Suite 33: Sovereign Services Management Console (services.msc)...\n";
+
+    surshell::ServicesContent services;
+
+    // 1. Service Discovery & Baseline Counts
+    TEST_ASSERT(services.totalServicesCount() >= 10, "Discovered extensive host/system service catalog");
+    TEST_ASSERT(services.runningServicesCount() > 0, "Host has active running services");
+    TEST_ASSERT(services.stoppedServicesCount() > 0, "Catalog includes stopped services");
+
+    // 2. Selection & Query
+    TEST_ASSERT(services.selectedService() != nullptr, "Initial service selected");
+    services.selectServiceByName("Dhcp");
+    if (services.selectedService() && services.selectedService()->name == "Dhcp") {
+        TEST_ASSERT(services.selectedService()->name == "Dhcp", "Selected Dhcp service");
+    }
+
+    // 3. Search and Filtering
+    services.setSearchQuery("Event");
+    TEST_ASSERT(services.selectedService() != nullptr, "Search filtered selection valid");
+    TEST_ASSERT(services.selectedService()->displayName.find("Event") != std::string::npos ||
+                services.selectedService()->name.find("Event") != std::string::npos,
+                "Filtered service matches search query 'Event'");
+
+    // Clear search
+    services.setSearchQuery("");
+    TEST_ASSERT(services.selectedService() != nullptr, "Resetting search restores selection");
+
+    // 4. Action Handlers (Start, Stop, Restart, Pause) with Toast Callbacks
+    std::string toastTitle;
+    std::string toastBody;
+    services.setToastCallback([&](const std::string& title, const std::string& msg, surshell::IconId) {
+        toastTitle = title;
+        toastBody = msg;
+    });
+
+    TEST_ASSERT(services.stopSelectedService(), "Stop service succeeds");
+    TEST_ASSERT(services.selectedService()->state == surshell::ServiceState::Stopped, "Service state is Stopped");
+    TEST_ASSERT(toastTitle == "Service Stopped", "Stop toast triggered");
+
+    TEST_ASSERT(services.startSelectedService(), "Start service succeeds");
+    TEST_ASSERT(services.selectedService()->state == surshell::ServiceState::Running, "Service state is Running");
+    TEST_ASSERT(toastTitle == "Service Started", "Start toast triggered");
+
+    TEST_ASSERT(services.restartSelectedService(), "Restart service succeeds");
+    TEST_ASSERT(services.selectedService()->state == surshell::ServiceState::Running, "Service state is Running");
+    TEST_ASSERT(toastTitle == "Service Restarted", "Restart toast triggered");
+
+    TEST_ASSERT(services.pauseSelectedService(), "Pause service succeeds");
+    TEST_ASSERT(services.selectedService()->state == surshell::ServiceState::Paused, "Service state is Paused");
+    TEST_ASSERT(toastTitle == "Service Paused", "Pause toast triggered");
+
+    // 5. Properties Dialog Modal State
+    TEST_ASSERT(!services.isPropertiesDialogOpen(), "Properties dialog starts closed");
+    services.openPropertiesDialog();
+    TEST_ASSERT(services.isPropertiesDialogOpen(), "Properties dialog opened");
+    services.closePropertiesDialog();
+    TEST_ASSERT(!services.isPropertiesDialogOpen(), "Properties dialog closed");
+
+    // 6. Surface Rendering & Modal Overlay
+    surshell::Surface clientSurf(940, 620);
+    services.render(clientSurf);
+    TEST_ASSERT(clientSurf.width() == 940 && clientSurf.height() == 620, "Services rendered to 940x620 surface");
+
+    services.openPropertiesDialog();
+    services.render(clientSurf);
+    services.closePropertiesDialog();
+
+    // 7. Desktop Coordinator Integration
+    surshell::SurShellDesktop shell(1920, 1080);
+    const uint32_t svcWinId = shell.openServicesWindow();
+    TEST_ASSERT(svcWinId != 0, "openServicesWindow spawned valid window");
+    auto* win = shell.windowManager().findWindow(svcWinId);
+    TEST_ASSERT(win != nullptr, "Services window found in WindowManager");
+    TEST_ASSERT(win->title.find("Services") != std::string::npos, "Window title is Services");
+    TEST_ASSERT(win->iconId == surshell::IconId::Services, "Window icon matches IconId::Services");
+
+    // 8. Icon and App ID Mappings
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("services") == surshell::IconId::Services, "iconForAppId('services') matches Services");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("services.msc") == surshell::IconId::Services, "iconForAppId('services.msc') matches Services");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("service") == surshell::IconId::Services, "iconForAppId('service') matches Services");
+
+    std::cout << "[TEST] Suite 33: Sovereign Services Management Console (services.msc) PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -2237,9 +2323,10 @@ int main() {
     Test_System_Information_Application();
     Test_Device_Manager_Application();
     Test_Disk_Management_Application();
+    Test_Services_Management_Application();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 32 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 33 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

@@ -205,6 +205,18 @@ StartMenu::StartMenu() {
         .pinnedToStart = true
     });
 
+    registerApp(ShellAppEntry{
+        .id = "services",
+        .title = "Services",
+        .subtitle = "Service Control Manager & Daemons",
+        .executablePath = "C:\\Windows\\System32\\services.msc",
+        .arguments = "",
+        .iconGlyph = "[SVC]",
+        .category = AppCategory::SystemTools,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = true
+    });
+
     // Windows 11-style Interactive Power Flyout Options
     powerOptions_ = {
         PowerOptionItem{.action = PowerAction::Sleep, .label = "Sleep", .description = "Save session in low power", .iconId = IconId::Sleep},

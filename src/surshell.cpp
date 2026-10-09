@@ -208,6 +208,7 @@ uint32_t SurShellDesktop::openTerminalWindow(std::string workingDir) {
             else if (app == "explorer") openFileExplorerWindow(args.empty() ? "C:\\Users\\admin" : args);
             else if (app == "taskmgr") openTaskManagerWindow();
             else if (app == "regedit" || app == "registry") openRegistryEditorWindow();
+            else if (app == "services" || app == "services.msc") openServicesWindow();
             else if (app == "cmd") openTerminalWindow(args.empty() ? "C:\\Users\\admin" : args);
             else kernelBridge_.spawnProcess(app, args);
         });
@@ -356,6 +357,8 @@ uint32_t SurShellDesktop::openRunDialogWindow() {
                 openDeviceManagerWindow();
             } else if (lowerCmd == "diskmgmt" || lowerCmd == "diskmgmt.msc" || lowerCmd == "diskmanagement" || lowerCmd == "partitions" || lowerCmd == "disks") {
                 openDiskManagementWindow();
+            } else if (lowerCmd == "services" || lowerCmd == "services.msc" || lowerCmd == "service") {
+                openServicesWindow();
             } else {
                 kernelBridge_.spawnProcess(cmd, "");
             }
@@ -493,6 +496,21 @@ uint32_t SurShellDesktop::openDiskManagementWindow() {
     return winId;
 }
 
+uint32_t SurShellDesktop::openServicesWindow() {
+    const uint32_t winId = windowManager_.createWindow("Services", Rect{210, 70, 940, 620}, "[SVC]", IconId::Services);
+    virtualDesktops_.assignWindowToDesktop(winId, virtualDesktops_.activeIndex());
+    auto* win = windowManager_.findWindow(winId);
+    if (win) {
+        auto servicesMgr = std::make_shared<ServicesContent>();
+        servicesMgr->setToastCallback([this](const std::string& title, const std::string& msg, IconId icon) {
+            toastManager_.showToast(title, msg, icon);
+        });
+        win->content = servicesMgr;
+        servicesMgr->render(win->clientSurface);
+    }
+    return winId;
+}
+
 void SurShellDesktop::openSearchHub() {
     searchHub_.toggle();
     if (searchHub_.isVisible()) {
@@ -589,6 +607,7 @@ void SurShellDesktop::wireSubsystemCallbacks() {
         else if (targetApp == "sysinfo" || targetApp == "msinfo32" || targetApp == "systeminfo") openSystemInfoWindow();
         else if (targetApp == "devmgmt" || targetApp == "devmgmt.msc" || targetApp == "devices" || targetApp == "devicemanager") openDeviceManagerWindow();
         else if (targetApp == "diskmgmt" || targetApp == "diskmgmt.msc" || targetApp == "diskmanagement" || targetApp == "partitions" || targetApp == "disks") openDiskManagementWindow();
+        else if (targetApp == "services" || targetApp == "services.msc" || targetApp == "service") openServicesWindow();
         else kernelBridge_.spawnProcess(targetApp, args);
     });
 
@@ -852,6 +871,8 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openDeviceManagerWindow();
         } else if (app.executablePath == "C:\\Windows\\System32\\diskmgmt.msc" || app.id == "diskmgmt" || app.id == "diskmgmt.msc") {
             openDiskManagementWindow();
+        } else if (app.executablePath == "C:\\Windows\\System32\\services.msc" || app.id == "services" || app.id == "services.msc") {
+            openServicesWindow();
         } else {
             const bool spawned = kernelBridge_.spawnProcess(app.executablePath, app.arguments).has_value();
             toastManager_.showToast("Launched Application", app.title, IconRenderer::iconForAppId(app.id));

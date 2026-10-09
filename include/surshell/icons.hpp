@@ -104,6 +104,7 @@ enum class IconId {
     SystemInfo,
     DeviceManager,
     DiskManagement,
+    Services,
 
     // Storage, Cloud & Infrastructure
     CloudDrive,
@@ -180,6 +181,7 @@ private:
     static void drawSystemInfo(Surface& s, Rect r, std::optional<Color> tint);
     static void drawDeviceManager(Surface& s, Rect r, std::optional<Color> tint);
     static void drawDiskManagement(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawServices(Surface& s, Rect r, std::optional<Color> tint);
     static void drawCloudDrive(Surface& s, Rect r, std::optional<Color> tint);
     static void drawNetworkShare(Surface& s, Rect r, std::optional<Color> tint);
     static void drawOpticalDrive(Surface& s, Rect r, std::optional<Color> tint);

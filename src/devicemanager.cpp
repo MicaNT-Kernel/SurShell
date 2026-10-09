@@ -412,7 +412,7 @@ void DeviceManagerContent::collectHostHardwareTelemetry() {
     GetSystemInfo(&si);
     const DWORD numCores = si.dwNumberOfProcessors > 0 ? si.dwNumberOfProcessors : 8;
 
-    std::string cpuName = "11th Gen Intel(R) Core(TM) i7-11700K @ 3.60GHz";
+    std::string cpuName = "Intel(R) Xeon(R) E-2236 CPU @ 3.40GHz";
     HKEY hKey{};
     if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
         char buffer[256]{};
@@ -453,7 +453,196 @@ void DeviceManagerContent::collectHostHardwareTelemetry() {
                     }
                 });
             }
-            break;
+        } else if (cat.id == "disk") {
+            // 2. Real Physical Disks from Registry
+            HKEY hDiskEnum{};
+            if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Services\\disk\\Enum", 0, KEY_READ, &hDiskEnum) == ERROR_SUCCESS) {
+                DWORD count = 0;
+                DWORD countSize = sizeof(count);
+                RegQueryValueExA(hDiskEnum, "Count", nullptr, nullptr, reinterpret_cast<LPBYTE>(&count), &countSize);
+
+                if (count > 0) {
+                    cat.devices.clear();
+                    for (DWORD i = 0; i < count; ++i) {
+                        char instId[512]{};
+                        DWORD instIdSize = sizeof(instId);
+                        std::string valName = std::to_string(i);
+                        std::string diskModel = "Host Physical Disk " + std::to_string(i);
+                        if (RegQueryValueExA(hDiskEnum, valName.c_str(), nullptr, nullptr, reinterpret_cast<LPBYTE>(instId), &instIdSize) == ERROR_SUCCESS) {
+                            std::string enumKeyPath = std::string("SYSTEM\\CurrentControlSet\\Enum\\") + instId;
+                            HKEY hDevKey{};
+                            if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, enumKeyPath.c_str(), 0, KEY_READ, &hDevKey) == ERROR_SUCCESS) {
+                                char friendly[256]{};
+                                DWORD friendlySize = sizeof(friendly);
+                                if (RegQueryValueExA(hDevKey, "FriendlyName", nullptr, nullptr, reinterpret_cast<LPBYTE>(friendly), &friendlySize) == ERROR_SUCCESS && friendly[0] != '\0') {
+                                    diskModel = friendly;
+                                }
+                                RegCloseKey(hDevKey);
+                            }
+                        }
+
+                        cat.devices.push_back({
+                            .id = (i == 0) ? "disk_nvme" : ("disk_" + std::to_string(i)),
+                            .name = diskModel,
+                            .iconId = IconId::LocalDisk,
+                            .status = "This device is working properly. (Code 0)",
+                            .manufacturer = diskModel.find("HGST") != std::string::npos ? "Western Digital / HGST" : "Host Disk Manufacturer",
+                            .driverVersion = "10.0.26100.1",
+                            .hardwareId = instId[0] != '\0' ? std::string(instId) : ("SCSI\\Disk_Host_" + std::to_string(i)),
+                            .location = "Port " + std::to_string(i) + ", Target 0, LUN 0",
+                            .isEnabled = true,
+                            .properties = {
+                                {"Device Status", "Working properly"},
+                                {"Model", diskModel},
+                                {"Disk Index", std::to_string(i)},
+                                {"Partition Style", "GPT (GUID Partition Table)"}
+                            }
+                        });
+                    }
+                }
+                RegCloseKey(hDiskEnum);
+            }
+        } else if (cat.id == "display") {
+            // 3. Real Display Adapters via EnumDisplayDevicesA
+            std::vector<DeviceItem> realDisplays;
+            DISPLAY_DEVICEA dd{};
+            dd.cb = sizeof(dd);
+            DWORD devIdx = 0;
+            while (EnumDisplayDevicesA(nullptr, devIdx, &dd, 0)) {
+                if ((dd.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP) || (dd.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE) || devIdx == 0) {
+                    if (dd.DeviceString[0] != '\0') {
+                        bool dup = false;
+                        for (const auto& existing : realDisplays) {
+                            if (existing.name == dd.DeviceString) { dup = true; break; }
+                        }
+                        if (!dup) {
+                            realDisplays.push_back({
+                                .id = (devIdx == 0) ? "disp_gpu" : ("disp_gpu_" + std::to_string(devIdx)),
+                                .name = dd.DeviceString,
+                                .iconId = IconId::Display,
+                                .status = "This device is working properly. (Code 0)",
+                                .manufacturer = "Direct Display Subsystem",
+                                .driverVersion = "10.0.26100.7309",
+                                .hardwareId = dd.DeviceID[0] != '\0' ? std::string(dd.DeviceID) : "PCI\\VEN_DISPLAY_DEVICE",
+                                .location = "PCI Bus Display Adapter " + std::to_string(devIdx),
+                                .isEnabled = true,
+                                .properties = {
+                                    {"Device Status", "Working properly"},
+                                    {"Display Name", dd.DeviceString},
+                                    {"Adapter String", dd.DeviceName},
+                                    {"Primary Device", (dd.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE) ? "Yes" : "No"}
+                                }
+                            });
+                        }
+                    }
+                }
+                devIdx++;
+                if (devIdx > 8) break;
+            }
+            if (!realDisplays.empty()) {
+                realDisplays[0].id = "disp_gpu";
+                cat.devices = std::move(realDisplays);
+            }
+        } else if (cat.id == "network") {
+            // 4. Real Network Adapters from Registry
+            HKEY hNetClass{};
+            if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e972-e325-11ce-bfc1-08002be10318}", 0, KEY_READ, &hNetClass) == ERROR_SUCCESS) {
+                std::vector<DeviceItem> realNets;
+                char subKeyName[256]{};
+                DWORD subKeyIdx = 0;
+                DWORD nameLen = sizeof(subKeyName);
+                while (RegEnumKeyExA(hNetClass, subKeyIdx++, subKeyName, &nameLen, nullptr, nullptr, nullptr, nullptr) == ERROR_SUCCESS) {
+                    nameLen = sizeof(subKeyName);
+                    if (subKeyName[0] >= '0' && subKeyName[0] <= '9') {
+                        HKEY hAdapterKey{};
+                        if (RegOpenKeyExA(hNetClass, subKeyName, 0, KEY_READ, &hAdapterKey) == ERROR_SUCCESS) {
+                            char desc[256]{};
+                            DWORD descSize = sizeof(desc);
+                            if (RegQueryValueExA(hAdapterKey, "DriverDesc", nullptr, nullptr, reinterpret_cast<LPBYTE>(desc), &descSize) == ERROR_SUCCESS && desc[0] != '\0') {
+                                std::string d = desc;
+                                if (d.find("WAN Miniport") == std::string::npos && d.find("Kernel Debug") == std::string::npos) {
+                                    char prov[256]{};
+                                    DWORD provSize = sizeof(prov);
+                                    RegQueryValueExA(hAdapterKey, "ProviderName", nullptr, nullptr, reinterpret_cast<LPBYTE>(prov), &provSize);
+
+                                    char ver[128]{};
+                                    DWORD verSize = sizeof(ver);
+                                    RegQueryValueExA(hAdapterKey, "DriverVersion", nullptr, nullptr, reinterpret_cast<LPBYTE>(ver), &verSize);
+
+                                    realNets.push_back({
+                                        .id = realNets.empty() ? "net_eth" : ("net_eth_" + std::to_string(realNets.size())),
+                                        .name = d,
+                                        .iconId = IconId::NetworkEthernet,
+                                        .status = "This device is working properly. (Code 0)",
+                                        .manufacturer = prov[0] != '\0' ? prov : "Intel Corporation",
+                                        .driverVersion = ver[0] != '\0' ? ver : "10.0.26100.1",
+                                        .hardwareId = "PCI\\VEN_NET_ADAPTER_" + std::to_string(subKeyIdx),
+                                        .location = "PCI Bus Network Interface",
+                                        .isEnabled = true,
+                                        .properties = {
+                                            {"Device Status", "Working properly"},
+                                            {"Link Speed", "10.0 Gbps Full Duplex"},
+                                            {"Driver Provider", prov[0] != '\0' ? prov : "Intel"}
+                                        }
+                                    });
+                                }
+                            }
+                            RegCloseKey(hAdapterKey);
+                        }
+                    }
+                }
+                RegCloseKey(hNetClass);
+                if (!realNets.empty()) {
+                    cat.devices = std::move(realNets);
+                }
+            }
+        } else if (cat.id == "system") {
+            // 5. Real Motherboard & BIOS in System Devices
+            HKEY hBiosKey{};
+            if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, "HARDWARE\\DESCRIPTION\\System\\BIOS", 0, KEY_READ, &hBiosKey) == ERROR_SUCCESS) {
+                char mfg[256]{};
+                DWORD mfgSize = sizeof(mfg);
+                RegQueryValueExA(hBiosKey, "BaseBoardManufacturer", nullptr, nullptr, reinterpret_cast<LPBYTE>(mfg), &mfgSize);
+
+                char prod[256]{};
+                DWORD prodSize = sizeof(prod);
+                RegQueryValueExA(hBiosKey, "BaseBoardProduct", nullptr, nullptr, reinterpret_cast<LPBYTE>(prod), &prodSize);
+
+                char biosVer[256]{};
+                DWORD biosVerSize = sizeof(biosVer);
+                RegQueryValueExA(hBiosKey, "BIOSVersion", nullptr, nullptr, reinterpret_cast<LPBYTE>(biosVer), &biosVerSize);
+
+                std::string boardName = (mfg[0] != '\0' ? std::string(mfg) : "ASRockRack") + " " + (prod[0] != '\0' ? std::string(prod) : "E3C246D4U2-2T") + " Motherboard Resources";
+
+                bool foundMb = false;
+                for (auto& dev : cat.devices) {
+                    if (dev.id == "sys_motherboard" || dev.name.find("Motherboard") != std::string::npos) {
+                        dev.name = boardName;
+                        dev.manufacturer = mfg[0] != '\0' ? mfg : "ASRockRack";
+                        foundMb = true;
+                        break;
+                    }
+                }
+                if (!foundMb) {
+                    cat.devices.insert(cat.devices.begin(), DeviceItem{
+                        .id = "sys_motherboard",
+                        .name = boardName,
+                        .iconId = IconId::SystemInfo,
+                        .status = "This device is working properly. (Code 0)",
+                        .manufacturer = mfg[0] != '\0' ? mfg : "ASRockRack",
+                        .driverVersion = biosVer[0] != '\0' ? biosVer : "1.0",
+                        .hardwareId = "ACPI\\Motherboard_Host",
+                        .location = "System Board Resources",
+                        .isEnabled = true,
+                        .properties = {
+                            {"Baseboard Manufacturer", mfg[0] != '\0' ? mfg : "ASRockRack"},
+                            {"Product Model", prod[0] != '\0' ? prod : "E3C246D4U2-2T"},
+                            {"BIOS Version", biosVer[0] != '\0' ? biosVer : "L2.61A"}
+                        }
+                    });
+                }
+                RegCloseKey(hBiosKey);
+            }
         }
     }
 #endif
