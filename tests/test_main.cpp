@@ -9,6 +9,8 @@
 #include <cassert>
 #include <vector>
 #include <string>
+#include <fstream>
+#include <filesystem>
 
 #define TEST_ASSERT(cond, msg) \
     do { \
@@ -2517,8 +2519,12 @@ void Test_Winget_App_Hub() {
     TEST_ASSERT(hub.filteredCards()[0].id == "7zip.7zip", "Matched package ID is 7zip.7zip");
 
     hub.setSearchQuery("vlc");
-    TEST_ASSERT(hub.filteredPackagesCount() == 1, "Search for 'vlc' matches VLC");
-    TEST_ASSERT(hub.filteredCards()[0].id == "VideoLAN.VLC", "Matched package ID is VideoLAN.VLC");
+    TEST_ASSERT(hub.filteredPackagesCount() >= 1, "Search for 'vlc' matches VLC");
+    bool foundVlc = false;
+    for (const auto& c : hub.filteredCards()) {
+        if (c.id == "VideoLAN.VLC") foundVlc = true;
+    }
+    TEST_ASSERT(foundVlc, "Matched VideoLAN.VLC package");
 
     hub.setSearchQuery("nonexistent_package_xyz123");
     TEST_ASSERT(hub.filteredPackagesCount() == 0, "Nonexistent search returns 0 results");
@@ -2757,6 +2763,160 @@ void Test_Winget_Pkgs_Repo_Settings_And_StartMenu_Catalog() {
     std::cout << "[TEST] Suite 36: winget-pkgs Ingestion, App Hub Settings & Start Menu Catalog PASSED.\n";
 }
 
+void Test_Wsa_Subsystem_And_Aosp_Store() {
+    std::cout << "[TEST] Running Suite 37: WSA Subsystem, Clean-Room AOSP Store & FIPS 180-4 Integrity...\n";
+
+    // 1. Clean-Room NIST FIPS 180-4 SHA-256 Engine Verification
+    const std::string emptyHash = surshell::Sha256FipsEngine::hashString("");
+    TEST_ASSERT(emptyHash == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "SHA-256 empty string matches FIPS test vector");
+
+    const std::string fox = "The quick brown fox jumps over the lazy dog";
+    const std::string foxHash = surshell::Sha256FipsEngine::hashString(fox);
+    TEST_ASSERT(foxHash == "d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592",
+                "SHA-256 fox string matches standard NIST vector");
+
+    // 2. Pre-seeded AOSP Catalog (Clean-Room Certified Packages)
+    surshell::WsaCatalog catalog;
+    TEST_ASSERT(catalog.size() == 10, "WSA Catalog initialized with 10 certified clean-room AOSP packages");
+
+    // Verify compliance: No Google Play binaries, no GMS/GSF
+    for (const auto& pkg : catalog.packages()) {
+        TEST_ASSERT(pkg.downloadUrl.find("play.google.com") == std::string::npos, "No Google Play Store links");
+        TEST_ASSERT(pkg.id.find("com.google.android.gms") == std::string::npos, "No Google Play Services packages");
+        TEST_ASSERT(pkg.id.find("com.android.vending") == std::string::npos, "No Phonesky.apk packages");
+        TEST_ASSERT(!pkg.sha256.empty(), "Manifest must define SHA-256 checksum");
+        TEST_ASSERT(!pkg.architecture.empty(), "Manifest must define target architecture");
+    }
+
+    // 3. Search and Category Filtering
+    auto vlcResults = catalog.search("VLC");
+    TEST_ASSERT(!vlcResults.empty(), "Catalog search for VLC returns manifest");
+    TEST_ASSERT(vlcResults[0].id == "org.videolan.vlc", "VLC ID is org.videolan.vlc");
+    TEST_ASSERT(vlcResults[0].license == "GPLv3", "VLC license is GPLv3");
+
+    auto firefoxResults = catalog.search("Firefox");
+    TEST_ASSERT(!firefoxResults.empty(), "Catalog search for Firefox returns manifest");
+    TEST_ASSERT(firefoxResults[0].id == "org.mozilla.firefox", "Firefox ID is org.mozilla.firefox");
+
+    auto mediaPackages = catalog.searchByCategory("Media");
+    TEST_ASSERT(mediaPackages.size() >= 3, "Media category contains at least VLC, NewPipe, Kodi");
+
+    auto toolsPackages = catalog.searchByCategory("Tools");
+    TEST_ASSERT(toolsPackages.size() >= 3, "Tools category contains at least Obsidian, Aurora Droid, OsmAnd");
+
+    auto gamesPackages = catalog.searchByCategory("Games");
+    TEST_ASSERT(gamesPackages.size() >= 1, "Games category contains RetroArch");
+
+    // 4. JSON Serialization & Deserialization (MicaNT-Kernel Community Repo Schema)
+    std::string jsonCatalog = catalog.exportJson();
+    TEST_ASSERT(jsonCatalog.find("\"parent_entity\": \"Barrer Software\"") != std::string::npos, "JSON contains parent entity Barrer Software");
+    TEST_ASSERT(jsonCatalog.find("\"repository\": \"MicaNT-Kernel/micant-apps\"") != std::string::npos, "JSON points to MicaNT-Kernel/micant-apps repo");
+    TEST_ASSERT(jsonCatalog.find("\"org.videolan.vlc\"") != std::string::npos, "JSON contains VLC package");
+
+    surshell::WsaCatalog loadedCatalog;
+    bool loadedJson = loadedCatalog.loadFromJson(jsonCatalog);
+    TEST_ASSERT(loadedJson, "loadFromJson successfully parsed exported catalog JSON");
+    TEST_ASSERT(loadedCatalog.size() == 10, "Parsed catalog has 10 packages");
+    const auto pVlc = loadedCatalog.findPackage("org.videolan.vlc");
+    TEST_ASSERT(pVlc.has_value(), "Parsed catalog contains VLC");
+    TEST_ASSERT(pVlc->vendor == "VideoLAN", "Parsed VLC vendor matches");
+
+    // 5. APK Structural & Hash Validation
+    std::filesystem::path tempDir = std::filesystem::temp_directory_path();
+    std::filesystem::path dummyApk = tempDir / "micant_test_sample.apk";
+
+    // Write a dummy ZIP archive with PK header
+    {
+        std::ofstream ofs(dummyApk, std::ios::binary);
+        const char zipHeader[4] = {'P', 'K', 0x03, 0x04};
+        ofs.write(zipHeader, 4);
+        ofs.write("AndroidManifest.xml_DUMMY_PAYLOAD_TEST_DATA", 44);
+    }
+
+    std::string outLog;
+    bool validStructure = surshell::WsaSubsystemBridge::instance().validateApkStructure(dummyApk, outLog);
+    TEST_ASSERT(validStructure, "validateApkStructure succeeds for valid ZIP header and AndroidManifest.xml marker");
+
+    // Check hash computation and verification
+    std::string dummyHash = surshell::Sha256FipsEngine::hashFile(dummyApk);
+    TEST_ASSERT(!dummyHash.empty(), "hashFile computed non-empty SHA-256 for dummy APK");
+
+    bool verifiedMatching = surshell::WsaSubsystemBridge::instance().verifyApkSha256(dummyApk, dummyHash, outLog);
+    TEST_ASSERT(verifiedMatching, "verifyApkSha256 succeeds when expected hash matches actual");
+
+    bool verifiedMismatch = surshell::WsaSubsystemBridge::instance().verifyApkSha256(dummyApk, "0000000000000000000000000000000000000000000000000000000000000000", outLog);
+    TEST_ASSERT(!verifiedMismatch, "verifyApkSha256 rejects hash mismatch");
+
+    // 6. WSA Subsystem Runtime Socket Probe
+    auto status = surshell::WsaSubsystemBridge::instance().probeStatus();
+    TEST_ASSERT(status.ipAddress == "127.0.0.1", "WSA loopback IP is 127.0.0.1");
+    TEST_ASSERT(status.adbPort == 58526, "WSA default ADB port is 58526");
+
+    // 7. Sideload Execution & Bridge API
+    bool sideloadResult = surshell::WsaSubsystemBridge::instance().sideloadLocalApk(dummyApk, outLog);
+    TEST_ASSERT(sideloadResult, "sideloadLocalApk executed pre-flight validation successfully");
+
+    bool launched = surshell::WsaSubsystemBridge::instance().launchApp("org.videolan.vlc");
+    TEST_ASSERT(launched, "launchApp executed without crash via wsa:// protocol");
+
+    // Clean up temporary dummy file
+    std::error_code ec;
+    std::filesystem::remove(dummyApk, ec);
+
+    // 8. Sovereign App Hub Integration with AndroidWsa Category
+    surshell::AppHubContent appHub;
+    TEST_ASSERT(appHub.wsaCatalog().size() == 10, "AppHubContent loaded WSA catalog");
+
+    // Switch to AndroidWsa category
+    appHub.setCategory(surshell::AppHubCategory::AndroidWsa);
+    TEST_ASSERT(appHub.activeCategory() == surshell::AppHubCategory::AndroidWsa, "AppHub active category is AndroidWsa");
+    TEST_ASSERT(appHub.filteredCards().size() == 10, "10 Android cards visible under AndroidWsa category");
+
+    // Filter within Android packages
+    appHub.setSearchQuery("NewPipe");
+    TEST_ASSERT(appHub.filteredCards().size() == 1, "Search for NewPipe filters to exactly 1 card");
+    TEST_ASSERT(appHub.filteredCards()[0].id == "org.schabi.newpipe", "Filtered card ID matches NewPipe");
+    TEST_ASSERT(appHub.filteredCards()[0].isAndroidApp, "Card is flagged as isAndroidApp");
+
+    // Clear search
+    appHub.setSearchQuery("");
+    TEST_ASSERT(appHub.filteredCards().size() == 10, "Search query cleared restores all 10 cards");
+
+    // Install/Launch package flow
+    bool installResult = appHub.installPackage("org.schabi.newpipe");
+    TEST_ASSERT(installResult, "installPackage succeeded for NewPipe");
+
+    // 9. UI Layout & Visual Rendering
+    surshell::Surface hubSurface(1000, 700, surshell::Color{12, 18, 29, 255});
+    appHub.render(hubSurface);
+
+    // Verify Sideload banner bounds were computed
+    TEST_ASSERT(appHub.wsaSideloadBtnBounds().width > 0, "wsaSideloadBtnBounds computed in layout");
+    TEST_ASSERT(appHub.wsaStatusBadgeBounds().width > 0, "wsaStatusBadgeBounds computed in layout");
+
+    // Sideload button click hit test
+    surshell::Point sidePt{appHub.wsaSideloadBtnBounds().centerX(), appHub.wsaSideloadBtnBounds().centerY()};
+    bool handledSideClick = appHub.onMouseDown(sidePt, surshell::MouseButton::Left);
+    TEST_ASSERT(handledSideClick, "onMouseDown handled sideload button click");
+
+    // WSA status badge click hit test
+    surshell::Point wsaBadgePt{appHub.wsaStatusBadgeBounds().centerX(), appHub.wsaStatusBadgeBounds().centerY()};
+    bool handledWsaBadgeClick = appHub.onMouseDown(wsaBadgePt, surshell::MouseButton::Left);
+    TEST_ASSERT(handledWsaBadgeClick, "onMouseDown handled WSA status badge click");
+
+    // Settings View Section 4 (MicaNT-Kernel/micant-apps sync button)
+    appHub.setCategory(surshell::AppHubCategory::Settings);
+    appHub.render(hubSurface);
+    TEST_ASSERT(appHub.syncWsaRepoBtnBounds().width > 0, "syncWsaRepoBtnBounds computed in settings layout");
+
+    surshell::Point syncRepoPt{appHub.syncWsaRepoBtnBounds().centerX(), appHub.syncWsaRepoBtnBounds().centerY()};
+    bool handledSyncClick = appHub.onMouseDown(syncRepoPt, surshell::MouseButton::Left);
+    TEST_ASSERT(handledSyncClick, "onMouseDown handled Sync AOSP Catalog button click in Settings");
+
+    std::cout << "[TEST] Suite 37: WSA Subsystem, Clean-Room AOSP Store & FIPS 180-4 Integrity PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -2799,9 +2959,10 @@ int main() {
     Test_Event_Viewer_Application();
     Test_Winget_App_Hub();
     Test_Winget_Pkgs_Repo_Settings_And_StartMenu_Catalog();
+    Test_Wsa_Subsystem_And_Aosp_Store();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 36 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 37 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

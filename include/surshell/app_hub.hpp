@@ -15,6 +15,7 @@
 #include "theme.hpp"
 #include "icons.hpp"
 #include "winget.hpp"
+#include "wsa.hpp"
 
 #include <string>
 #include <vector>
@@ -27,6 +28,7 @@ namespace surshell {
 enum class AppHubCategory {
     All = 0,
     CertifiedRetail,
+    AndroidWsa,
     DeveloperTools,
     SystemUtilities,
     MediaDocs,
@@ -46,6 +48,10 @@ struct AppHubCard {
     AppHubCategory category{AppHubCategory::SystemUtilities};
     bool isInstalled{false};
     bool isRetailCertified{false};
+    bool isAndroidApp{false};
+    std::string architecture{"x64"};
+    std::string downloadUrl{};
+    std::string sha256{};
     Rect cardBounds{};
     Rect actionBtnBounds{};
 };
@@ -73,6 +79,14 @@ public:
     bool uninstallPackage(const std::string& packageId);
 
     void setInstallCallback(InstallCallback cb) { installCallback_ = std::move(cb); }
+
+    [[nodiscard]] WsaCatalog& wsaCatalog() noexcept { return wsaCatalog_; }
+    [[nodiscard]] const WsaSubsystemStatus& wsaStatus() const noexcept { return wsaStatus_; }
+    void refreshWsaStatus();
+    bool sideloadApk(const std::filesystem::path& apkPath);
+    [[nodiscard]] Rect wsaStatusBadgeBounds() const noexcept { return wsaStatusBadgeBounds_; }
+    [[nodiscard]] Rect wsaSideloadBtnBounds() const noexcept { return wsaSideloadBtnBounds_; }
+    [[nodiscard]] Rect syncWsaRepoBtnBounds() const noexcept { return syncWsaRepoBtnBounds_; }
 
     // IWindowContent Interface
     void render(Surface& clientSurface) override;
@@ -110,6 +124,16 @@ private:
     bool isSearchHovered_{false};
 
     InstallCallback installCallback_{};
+
+    // WSA Subsystem integration
+    WsaCatalog wsaCatalog_{};
+    WsaSubsystemStatus wsaStatus_{};
+    Rect wsaStatusBadgeBounds_{};
+    Rect wsaSideloadBtnBounds_{};
+    Rect syncWsaRepoBtnBounds_{};
+    bool isWsaBadgeHovered_{false};
+    bool isSideloadBtnHovered_{false};
+    bool isSyncWsaRepoHovered_{false};
 
     // Settings & Sources UI state
     struct RepoSourceCard {

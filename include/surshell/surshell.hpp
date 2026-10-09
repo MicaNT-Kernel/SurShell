@@ -42,6 +42,7 @@
 #include "services.hpp"
 #include "eventviewer.hpp"
 #include "app_hub.hpp"
+#include "wsa.hpp"
 
 namespace surshell {
 

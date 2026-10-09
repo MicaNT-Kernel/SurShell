@@ -40,6 +40,7 @@ set(SURSHELL_SOURCES
     src/services.cpp
     src/eventviewer.cpp
     src/app_hub.cpp
+    src/wsa.cpp
     src/surshell.cpp
 )
 
@@ -50,7 +51,7 @@ target_include_directories(surshell PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 if (WIN32)
-    target_link_libraries(surshell PUBLIC shell32 psapi advapi32 winmm iphlpapi)
+    target_link_libraries(surshell PUBLIC shell32 psapi advapi32 winmm iphlpapi ws2_32)
 endif()
 
 # Compiler warnings and options

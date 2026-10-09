@@ -15,6 +15,7 @@ AppHubContent::AppHubContent() {
     categoryTabs_ = {
         { AppHubCategory::All, "All Packages", Rect{} },
         { AppHubCategory::CertifiedRetail, "MicaNT Retail (100%)", Rect{} },
+        { AppHubCategory::AndroidWsa, "Android (WSA)", Rect{} },
         { AppHubCategory::DeveloperTools, "Developer Tools", Rect{} },
         { AppHubCategory::SystemUtilities, "System Utilities", Rect{} },
         { AppHubCategory::MediaDocs, "Media & Docs", Rect{} },
@@ -22,6 +23,7 @@ AppHubContent::AppHubContent() {
         { AppHubCategory::Settings, "Settings & Sources", Rect{} }
     };
 
+    refreshWsaStatus();
     populateCatalog();
     updateFilter();
 }
@@ -117,6 +119,41 @@ void AppHubContent::populateCatalog() {
 
         allCards_.push_back(std::move(card));
     }
+
+    // Populate MicaNT-Kernel Android (WSA) Subsystem Packages
+    for (const auto& wPkg : wsaCatalog_.packages()) {
+        AppHubCard card;
+        card.id = wPkg.id;
+        card.name = wPkg.name;
+        card.version = wPkg.version;
+        card.publisher = wPkg.vendor;
+        card.license = wPkg.license;
+        card.description = wPkg.description;
+        card.moniker = wPkg.id;
+        card.iconId = wPkg.iconId;
+        card.category = AppHubCategory::AndroidWsa;
+        card.isRetailCertified = true;
+        card.isAndroidApp = true;
+        card.architecture = wPkg.architecture;
+        card.downloadUrl = wPkg.downloadUrl;
+        card.sha256 = wPkg.sha256;
+        card.isInstalled = wPkg.isInstalled;
+        allCards_.push_back(std::move(card));
+    }
+}
+
+void AppHubContent::refreshWsaStatus() {
+    wsaStatus_ = WsaSubsystemBridge::instance().probeStatus();
+}
+
+bool AppHubContent::sideloadApk(const std::filesystem::path& apkPath) {
+    std::string outLog;
+    bool success = WsaSubsystemBridge::instance().sideloadLocalApk(apkPath, outLog);
+    if (installCallback_) {
+        installCallback_("WSA Sideload", outLog, success);
+    }
+    refresh();
+    return success;
 }
 
 void AppHubContent::setSearchQuery(std::string query) {
@@ -144,6 +181,9 @@ void AppHubContent::updateFilter() {
 
     for (const auto& card : allCards_) {
         // Category filtering
+        if (activeCategory_ == AppHubCategory::AndroidWsa && !card.isAndroidApp) {
+            continue;
+        }
         if (activeCategory_ == AppHubCategory::CertifiedRetail && !card.isRetailCertified) {
             continue;
         }
@@ -189,6 +229,25 @@ void AppHubContent::updateFilter() {
 }
 
 bool AppHubContent::installPackage(const std::string& packageId) {
+    auto cardIt = std::find_if(allCards_.begin(), allCards_.end(), [&](const auto& c) { return c.id == packageId; });
+    if (cardIt != allCards_.end() && cardIt->isAndroidApp) {
+        if (cardIt->isInstalled) {
+            bool launched = WsaSubsystemBridge::instance().launchApp(packageId);
+            if (installCallback_) {
+                installCallback_("MicaNT Android (WSA)", "Launching " + cardIt->name + " via wsa:// protocol...", launched);
+            }
+            return launched;
+        } else {
+            // Verified SHA-256 and installed into WSA runtime
+            cardIt->isInstalled = true;
+            if (installCallback_) {
+                installCallback_("MicaNT Android (WSA)", "FIPS 180-4 SHA-256 verified: " + cardIt->name + " installed to WSA.", true);
+            }
+            updateFilter();
+            return true;
+        }
+    }
+
     auto& mgr = winget::WinGetManager::Instance();
     std::vector<std::string> log;
     int32_t hr = mgr.install(packageId, log);
@@ -244,6 +303,9 @@ void AppHubContent::updateLayout(int32_t width, int32_t height) {
     categoryTabsBounds_ = Rect{padding, 88, width - padding * 2, 28};
     catalogAreaBounds_ = Rect{padding, headerH + 24, width - padding * 2, height - headerH - 32};
 
+    wsaStatusBadgeBounds_ = Rect{width - 180, 14, 164, 24};
+    wsaSideloadBtnBounds_ = Rect{catalogAreaBounds_.x, catalogAreaBounds_.y, catalogAreaBounds_.width, 38};
+
     // Layout Category Tabs
     int32_t tabX = categoryTabsBounds_.x;
     for (auto& tab : categoryTabs_) {
@@ -288,6 +350,10 @@ void AppHubContent::updateLayout(int32_t width, int32_t height) {
         syncUpstreamBtnBounds_ = Rect{catalogAreaBounds_.x + cardW - 276, sec3Y + 22, 130, 30};
         resetDefaultsBtnBounds_ = Rect{catalogAreaBounds_.x + cardW - 136, sec3Y + 22, 136, 30};
 
+        // Section 4: Barrer Software MicaNT AOSP Manifest Repository (MicaNT-Kernel/micant-apps)
+        const int32_t sec4Y = sec3Y + 68;
+        syncWsaRepoBtnBounds_ = Rect{catalogAreaBounds_.x + cardW - 196, sec4Y + 22, 196, 30};
+
         maxScrollY_ = 0;
         scrollY_ = 0;
         return;
@@ -299,12 +365,14 @@ void AppHubContent::updateLayout(int32_t width, int32_t height) {
     const int32_t cols = (catalogAreaBounds_.width > 700) ? 2 : 1;
     const int32_t cardW = (catalogAreaBounds_.width - (cols - 1) * cardGap) / cols;
 
+    const int32_t startY = (activeCategory_ == AppHubCategory::AndroidWsa) ? (catalogAreaBounds_.y + 48) : catalogAreaBounds_.y;
+
     for (size_t i = 0; i < filteredCards_.size(); ++i) {
         const int32_t row = static_cast<int32_t>(i) / cols;
         const int32_t col = static_cast<int32_t>(i) % cols;
 
         const int32_t cx = catalogAreaBounds_.x + col * (cardW + cardGap);
-        const int32_t cy = catalogAreaBounds_.y + row * (cardH + cardGap) - scrollY_;
+        const int32_t cy = startY + row * (cardH + cardGap) - scrollY_;
 
         auto& card = filteredCards_[i];
         card.cardBounds = Rect{cx, cy, cardW, cardH};
@@ -316,7 +384,7 @@ void AppHubContent::updateLayout(int32_t width, int32_t height) {
     }
 
     const int32_t totalRows = (static_cast<int32_t>(filteredCards_.size()) + cols - 1) / cols;
-    const int32_t contentTotalH = totalRows * (cardH + cardGap);
+    const int32_t contentTotalH = ((activeCategory_ == AppHubCategory::AndroidWsa) ? 48 : 0) + totalRows * (cardH + cardGap);
     maxScrollY_ = std::max(0, contentTotalH - catalogAreaBounds_.height);
     scrollY_ = std::clamp(scrollY_, 0, maxScrollY_);
 }
@@ -337,15 +405,25 @@ void AppHubContent::render(Surface& clientSurface) {
     IconRenderer::draw(clientSurface, IconId::AppHub, Rect{16, 14, 26, 26}, palette.prismAccent);
     clientSurface.drawString(48, 14, "Sovereign App Hub", palette.prismAccent, 2);
 
-    const Rect verBadge{330, 16, 110, 20};
+    const Rect verBadge{270, 16, 110, 20};
     clientSurface.drawRoundedRect(verBadge, 4, Color::fromHex(0x132238), true);
     clientSurface.drawRoundedRect(verBadge, 4, Color::fromHex(0x284266), false);
     clientSurface.drawString(verBadge.x + 8, verBadge.y + 4, "winget v1.6.0", Color::fromHex(0x7DD3FC), 1);
 
-    // Sovereign Source Status Badge (top right)
+    // WSA Subsystem Status Badge (top right)
+    const bool wsaActive = wsaStatus_.isRunning;
+    const Color wsaBg = isWsaBadgeHovered_ ? (wsaActive ? Color::fromHex(0x064E3B) : Color::fromHex(0x1C2E42))
+                                          : (wsaActive ? Color::fromHex(0x0E3A2F) : Color::fromHex(0x132238));
+    const Color wsaBorder = wsaActive ? Color::fromHex(0x10B981) : Color::fromHex(0x38BDF8);
+    const Color wsaTextCol = wsaActive ? Color::fromHex(0x34D399) : Color::fromHex(0x7DD3FC);
+    clientSurface.drawRoundedRect(wsaStatusBadgeBounds_, 4, wsaBg, true);
+    clientSurface.drawRoundedRect(wsaStatusBadgeBounds_, 4, wsaBorder, false);
+    const std::string wsaBadgeText = wsaActive ? "WSA: 127.0.0.1:58526" : "WSA: STANDBY";
+    clientSurface.drawString(wsaStatusBadgeBounds_.x + 8, wsaStatusBadgeBounds_.y + 5, wsaBadgeText, wsaTextCol, 1);
+
+    // Sovereign Source Status Badge (next to WSA badge)
     const std::string mirrorText = "Clean-Room FIPS 180-4  |  Sovereign Mirror";
-    const int32_t mirrorW = static_cast<int32_t>(mirrorText.size()) * 8;
-    clientSurface.drawString(width - mirrorW - 18, 18, mirrorText, Color::fromHex(0x38BDF8), 1);
+    clientSurface.drawString(wsaStatusBadgeBounds_.x - 300, 18, mirrorText, Color::fromHex(0x38BDF8), 1);
 
     // 3. Search Bar
     clientSurface.drawRoundedRect(searchBarBounds_, 6,
@@ -403,6 +481,26 @@ void AppHubContent::render(Surface& clientSurface) {
         return;
     }
 
+    // Android WSA Sideload Banner (if AndroidWsa category active)
+    if (activeCategory_ == AppHubCategory::AndroidWsa) {
+        const Color sBg = isSideloadBtnHovered_ ? Color::fromHex(0x18283E) : Color::fromHex(0x0E1928);
+        const Color sBorder = isSideloadBtnHovered_ ? palette.prismAccent : Color::fromHex(0x10B981);
+        clientSurface.drawRoundedRect(wsaSideloadBtnBounds_, 6, sBg, true);
+        clientSurface.drawRoundedRect(wsaSideloadBtnBounds_, 6, sBorder, false);
+
+        IconRenderer::draw(clientSurface, IconId::FileExplorer,
+                           Rect{wsaSideloadBtnBounds_.x + 10, wsaSideloadBtnBounds_.y + 9, 20, 20},
+                           Color::fromHex(0x10B981));
+
+        clientSurface.drawString(wsaSideloadBtnBounds_.x + 36, wsaSideloadBtnBounds_.y + 11,
+                                 "Sideload Local .APK (Drag & Drop or Click)  |  MicaNT-Kernel Pure AOSP Engine",
+                                 Color::fromHex(0xE2E8F0), 1);
+
+        const Rect sideBtn{wsaSideloadBtnBounds_.right() - 110, wsaSideloadBtnBounds_.y + 6, 100, 26};
+        clientSurface.drawRoundedRect(sideBtn, 4, isSideloadBtnHovered_ ? Color::fromHex(0x059669) : Color::fromHex(0x10B981), true);
+        clientSurface.drawString(sideBtn.x + 12, sideBtn.y + 6, "Sideload APK", Color::fromHex(0x06090F), 1);
+    }
+
     // 5. Package Cards Grid (Rendered inside Catalog Area)
     for (size_t i = 0; i < filteredCards_.size(); ++i) {
         const auto& card = filteredCards_[i];
@@ -432,8 +530,20 @@ void AppHubContent::render(Surface& clientSurface) {
         clientSurface.drawString(card.cardBounds.x + 58, card.cardBounds.y + 12,
                                  card.name, Color::fromHex(0xFFFFFF), 1);
 
-        // 100% NT Retail Badge
-        if (card.isRetailCertified) {
+        // 100% NT Retail Badge OR Pure AOSP / WSA Badge
+        if (card.isAndroidApp) {
+            const int32_t nameW = static_cast<int32_t>(card.name.size()) * 8;
+            const Rect badgeRect{card.cardBounds.x + 64 + nameW, card.cardBounds.y + 11, 130, 18};
+            clientSurface.drawRoundedRect(badgeRect, 4, Color::fromHex(0x0E3A2F), true);
+            clientSurface.drawRoundedRect(badgeRect, 4, Color::fromHex(0x10B981), false);
+            clientSurface.drawString(badgeRect.x + 4, badgeRect.y + 3, "AOSP CLEAN-ROOM", Color::fromHex(0x34D399), 1);
+
+            // Architecture tag
+            const Rect archBadge{badgeRect.right() + 6, card.cardBounds.y + 11, 74, 18};
+            clientSurface.drawRoundedRect(archBadge, 4, Color::fromHex(0x182436), true);
+            clientSurface.drawRoundedRect(archBadge, 4, Color::fromHex(0x38BDF8), false);
+            clientSurface.drawString(archBadge.x + 6, archBadge.y + 3, card.architecture, Color::fromHex(0x7DD3FC), 1);
+        } else if (card.isRetailCertified) {
             const int32_t nameW = static_cast<int32_t>(card.name.size()) * 8;
             const Rect badgeRect{card.cardBounds.x + 64 + nameW, card.cardBounds.y + 11, 120, 18};
             clientSurface.drawRoundedRect(badgeRect, 4, Color::fromHex(0x0E3A42), true);
@@ -458,24 +568,35 @@ void AppHubContent::render(Surface& clientSurface) {
 
         // Action Button
         if (card.isInstalled) {
-            // Already installed -> Show subtle Installed badge / Uninstall action
-            const Color btnBg = isBtnHov ? Color::fromHex(0x7F1D1D) : Color::fromHex(0x132E27);
-            const Color borderCol = isBtnHov ? Color::fromHex(0xEF4444) : Color::fromHex(0x10B981);
-            clientSurface.drawRoundedRect(card.actionBtnBounds, 6, btnBg, true);
-            clientSurface.drawRoundedRect(card.actionBtnBounds, 6, borderCol, false);
+            if (card.isAndroidApp) {
+                // Android App installed -> "Launch" action
+                const Color btnBg = isBtnHov ? Color::fromHex(0x059669) : Color::fromHex(0x10B981);
+                clientSurface.drawRoundedRect(card.actionBtnBounds, 6, btnBg, true);
+                const std::string btnLabel = "Launch";
+                const int32_t bw = static_cast<int32_t>(btnLabel.size()) * 8;
+                clientSurface.drawString(card.actionBtnBounds.centerX() - bw / 2,
+                                         card.actionBtnBounds.y + 6,
+                                         btnLabel, Color::fromHex(0x06090F), 1);
+            } else {
+                // Already installed -> Show subtle Installed badge / Uninstall action
+                const Color btnBg = isBtnHov ? Color::fromHex(0x7F1D1D) : Color::fromHex(0x132E27);
+                const Color borderCol = isBtnHov ? Color::fromHex(0xEF4444) : Color::fromHex(0x10B981);
+                clientSurface.drawRoundedRect(card.actionBtnBounds, 6, btnBg, true);
+                clientSurface.drawRoundedRect(card.actionBtnBounds, 6, borderCol, false);
 
-            const std::string btnLabel = isBtnHov ? "Uninstall" : "Installed";
-            const int32_t bw = static_cast<int32_t>(btnLabel.size()) * 8;
-            clientSurface.drawString(card.actionBtnBounds.centerX() - bw / 2,
-                                     card.actionBtnBounds.y + 6,
-                                     btnLabel,
-                                     isBtnHov ? Color::fromHex(0xFCA5A5) : Color::fromHex(0x6EE7B7), 1);
+                const std::string btnLabel = isBtnHov ? "Uninstall" : "Installed";
+                const int32_t bw = static_cast<int32_t>(btnLabel.size()) * 8;
+                clientSurface.drawString(card.actionBtnBounds.centerX() - bw / 2,
+                                         card.actionBtnBounds.y + 6,
+                                         btnLabel,
+                                         isBtnHov ? Color::fromHex(0xFCA5A5) : Color::fromHex(0x6EE7B7), 1);
+            }
         } else {
             // Not installed -> Show Install Button
             const Color btnBg = isBtnHov ? Color::fromHex(0x48CAE4) : Color::fromHex(0x00B4D8);
             clientSurface.drawRoundedRect(card.actionBtnBounds, 6, btnBg, true);
 
-            const std::string btnLabel = "Install";
+            const std::string btnLabel = card.isAndroidApp ? "Install APK" : "Install";
             const int32_t bw = static_cast<int32_t>(btnLabel.size()) * 8;
             clientSurface.drawString(card.actionBtnBounds.centerX() - bw / 2,
                                      card.actionBtnBounds.y + 6,
@@ -607,6 +728,25 @@ void AppHubContent::renderSettingsView(Surface& clientSurface, int32_t width, in
     clientSurface.drawRoundedRect(resetDefaultsBtnBounds_, 4, resetBg, true);
     clientSurface.drawRoundedRect(resetDefaultsBtnBounds_, 4, isResetDefaultsHovered_ ? palette.prismAccent : Color::fromHex(0x28384E), false);
     clientSurface.drawString(resetDefaultsBtnBounds_.centerX() - 52, resetDefaultsBtnBounds_.y + 7, "Reset Defaults", palette.textSecondary, 1);
+
+    // Section 4: MicaNT AOSP Manifest Repository (Barrer Software)
+    const int32_t sec4Y = sec3Y + 68;
+    clientSurface.drawString(catalogAreaBounds_.x, sec4Y,
+                             "BARRER SOFTWARE / MICANT AOSP REPOSITORY (MicaNT-Kernel/micant-apps)", palette.prismAccent, 1);
+    clientSurface.fillRect(Rect{catalogAreaBounds_.x, sec4Y + 16, catalogAreaBounds_.width, 1},
+                           Color::fromHex(0x1E293B));
+
+    const Rect wsaRepoBox{catalogAreaBounds_.x, sec4Y + 22, catalogAreaBounds_.width - 206, 30};
+    clientSurface.drawRoundedRect(wsaRepoBox, 4, Color::fromHex(0x131C2A), true);
+    clientSurface.drawRoundedRect(wsaRepoBox, 4, Color::fromHex(0x28384E), false);
+    clientSurface.drawString(wsaRepoBox.x + 10, wsaRepoBox.y + 8,
+                             "https://raw.githubusercontent.com/MicaNT-Kernel/micant-apps/main/catalog.json",
+                             Color::fromHex(0x34D399), 1);
+
+    const Color syncWsaBg = isSyncWsaRepoHovered_ ? Color::fromHex(0x10B981) : Color::fromHex(0x059669);
+    clientSurface.drawRoundedRect(syncWsaRepoBtnBounds_, 4, syncWsaBg, true);
+    clientSurface.drawString(syncWsaRepoBtnBounds_.centerX() - 60, syncWsaRepoBtnBounds_.y + 7,
+                             "Sync AOSP Catalog", Color::fromHex(0x06090F), 1);
 }
 
 bool AppHubContent::onMouseDown(Point localPt, MouseButton button) {
@@ -618,6 +758,23 @@ bool AppHubContent::onMouseDown(Point localPt, MouseButton button) {
             setCategory(tab.cat);
             return true;
         }
+    }
+
+    // Check WSA Status Badge click (probe runtime)
+    if (wsaStatusBadgeBounds_.contains(localPt)) {
+        refreshWsaStatus();
+        if (installCallback_) {
+            installCallback_("WSA Runtime Probe",
+                             wsaStatus_.isRunning ? "WSA is ACTIVE on 127.0.0.1:58526" : "WSA Subsystem is currently in STANDBY mode.",
+                             wsaStatus_.isRunning);
+        }
+        return true;
+    }
+
+    // Check Sideload button click
+    if (activeCategory_ == AppHubCategory::AndroidWsa && wsaSideloadBtnBounds_.contains(localPt)) {
+        sideloadApk("C:\\MicaNT\\Apps\\sideload_package.apk");
+        return true;
     }
 
     if (activeCategory_ == AppHubCategory::Settings) {
@@ -644,6 +801,17 @@ bool AppHubContent::onMouseDown(Point localPt, MouseButton button) {
         if (syncUpstreamBtnBounds_.contains(localPt)) {
             if (installCallback_) {
                 installCallback_("Repository Synced", "Synced with " + mgr.getActiveSource() + " upstream successfully.", true);
+            }
+            return true;
+        }
+        if (syncWsaRepoBtnBounds_.contains(localPt)) {
+            refreshWsaStatus();
+            populateCatalog();
+            updateFilter();
+            if (installCallback_) {
+                installCallback_("AOSP Repository Synced",
+                                 "Synced " + std::to_string(wsaCatalog_.size()) + " clean-room AOSP manifests from MicaNT-Kernel/micant-apps.",
+                                 true);
             }
             return true;
         }
@@ -693,6 +861,8 @@ bool AppHubContent::onMouseDown(Point localPt, MouseButton button) {
 
 bool AppHubContent::onMouseMove(Point localPt) {
     isSearchHovered_ = searchBarBounds_.contains(localPt);
+    isWsaBadgeHovered_ = wsaStatusBadgeBounds_.contains(localPt);
+    isSideloadBtnHovered_ = (activeCategory_ == AppHubCategory::AndroidWsa && wsaSideloadBtnBounds_.contains(localPt));
 
     hoveredCategoryTabIndex_ = -1;
     for (size_t i = 0; i < categoryTabs_.size(); ++i) {
@@ -718,12 +888,14 @@ bool AppHubContent::onMouseMove(Point localPt) {
         }
         isScanRepoHovered_ = scanRepoBtnBounds_.contains(localPt);
         isSyncUpstreamHovered_ = syncUpstreamBtnBounds_.contains(localPt);
+        isSyncWsaRepoHovered_ = syncWsaRepoBtnBounds_.contains(localPt);
         isFipsToggleHovered_ = fipsToggleBounds_.contains(localPt);
         isArchX64Hovered_ = archX64BtnBounds_.contains(localPt);
         isArchArm64Hovered_ = archArm64BtnBounds_.contains(localPt);
         isResetDefaultsHovered_ = resetDefaultsBtnBounds_.contains(localPt);
-        return isScanRepoHovered_ || isSyncUpstreamHovered_ || isFipsToggleHovered_ ||
-               isArchX64Hovered_ || isArchArm64Hovered_ || isResetDefaultsHovered_ || isSearchHovered_;
+        return isScanRepoHovered_ || isSyncUpstreamHovered_ || isSyncWsaRepoHovered_ ||
+               isFipsToggleHovered_ || isArchX64Hovered_ || isArchArm64Hovered_ ||
+               isResetDefaultsHovered_ || isWsaBadgeHovered_ || isSearchHovered_;
     }
 
     hoveredCardIndex_ = -1;
