@@ -825,7 +825,24 @@ int runSnapshotPipeline() {
         std::cout << "  -> Exported: surshell_services_management.bmp (1920x1080 32-bpp)\n";
     }
 
-    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (33 high-resolution scenes generated).\n";
+    // ------------------------------------------------------------------------
+    // Scene 33: Sovereign Event Viewer Console (eventvwr.msc Parity)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 33: Sovereign Event Viewer Console...\n";
+    const uint32_t evWin = shell.openEventViewerWindow("System");
+    shell.windowManager().setWindowActive(evWin);
+    if (auto* w = shell.windowManager().findWindow(evWin)) {
+        if (auto evMgr = std::dynamic_pointer_cast<surshell::EventViewerContent>(w->content)) {
+            evMgr->selectIndex(0);
+            evMgr->render(w->clientSurface);
+        }
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_event_viewer.bmp")) {
+        std::cout << "  -> Exported: surshell_event_viewer.bmp (1920x1080 32-bpp)\n";
+    }
+
+    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (34 high-resolution scenes generated).\n";
     return 0;
 }
 

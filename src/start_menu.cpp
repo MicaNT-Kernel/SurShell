@@ -217,6 +217,18 @@ StartMenu::StartMenu() {
         .pinnedToStart = true
     });
 
+    registerApp(ShellAppEntry{
+        .id = "eventvwr",
+        .title = "Event Viewer",
+        .subtitle = "Diagnostic & System Event Logs",
+        .executablePath = "C:\\Windows\\System32\\eventvwr.msc",
+        .arguments = "",
+        .iconGlyph = "[LOG]",
+        .category = AppCategory::SystemTools,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = true
+    });
+
     // Windows 11-style Interactive Power Flyout Options
     powerOptions_ = {
         PowerOptionItem{.action = PowerAction::Sleep, .label = "Sleep", .description = "Save session in low power", .iconId = IconId::Sleep},

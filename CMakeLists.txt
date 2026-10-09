@@ -38,6 +38,7 @@ set(SURSHELL_SOURCES
     src/devicemanager.cpp
     src/diskmgmt.cpp
     src/services.cpp
+    src/eventviewer.cpp
     src/surshell.cpp
 )
 

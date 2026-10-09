@@ -40,6 +40,7 @@
 #include "devicemanager.hpp"
 #include "diskmgmt.hpp"
 #include "services.hpp"
+#include "eventviewer.hpp"
 
 namespace surshell {
 
@@ -108,6 +109,7 @@ public:
     uint32_t openDeviceManagerWindow();
     uint32_t openDiskManagementWindow();
     uint32_t openServicesWindow();
+    uint32_t openEventViewerWindow(std::string initialLog = "System");
 
     // Master Render Loop
     void render();

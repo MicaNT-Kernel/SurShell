@@ -209,6 +209,7 @@ uint32_t SurShellDesktop::openTerminalWindow(std::string workingDir) {
             else if (app == "taskmgr") openTaskManagerWindow();
             else if (app == "regedit" || app == "registry") openRegistryEditorWindow();
             else if (app == "services" || app == "services.msc") openServicesWindow();
+            else if (app == "eventvwr" || app == "eventvwr.msc" || app == "eventlog") openEventViewerWindow();
             else if (app == "cmd") openTerminalWindow(args.empty() ? "C:\\Users\\admin" : args);
             else kernelBridge_.spawnProcess(app, args);
         });
@@ -359,6 +360,8 @@ uint32_t SurShellDesktop::openRunDialogWindow() {
                 openDiskManagementWindow();
             } else if (lowerCmd == "services" || lowerCmd == "services.msc" || lowerCmd == "service") {
                 openServicesWindow();
+            } else if (lowerCmd == "eventvwr" || lowerCmd == "eventvwr.msc" || lowerCmd == "eventlog" || lowerCmd == "events") {
+                openEventViewerWindow();
             } else {
                 kernelBridge_.spawnProcess(cmd, "");
             }
@@ -511,6 +514,21 @@ uint32_t SurShellDesktop::openServicesWindow() {
     return winId;
 }
 
+uint32_t SurShellDesktop::openEventViewerWindow(std::string initialLog) {
+    const uint32_t winId = windowManager_.createWindow("Event Viewer", Rect{160, 50, 1020, 640}, "[LOG]", IconId::EventViewer);
+    virtualDesktops_.assignWindowToDesktop(winId, virtualDesktops_.activeIndex());
+    auto* win = windowManager_.findWindow(winId);
+    if (win) {
+        auto eventViewer = std::make_shared<EventViewerContent>(initialLog);
+        eventViewer->setToastCallback([this](const std::string& title, const std::string& msg, IconId icon) {
+            toastManager_.showToast(title, msg, icon);
+        });
+        win->content = eventViewer;
+        eventViewer->render(win->clientSurface);
+    }
+    return winId;
+}
+
 void SurShellDesktop::openSearchHub() {
     searchHub_.toggle();
     if (searchHub_.isVisible()) {
@@ -608,6 +626,7 @@ void SurShellDesktop::wireSubsystemCallbacks() {
         else if (targetApp == "devmgmt" || targetApp == "devmgmt.msc" || targetApp == "devices" || targetApp == "devicemanager") openDeviceManagerWindow();
         else if (targetApp == "diskmgmt" || targetApp == "diskmgmt.msc" || targetApp == "diskmanagement" || targetApp == "partitions" || targetApp == "disks") openDiskManagementWindow();
         else if (targetApp == "services" || targetApp == "services.msc" || targetApp == "service") openServicesWindow();
+        else if (targetApp == "eventvwr" || targetApp == "eventvwr.msc" || targetApp == "eventlog" || targetApp == "events") openEventViewerWindow();
         else kernelBridge_.spawnProcess(targetApp, args);
     });
 
@@ -873,6 +892,8 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openDiskManagementWindow();
         } else if (app.executablePath == "C:\\Windows\\System32\\services.msc" || app.id == "services" || app.id == "services.msc") {
             openServicesWindow();
+        } else if (app.executablePath == "C:\\Windows\\System32\\eventvwr.msc" || app.id == "eventvwr" || app.id == "eventvwr.msc" || app.id == "eventlog") {
+            openEventViewerWindow();
         } else {
             const bool spawned = kernelBridge_.spawnProcess(app.executablePath, app.arguments).has_value();
             toastManager_.showToast("Launched Application", app.title, IconRenderer::iconForAppId(app.id));

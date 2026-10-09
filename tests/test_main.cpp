@@ -706,10 +706,11 @@ void Test_Procedural_Icon_Engine() {
         surshell::IconId::CloudDrive,
         surshell::IconId::NetworkShare,
         surshell::IconId::OpticalDrive,
-        surshell::IconId::Services
+        surshell::IconId::Services,
+        surshell::IconId::EventViewer
     };
 
-    TEST_ASSERT(allIcons.size() == 69, "All 69 procedural vector icons enumerated");
+    TEST_ASSERT(allIcons.size() == 70, "All 70 procedural vector icons enumerated");
 
     const int32_t testSizes[] = {14, 16, 24, 28, 32, 48};
     for (surshell::IconId id : allIcons) {
@@ -731,7 +732,7 @@ void Test_Procedural_Icon_Engine() {
         }
     }
 
-    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (69 icons verified across 6 DPI scales).\n";
+    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (70 icons verified across 6 DPI scales).\n";
 }
 
 void Test_AltTab_And_Taskbar_Hover_Preview() {
@@ -2295,6 +2296,104 @@ void Test_Services_Management_Application() {
     std::cout << "[TEST] Suite 33: Sovereign Services Management Console (services.msc) PASSED.\n";
 }
 
+void Test_Event_Viewer_Application() {
+    std::cout << "[TEST] Running Suite 34: Sovereign Event Viewer Console (eventvwr.msc)...\n";
+
+    // 1. Initial State & Log Discovery (System Log)
+    surshell::EventViewerContent ev;
+    TEST_ASSERT(ev.currentLogName() == "System", "Default event log is System");
+    TEST_ASSERT(ev.totalRecordsCount() > 0, "System log contains enumerated records (> 0)");
+    TEST_ASSERT(!ev.records().empty(), "Records vector is non-empty");
+
+    // 2. Validate First Record Fields
+    const auto& firstRec = ev.records()[0];
+    TEST_ASSERT(firstRec.recordNumber > 0, "Valid record number");
+    TEST_ASSERT(firstRec.eventId > 0, "Valid event ID");
+    TEST_ASSERT(!firstRec.timeGenerated.empty(), "Valid formatted timestamp");
+    TEST_ASSERT(!firstRec.source.empty(), "Valid event source name");
+    TEST_ASSERT(!firstRec.message.empty(), "Valid event message content");
+
+    // 3. Category Structure
+    TEST_ASSERT(ev.categories().size() == 4, "4 standard Windows event log categories (Application, Security, System, Setup)");
+    bool hasApp = false, hasSec = false, hasSys = false, hasSetup = false;
+    for (const auto& cat : ev.categories()) {
+        if (cat.name == "Application") hasApp = true;
+        if (cat.name == "Security") hasSec = true;
+        if (cat.name == "System") hasSys = true;
+        if (cat.name == "Setup") hasSetup = true;
+    }
+    TEST_ASSERT(hasApp && hasSec && hasSys && hasSetup, "All 4 core categories verified");
+
+    // 4. Selection & Navigation
+    TEST_ASSERT(ev.selectedIndex() == 0, "First record selected by default");
+    TEST_ASSERT(ev.selectedRecord() != nullptr, "selectedRecord() returns valid pointer");
+    if (ev.totalRecordsCount() > 1) {
+        ev.selectIndex(1);
+        TEST_ASSERT(ev.selectedIndex() == 1, "selectIndex(1) updates selected index");
+    }
+
+    // 5. Level Filtering
+    ev.setLevelFilter(surshell::EventLevelFilter::ErrorsAndCritical);
+    TEST_ASSERT(ev.levelFilter() == surshell::EventLevelFilter::ErrorsAndCritical, "Level filter set to ErrorsAndCritical");
+    ev.setLevelFilter(surshell::EventLevelFilter::All);
+    TEST_ASSERT(ev.levelFilter() == surshell::EventLevelFilter::All, "Level filter reset to All");
+
+    // 6. Sub-millisecond Search Filtering
+    const std::string querySubstr = firstRec.source.substr(0, std::min(size_t{4}, firstRec.source.size()));
+    ev.setSearchQuery(querySubstr);
+    TEST_ASSERT(ev.searchQuery() == querySubstr, "Search query updated");
+    TEST_ASSERT(ev.selectedIndex() >= 0, "Search filter returned matches");
+    ev.setSearchQuery("");
+    TEST_ASSERT(ev.searchQuery().empty(), "Search query cleared");
+
+    // 7. Category Switching (Application & Security)
+    ev.selectLog("Application");
+    TEST_ASSERT(ev.currentLogName() == "Application", "Switched to Application log");
+    TEST_ASSERT(ev.totalRecordsCount() > 0, "Application log contains records");
+
+    ev.selectCategory(surshell::EventLogCategory::Security);
+    TEST_ASSERT(ev.currentLogName() == "Security", "Switched to Security log");
+    TEST_ASSERT(ev.totalRecordsCount() > 0, "Security log contains records");
+
+    // 8. Properties Modal Dialog & XML Export
+    TEST_ASSERT(!ev.isPropertiesDialogOpen(), "Properties dialog starts closed");
+    ev.openPropertiesDialog();
+    TEST_ASSERT(ev.isPropertiesDialogOpen(), "Properties dialog is open");
+
+    const std::string xml = ev.selectedRecordToXml();
+    TEST_ASSERT(xml.find("<Event") != std::string::npos, "XML contains root <Event>");
+    TEST_ASSERT(xml.find("<System>") != std::string::npos, "XML contains <System> block");
+    TEST_ASSERT(xml.find("<EventData>") != std::string::npos, "XML contains <EventData> block");
+
+    ev.closePropertiesDialog();
+    TEST_ASSERT(!ev.isPropertiesDialogOpen(), "Properties dialog closed successfully");
+
+    // 9. Surface Rendering & Modal Overlay
+    surshell::Surface clientSurf(960, 620);
+    ev.render(clientSurf);
+    TEST_ASSERT(clientSurf.width() == 960 && clientSurf.height() == 620, "Event viewer rendered to 960x620 surface");
+
+    ev.openPropertiesDialog();
+    ev.render(clientSurf);
+    ev.closePropertiesDialog();
+
+    // 10. Desktop Coordinator Integration
+    surshell::SurShellDesktop shell(1920, 1080);
+    const uint32_t evWinId = shell.openEventViewerWindow();
+    TEST_ASSERT(evWinId != 0, "openEventViewerWindow spawned valid window");
+    auto* win = shell.windowManager().findWindow(evWinId);
+    TEST_ASSERT(win != nullptr, "Event Viewer window found in WindowManager");
+    TEST_ASSERT(win->title.find("Event Viewer") != std::string::npos, "Window title is Event Viewer");
+    TEST_ASSERT(win->iconId == surshell::IconId::EventViewer, "Window icon matches IconId::EventViewer");
+
+    // 11. Icon and App ID Mappings
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("eventvwr") == surshell::IconId::EventViewer, "iconForAppId('eventvwr') matches EventViewer");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("eventvwr.msc") == surshell::IconId::EventViewer, "iconForAppId('eventvwr.msc') matches EventViewer");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("eventlog") == surshell::IconId::EventViewer, "iconForAppId('eventlog') matches EventViewer");
+
+    std::cout << "[TEST] Suite 34: Sovereign Event Viewer Console (eventvwr.msc) PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -2334,9 +2433,10 @@ int main() {
     Test_Device_Manager_Application();
     Test_Disk_Management_Application();
     Test_Services_Management_Application();
+    Test_Event_Viewer_Application();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 33 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 34 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

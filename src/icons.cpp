@@ -227,6 +227,9 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
         case IconId::Services:
             drawServices(surface, bounds, tintOverride);
             break;
+        case IconId::EventViewer:
+            drawEventViewer(surface, bounds, tintOverride);
+            break;
         case IconId::CloudDrive:
             drawCloudDrive(surface, bounds, tintOverride);
             break;
@@ -280,6 +283,7 @@ IconId IconRenderer::iconForAppId(std::string_view appId) {
     if (appId == "devmgmt" || appId == "devmgmt.msc" || appId == "devices" || appId == "devicemanager" || appId == "device_manager") return IconId::DeviceManager;
     if (appId == "diskmgmt" || appId == "diskmgmt.msc" || appId == "diskmanagement" || appId == "partitions" || appId == "partition" || appId == "disks") return IconId::DiskManagement;
     if (appId == "services" || appId == "services.msc" || appId == "service" || appId == "daemons") return IconId::Services;
+    if (appId == "eventvwr" || appId == "eventvwr.msc" || appId == "eventlog" || appId == "events" || appId == "event_viewer") return IconId::EventViewer;
     if (appId == "cloud" || appId == "gdrive" || appId == "google_drive") return IconId::CloudDrive;
     if (appId == "nas" || appId == "share" || appId == "storage") return IconId::NetworkShare;
     if (appId == "cd" || appId == "dvd" || appId == "optical") return IconId::OpticalDrive;
@@ -1833,6 +1837,47 @@ void IconRenderer::drawServices(Surface& s, Rect r, std::optional<Color> tint) {
     // Center axle hole
     const int32_t hole2 = std::max(1, r2 / 3);
     s.drawRoundedRect(Rect{cx2 - hole2, cy2 - hole2, hole2 * 2, hole2 * 2}, hole2, Color::fromHex(0x0E1420), true);
+}
+
+void IconRenderer::drawEventViewer(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color spineCol = Color::fromHex(0x1E293B);
+    const Color pageCol = Color::fromHex(0x0F172A);
+    const Color borderCol = tint.value_or(Color::fromHex(0x38BDF8));
+    const Color lineCol = Color::fromHex(0x64748B);
+    const Color badgeCol = Color::fromHex(0xF59E0B);
+
+    const int32_t bookW = r.width - 2;
+    const int32_t bookH = r.height - 2;
+    const Rect bookRect{r.x + 1, r.y + 1, bookW, bookH};
+
+    s.drawRoundedRect(bookRect, 2, pageCol, true);
+    s.drawRoundedRect(bookRect, 2, borderCol, false);
+
+    const int32_t spineW = std::max(2, bookW / 5);
+    s.fillRect(Rect{bookRect.x, bookRect.y, spineW, bookH}, spineCol);
+    s.fillRect(Rect{bookRect.x + spineW, bookRect.y, 1, bookH}, borderCol);
+
+    const int32_t lineStartX = bookRect.x + spineW + 3;
+    const int32_t lineEndX = bookRect.right() - 4;
+    const int32_t lineSpan = lineEndX - lineStartX;
+    if (lineSpan > 4) {
+        const int32_t numLines = std::clamp((bookH - 6) / 4, 2, 4);
+        for (int32_t i = 1; i <= numLines; ++i) {
+            const int32_t ly = bookRect.y + i * (bookH / (numLines + 1));
+            const int32_t lw = (i >= numLines - 1) ? (lineSpan * 2 / 3) : lineSpan;
+            s.fillRect(Rect{lineStartX, ly, lw, 1}, lineCol);
+        }
+    }
+
+    const int32_t badgeSz = std::max(4, bookW * 5 / 12);
+    const Rect badgeRect{r.right() - badgeSz - 1, r.bottom() - badgeSz - 1, badgeSz, badgeSz};
+    s.drawRoundedRect(badgeRect, 2, badgeCol, true);
+    s.drawRoundedRect(badgeRect, 2, Color::fromHex(0xFFFFFF), false);
+
+    const int32_t cx = badgeRect.centerX();
+    const int32_t cy = badgeRect.centerY();
+    s.fillRect(Rect{cx, cy - 2, 1, 3}, Color::fromHex(0x000000));
+    s.putPixel(cx, cy + 2, Color::fromHex(0x000000));
 }
 
 } // namespace surshell
