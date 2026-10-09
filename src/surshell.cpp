@@ -350,6 +350,8 @@ uint32_t SurShellDesktop::openRunDialogWindow() {
                 openImageViewerWindow("");
             } else if (lowerCmd == "paint" || lowerCmd == "mspaint" || lowerCmd == "mspaint.exe" || lowerCmd == "pbrush" || lowerCmd == "draw") {
                 openPaintWindow("");
+            } else if (lowerCmd == "sysinfo" || lowerCmd == "msinfo32" || lowerCmd == "msinfo32.exe" || lowerCmd == "systeminfo") {
+                openSystemInfoWindow();
             } else {
                 kernelBridge_.spawnProcess(cmd, "");
             }
@@ -438,6 +440,21 @@ uint32_t SurShellDesktop::openPaintWindow(std::string filePath) {
 
         win->content = paint;
         paint->render(win->clientSurface);
+    }
+    return winId;
+}
+
+uint32_t SurShellDesktop::openSystemInfoWindow() {
+    const uint32_t winId = windowManager_.createWindow("System Information", Rect{200, 70, 940, 600}, "[SYS]", IconId::SystemInfo);
+    virtualDesktops_.assignWindowToDesktop(winId, virtualDesktops_.activeIndex());
+    auto* win = windowManager_.findWindow(winId);
+    if (win) {
+        auto sysInfo = std::make_shared<SysInfoContent>();
+        sysInfo->setToastCallback([this](const std::string& title, const std::string& msg, IconId icon) {
+            toastManager_.showToast(title, msg, icon);
+        });
+        win->content = sysInfo;
+        sysInfo->render(win->clientSurface);
     }
     return winId;
 }
@@ -535,6 +552,7 @@ void SurShellDesktop::wireSubsystemCallbacks() {
         else if (targetApp == "regedit" || targetApp == "registry") openRegistryEditorWindow();
         else if (targetApp == "photos" || targetApp == "image" || targetApp == "viewer") openImageViewerWindow(args);
         else if (targetApp == "paint" || targetApp == "mspaint" || targetApp == "draw" || targetApp == "canvas") openPaintWindow(args);
+        else if (targetApp == "sysinfo" || targetApp == "msinfo32" || targetApp == "systeminfo") openSystemInfoWindow();
         else kernelBridge_.spawnProcess(targetApp, args);
     });
 
@@ -668,6 +686,8 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openImageViewerWindow();
         } else if (icon.executable == "C:\\Windows\\System32\\mspaint.exe" || icon.id == "paint" || icon.id == "mspaint") {
             openPaintWindow();
+        } else if (icon.executable == "C:\\Windows\\System32\\msinfo32.exe" || icon.id == "sysinfo") {
+            openSystemInfoWindow();
         } else {
             const bool spawned = kernelBridge_.spawnProcess(icon.executable, icon.arguments).has_value();
             toastManager_.showToast("Launched", icon.label, icon.iconId);
@@ -785,6 +805,8 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openImageViewerWindow();
         } else if (app.executablePath == "C:\\Windows\\System32\\mspaint.exe" || app.id == "paint" || app.id == "mspaint") {
             openPaintWindow();
+        } else if (app.executablePath == "C:\\Windows\\System32\\msinfo32.exe" || app.id == "sysinfo" || app.id == "msinfo32") {
+            openSystemInfoWindow();
         } else {
             const bool spawned = kernelBridge_.spawnProcess(app.executablePath, app.arguments).has_value();
             toastManager_.showToast("Launched Application", app.title, IconRenderer::iconForAppId(app.id));

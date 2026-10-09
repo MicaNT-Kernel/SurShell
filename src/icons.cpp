@@ -215,6 +215,9 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
         case IconId::Paint:
             drawPaint(surface, bounds, tintOverride);
             break;
+        case IconId::SystemInfo:
+            drawSystemInfo(surface, bounds, tintOverride);
+            break;
         case IconId::CloudDrive:
             drawCloudDrive(surface, bounds, tintOverride);
             break;
@@ -264,6 +267,7 @@ IconId IconRenderer::iconForAppId(std::string_view appId) {
     if (appId == "save") return IconId::Save;
     if (appId == "photos" || appId == "image_viewer" || appId == "image" || appId == "viewer") return IconId::ImageViewer;
     if (appId == "paint" || appId == "mspaint" || appId == "draw" || appId == "canvas") return IconId::Paint;
+    if (appId == "sysinfo" || appId == "msinfo32" || appId == "systeminfo" || appId == "specs" || appId == "system_information" || appId == "msinfo") return IconId::SystemInfo;
     if (appId == "cloud" || appId == "gdrive" || appId == "google_drive") return IconId::CloudDrive;
     if (appId == "nas" || appId == "share" || appId == "storage") return IconId::NetworkShare;
     if (appId == "cd" || appId == "dvd" || appId == "optical") return IconId::OpticalDrive;
@@ -1610,6 +1614,44 @@ void IconRenderer::drawPaint(Surface& s, Rect r, std::optional<Color> tint) {
             s.putPixel(bx, by, Color::fromHex(0x00D4FF));
             s.putPixel(bx + 1, by, Color::fromHex(0x38BDF8));
         }
+    }
+}
+
+void IconRenderer::drawSystemInfo(Surface& s, Rect r, std::optional<Color> tint) {
+    if (r.empty()) return;
+    const Color chipBg = tint.value_or(Color::fromHex(0x1E293B));
+    const Color chipBorder = tint.value_or(Color::fromHex(0x00D4FF));
+    const Color pinCol = Color::fromHex(0xCBD5E1);
+
+    const int32_t pad = std::max(2, r.width / 5);
+    const Rect body{r.x + pad, r.y + pad, r.width - pad * 2, r.height - pad * 2};
+
+    // 1. External Pins protruding from chip body
+    for (int32_t x = body.x + 2; x < body.right() - 1; x += 3) {
+        s.fillRect(Rect{x, r.y + 1, 1, pad - 1}, pinCol);
+        s.fillRect(Rect{x, body.bottom(), 1, pad - 1}, pinCol);
+    }
+    for (int32_t y = body.y + 2; y < body.bottom() - 1; y += 3) {
+        s.fillRect(Rect{r.x + 1, y, pad - 1, 1}, pinCol);
+        s.fillRect(Rect{body.right(), y, pad - 1, 1}, pinCol);
+    }
+
+    // 2. Chip Package Body
+    s.drawRoundedRect(body, 2, chipBg, true);
+    s.drawRoundedRect(body, 2, chipBorder, false);
+
+    // 3. Central Silicon Core / Diagnostic Indicator
+    const int32_t corePad = std::max(2, body.width / 4);
+    const Rect core{body.x + corePad, body.y + corePad, body.width - corePad * 2, body.height - corePad * 2};
+    s.drawRoundedRect(core, 1, Color::fromHex(0x0F172A), true);
+    s.drawRoundedRect(core, 1, Color::fromHex(0x00FF9D), false);
+
+    // Diagnostic indicator trace in center
+    const int32_t cx = core.centerX();
+    const int32_t cy = core.centerY();
+    if (core.width >= 4 && core.height >= 4) {
+        s.putPixel(cx, cy - 1, Color::fromHex(0x00D4FF));
+        s.putPixel(cx, cy + 1, Color::fromHex(0x00D4FF));
     }
 }
 

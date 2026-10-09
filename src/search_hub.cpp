@@ -22,6 +22,7 @@ SearchHub::SearchHub() {
         {"app_regedit",  "Registry Editor",   "MicaNT sovereign configuration tree and keys", SearchCategoryType::Apps, IconId::Registry,     "regedit",  ""},
         {"app_photos",   "Photos",            "Sovereign image viewer, zoom, rotate & BMP inspection", SearchCategoryType::Apps, IconId::ImageViewer, "photos", ""},
         {"app_paint",    "Paint",             "Sovereign vector canvas, brushes, shapes & BMP studio", SearchCategoryType::Apps, IconId::Paint,       "paint",  ""},
+        {"app_sysinfo",  "System Information","Hardware topology, storage, CPU & diagnostics",        SearchCategoryType::Apps, IconId::SystemInfo,  "sysinfo", ""},
 
         // Settings
         {"set_theme",    "Personalization",   "Themes, accent color palette & wallpaper style", SearchCategoryType::Settings, IconId::Personalization, "settings", "personalize"},

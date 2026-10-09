@@ -757,6 +757,23 @@ int runSnapshotPipeline() {
         std::cout << "  -> Exported: surshell_paint_studio.bmp (1920x1080 32-bpp)\n";
     }
 
+    // ------------------------------------------------------------------------
+    // Scene 29: Sovereign System Information & Diagnostics (msinfo32.exe Parity)
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 29: Sovereign System Information & Diagnostics...\n";
+    const uint32_t sysWin = shell.openSystemInfoWindow();
+    shell.windowManager().setWindowActive(sysWin);
+    if (auto* w = shell.windowManager().findWindow(sysWin)) {
+        if (auto sysInfo = std::dynamic_pointer_cast<surshell::SysInfoContent>(w->content)) {
+            sysInfo->selectCategory("summary");
+            sysInfo->render(w->clientSurface);
+        }
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_system_information.bmp")) {
+        std::cout << "  -> Exported: surshell_system_information.bmp (1920x1080 32-bpp)\n";
+    }
+
     std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (30 high-resolution scenes generated).\n";
     return 0;
 }

@@ -34,6 +34,7 @@ set(SURSHELL_SOURCES
     src/registry_editor.cpp
     src/image_viewer.cpp
     src/paint.cpp
+    src/sysinfo.cpp
     src/surshell.cpp
 )
 

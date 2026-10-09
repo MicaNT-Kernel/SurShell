@@ -1939,6 +1939,91 @@ void Test_Paint_Studio_And_Vector_Canvas() {
     std::cout << "[TEST] Suite 29: Sovereign Paint Studio & Vector Canvas PASSED.\n";
 }
 
+void Test_System_Information_Application() {
+    std::cout << "[TEST] Running Suite 30: Sovereign System Information & Diagnostics (msinfo32.exe)...\n";
+
+    surshell::SysInfoContent sysInfo;
+
+    // 1. Default state and summary category
+    TEST_ASSERT(sysInfo.selectedCategoryId() == "summary", "Default category is 'summary'");
+    TEST_ASSERT(sysInfo.currentEntryCount() > 5, "System Summary contains comprehensive diagnostics");
+
+    bool hasOsName = false;
+    bool hasProcessor = false;
+    bool hasMemory = false;
+    for (const auto& e : sysInfo.currentEntries()) {
+        if (e.item.find("OS Name") != std::string::npos) hasOsName = true;
+        if (e.item.find("Processor") != std::string::npos) hasProcessor = true;
+        if (e.item.find("Memory") != std::string::npos || e.item.find("RAM") != std::string::npos) hasMemory = true;
+    }
+    TEST_ASSERT(hasOsName, "Summary contains OS Name entry");
+    TEST_ASSERT(hasProcessor, "Summary contains Processor entry");
+    TEST_ASSERT(hasMemory, "Summary contains Memory entry");
+
+    // 2. Category selection: Memory, Storage, Environment Variables
+    sysInfo.selectCategory("hw_mem");
+    TEST_ASSERT(sysInfo.selectedCategoryId() == "hw_mem", "Selected hw_mem category");
+    TEST_ASSERT(sysInfo.currentEntryCount() > 0, "Hardware Memory category has entries");
+
+    sysInfo.selectCategory("comp_storage");
+    TEST_ASSERT(sysInfo.selectedCategoryId() == "comp_storage", "Selected comp_storage category");
+    TEST_ASSERT(sysInfo.currentEntryCount() > 0, "Components Storage category has entries");
+
+    sysInfo.selectCategory("sw_envvars");
+    TEST_ASSERT(sysInfo.selectedCategoryId() == "sw_envvars", "Selected sw_envvars category");
+    TEST_ASSERT(sysInfo.currentEntryCount() > 0, "Software Environment Variables has entries");
+
+    // 3. Search and Filtering
+    sysInfo.selectCategory("summary");
+    const size_t totalSummary = sysInfo.currentEntryCount();
+    sysInfo.setFilterQuery("Processor");
+    TEST_ASSERT(sysInfo.filterQuery() == "Processor", "Filter query set to Processor");
+    TEST_ASSERT(sysInfo.currentEntryCount() >= 1 && sysInfo.currentEntryCount() < totalSummary, "Filtering narrows down entries");
+    TEST_ASSERT(sysInfo.currentEntries()[0].item.find("Processor") != std::string::npos, "Filtered entry matches Processor");
+
+    sysInfo.setFilterQuery("");
+    TEST_ASSERT(sysInfo.currentEntryCount() == totalSummary, "Clearing filter restores all entries");
+
+    // 4. Selection and Clipboard Operations
+    sysInfo.selectRow(0);
+    TEST_ASSERT(sysInfo.selectedRowIndex() == 0, "Row 0 selected");
+    const std::string selRow = sysInfo.copySelectedRow();
+    TEST_ASSERT(!selRow.empty(), "Selected row formatted string copied");
+    TEST_ASSERT(selRow.find("\t") != std::string::npos, "Row format includes tab separator");
+
+    const std::string allRows = sysInfo.copyAllRows();
+    TEST_ASSERT(!allRows.empty(), "All rows copied to clipboard string");
+    TEST_ASSERT(allRows.find("\n") != std::string::npos, "All rows contains newlines");
+
+    // 5. Diagnostic Report File Export
+    const std::string reportPath = "test_sysinfo_report.txt";
+    TEST_ASSERT(sysInfo.exportReport(reportPath), "exportReport succeeds");
+    TEST_ASSERT(std::filesystem::exists(reportPath), "Report file exists on disk");
+    TEST_ASSERT(std::filesystem::file_size(reportPath) > 100, "Report file contains substantial content");
+    std::error_code ec;
+    std::filesystem::remove(reportPath, ec);
+
+    // 6. Surface Rendering
+    surshell::Surface clientSurf(860, 560);
+    sysInfo.render(clientSurf);
+    TEST_ASSERT(clientSurf.width() == 860 && clientSurf.height() == 560, "System Information rendered to 860x560 surface");
+
+    // 7. Desktop Coordinator Integration
+    surshell::SurShellDesktop shell(1920, 1080);
+    const uint32_t sysWinId = shell.openSystemInfoWindow();
+    TEST_ASSERT(sysWinId != 0, "openSystemInfoWindow spawned valid window");
+    auto* win = shell.windowManager().findWindow(sysWinId);
+    TEST_ASSERT(win != nullptr, "System Info window found in WindowManager");
+    TEST_ASSERT(win->title.find("System Information") != std::string::npos, "Window title is System Information");
+    TEST_ASSERT(win->iconId == surshell::IconId::SystemInfo, "Window icon matches IconId::SystemInfo");
+
+    // 8. Icon and App ID Mappings
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("msinfo32") == surshell::IconId::SystemInfo, "iconForAppId('msinfo32') matches SystemInfo");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("sysinfo") == surshell::IconId::SystemInfo, "iconForAppId('sysinfo') matches SystemInfo");
+
+    std::cout << "[TEST] Suite 30: Sovereign System Information & Diagnostics PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -1974,9 +2059,10 @@ int main() {
     Test_Photo_And_Image_Viewer();
     Test_Notepad_Interactive_Editor_And_Telemetry();
     Test_Paint_Studio_And_Vector_Canvas();
+    Test_System_Information_Application();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 29 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 30 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

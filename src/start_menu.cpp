@@ -169,6 +169,18 @@ StartMenu::StartMenu() {
         .pinnedToStart = true
     });
 
+    registerApp(ShellAppEntry{
+        .id = "sysinfo",
+        .title = "System Information",
+        .subtitle = "Hardware Topology & Diagnostics",
+        .executablePath = "C:\\Windows\\System32\\msinfo32.exe",
+        .arguments = "",
+        .iconGlyph = "[SYS]",
+        .category = AppCategory::SystemTools,
+        .pinnedToTaskbar = false,
+        .pinnedToStart = true
+    });
+
     // Windows 11-style Interactive Power Flyout Options
     powerOptions_ = {
         PowerOptionItem{.action = PowerAction::Sleep, .label = "Sleep", .description = "Save session in low power", .iconId = IconId::Sleep},
