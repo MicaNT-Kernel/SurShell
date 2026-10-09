@@ -39,6 +39,7 @@ set(SURSHELL_SOURCES
     src/diskmgmt.cpp
     src/services.cpp
     src/eventviewer.cpp
+    src/app_hub.cpp
     src/surshell.cpp
 )
 

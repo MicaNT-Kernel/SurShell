@@ -239,6 +239,9 @@ void IconRenderer::draw(Surface& surface, IconId id, Rect bounds, std::optional<
         case IconId::OpticalDrive:
             drawOpticalDrive(surface, bounds, tintOverride);
             break;
+        case IconId::AppHub:
+            drawAppHub(surface, bounds, tintOverride);
+            break;
         default:
             drawDocument(surface, bounds, IconId::FileGeneric, tintOverride);
             break;
@@ -287,6 +290,7 @@ IconId IconRenderer::iconForAppId(std::string_view appId) {
     if (appId == "cloud" || appId == "gdrive" || appId == "google_drive") return IconId::CloudDrive;
     if (appId == "nas" || appId == "share" || appId == "storage") return IconId::NetworkShare;
     if (appId == "cd" || appId == "dvd" || appId == "optical") return IconId::OpticalDrive;
+    if (appId == "app_hub" || appId == "winget" || appId == "store" || appId == "hub" || appId == "market") return IconId::AppHub;
     return IconId::StartPrism;
 }
 
@@ -1878,6 +1882,38 @@ void IconRenderer::drawEventViewer(Surface& s, Rect r, std::optional<Color> tint
     const int32_t cy = badgeRect.centerY();
     s.fillRect(Rect{cx, cy - 2, 1, 3}, Color::fromHex(0x000000));
     s.putPixel(cx, cy + 2, Color::fromHex(0x000000));
+}
+
+void IconRenderer::drawAppHub(Surface& s, Rect r, std::optional<Color> tint) {
+    const Color bagBg = tint.value_or(Color::fromHex(0x00B4D8)); // Barrer Cyan
+    const Color bagBody = Color::fromHex(0x132338);
+    const Color borderCol = tint.value_or(Color::fromHex(0x00B4D8));
+    const Color handleCol = tint.value_or(Color::fromHex(0x48CAE4));
+
+    const int32_t w = r.width;
+    const int32_t h = r.height;
+
+    // Shopping bag body
+    const int32_t bodyTop = r.y + h / 4;
+    const Rect bodyRect{r.x + 2, bodyTop, w - 4, h - (h / 4) - 2};
+    s.drawRoundedRect(bodyRect, 3, bagBody, true);
+    s.drawRoundedRect(bodyRect, 3, borderCol, false);
+
+    // Handle arch at top
+    const int32_t handleW = std::max(4, w / 2);
+    const int32_t handleH = std::max(3, h / 3);
+    const Rect handleRect{r.centerX() - handleW / 2, r.y + 1, handleW, handleH};
+    s.drawRoundedRect(handleRect, 3, handleCol, false);
+
+    // Center 4-Square Sovereign App Badge
+    const int32_t badgeSz = std::max(4, w / 3);
+    const int32_t bcx = bodyRect.centerX();
+    const int32_t bcy = bodyRect.centerY();
+    const int32_t tileSize = std::max(2, (badgeSz - 2) / 2);
+    s.fillRect(Rect{bcx - tileSize - 1, bcy - tileSize - 1, tileSize, tileSize}, bagBg);
+    s.fillRect(Rect{bcx + 1, bcy - tileSize - 1, tileSize, tileSize}, Color::fromHex(0x48CAE4));
+    s.fillRect(Rect{bcx - tileSize - 1, bcy + 1, tileSize, tileSize}, Color::fromHex(0x90E0EF));
+    s.fillRect(Rect{bcx + 1, bcy + 1, tileSize, tileSize}, Color::fromHex(0xCAF0F8));
 }
 
 } // namespace surshell

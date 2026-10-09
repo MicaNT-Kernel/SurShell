@@ -39,8 +39,13 @@ surshell::KeyCode mapVkToKeyCode(WPARAM vk) {
         case VK_END:    return surshell::KeyCode::End;
         case VK_PRIOR:  return surshell::KeyCode::PageUp;
         case VK_NEXT:   return surshell::KeyCode::PageDown;
+        case VK_F1:     return surshell::KeyCode::F1;
         case VK_F2:     return surshell::KeyCode::F2;
+        case VK_F3:     return surshell::KeyCode::F3;
+        case VK_F4:     return surshell::KeyCode::F4;
         case VK_F5:     return surshell::KeyCode::F5;
+        case VK_F11:    return surshell::KeyCode::F11;
+        case VK_F12:    return surshell::KeyCode::F12;
         case VK_LWIN:
         case VK_RWIN:   return surshell::KeyCode::Super;
         default:        break;
@@ -842,7 +847,22 @@ int runSnapshotPipeline() {
         std::cout << "  -> Exported: surshell_event_viewer.bmp (1920x1080 32-bpp)\n";
     }
 
-    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (34 high-resolution scenes generated).\n";
+    // ------------------------------------------------------------------------
+    std::cout << "[SurShell] Rendering Scene 34: Sovereign Winget App Hub & Retail Suite...\n";
+    const uint32_t hubWin = shell.openAppHubWindow();
+    shell.windowManager().setWindowActive(hubWin);
+    if (auto* w = shell.windowManager().findWindow(hubWin)) {
+        if (auto hub = std::dynamic_pointer_cast<surshell::AppHubContent>(w->content)) {
+            hub->setCategory(surshell::AppHubCategory::CertifiedRetail);
+            hub->render(w->clientSurface);
+        }
+    }
+    shell.render();
+    if (shell.exportSnapshot("surshell_app_hub.bmp")) {
+        std::cout << "  -> Exported: surshell_app_hub.bmp (1920x1080 32-bpp)\n";
+    }
+
+    std::cout << "\n[SurShell] Visual presentation pipeline completed successfully (35 high-resolution scenes generated).\n";
     return 0;
 }
 

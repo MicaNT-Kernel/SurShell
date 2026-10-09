@@ -571,6 +571,70 @@ void Test_Virtual_Desktops() {
     vdm.toggleSwitcher();
     TEST_ASSERT(!vdm.isSwitcherVisible(), "Switcher toggled closed");
 
+    // 5. Task View Window Card Drag-and-Drop
+    vdm.showSwitcher();
+    vdm.setWindowsProvider([]() {
+        std::vector<surshell::TaskViewWindowCard> cards;
+        cards.push_back(surshell::TaskViewWindowCard{
+            .windowId = 1002,
+            .title = "Terminal - Sovereign CLI",
+            .iconId = surshell::IconId::Terminal
+        });
+        return cards;
+    });
+    vdm.updateLayout(1920, 1080, 48);
+    TEST_ASSERT(!vdm.activeWindowCards().empty(), "Task View window cards generated");
+
+    const auto& card = vdm.activeWindowCards()[0];
+    const surshell::Point cardCenter = card.cardBounds.center();
+
+    // Mouse down on window card initiates drag candidate
+    TEST_ASSERT(vdm.onMouseDown(cardCenter, surshell::MouseButton::Left), "Mouse down on window card succeeds");
+
+    // Mouse move > 8px initiates drag
+    vdm.onMouseMove(surshell::Point{cardCenter.x + 20, cardCenter.y + 20});
+    TEST_ASSERT(vdm.isDraggingWindow(), "Window is now actively being dragged");
+
+    // Move drag over Desktop 0 switcher card
+    const surshell::Point desk0Center = vdm.desktops()[0].switcherCardBounds.center();
+    vdm.onMouseMove(desk0Center);
+
+    // Mouse up drops window onto Desktop 0
+    TEST_ASSERT(vdm.onMouseUp(desk0Center, surshell::MouseButton::Left), "Mouse up drops window onto desktop");
+    TEST_ASSERT(!vdm.isDraggingWindow(), "Drag completed");
+    TEST_ASSERT(vdm.desktops()[0].windowIds.contains(1002), "Window 1002 reassigned to Desktop 0 via drag-and-drop");
+
+    // Right-click fast move on window card
+    vdm.updateLayout(1920, 1080, 48);
+    const surshell::Point cardPt = vdm.activeWindowCards()[0].cardBounds.center();
+    TEST_ASSERT(vdm.onMouseDown(cardPt, surshell::MouseButton::Right), "Right click on card moves to next desktop");
+
+    // 6. Master Desktop Hotkey Verification
+    surshell::SurShellDesktop masterDesktop(1920, 1080);
+    TEST_ASSERT(!masterDesktop.virtualDesktops().isSwitcherVisible(), "Switcher initially hidden");
+
+    // Win + Tab toggles switcher open
+    masterDesktop.onKeyDown(surshell::KeyCode::Tab, false, false, false, true);
+    TEST_ASSERT(masterDesktop.virtualDesktops().isSwitcherVisible(), "Win+Tab toggles switcher visible");
+
+    // Escape dismisses switcher
+    masterDesktop.onKeyDown(surshell::KeyCode::Escape);
+    TEST_ASSERT(!masterDesktop.virtualDesktops().isSwitcherVisible(), "Escape dismisses switcher");
+
+    // Ctrl + Win + Right switches desktop
+    const size_t prevIdx = masterDesktop.virtualDesktops().activeIndex();
+    masterDesktop.onKeyDown(surshell::KeyCode::Right, true, false, false, true);
+    TEST_ASSERT(masterDesktop.virtualDesktops().activeIndex() != prevIdx, "Ctrl+Win+Right switches active desktop");
+
+    // Ctrl + Win + D creates new desktop
+    const size_t countBefore = masterDesktop.virtualDesktops().desktopCount();
+    masterDesktop.onKeyDown(surshell::KeyCode::KeyD, true, false, false, true);
+    TEST_ASSERT(masterDesktop.virtualDesktops().desktopCount() == countBefore + 1, "Ctrl+Win+D creates new desktop");
+
+    // Ctrl + Win + F4 closes active desktop
+    masterDesktop.onKeyDown(surshell::KeyCode::F4, true, false, false, true);
+    TEST_ASSERT(masterDesktop.virtualDesktops().desktopCount() == countBefore, "Ctrl+Win+F4 closes desktop");
+
     std::cout << "[TEST] Suite 11: Virtual Desktops & Multi-Workspace Manager PASSED.\n";
 }
 
@@ -649,6 +713,8 @@ void Test_Procedural_Icon_Engine() {
     TEST_ASSERT(surshell::IconRenderer::iconForAppId("network") == surshell::IconId::NetworkOnline, "network maps to NetworkOnline");
     TEST_ASSERT(surshell::IconRenderer::iconForAppId("mediaplayer") == surshell::IconId::MediaPlay, "mediaplayer maps to MediaPlay");
     TEST_ASSERT(surshell::IconRenderer::iconForAppId("regedit") == surshell::IconId::Registry, "regedit maps to Registry");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("winget") == surshell::IconId::AppHub, "winget maps to AppHub");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("app_hub") == surshell::IconId::AppHub, "app_hub maps to AppHub");
 
     // 3. Rasterize All Procedural Vector Icons at Multiple Scales (14, 16, 24, 28, 32, 48px)
     surshell::Surface testCanvas(256, 256, surshell::Color::fromHex(0x0E1420));
@@ -722,10 +788,11 @@ void Test_Procedural_Icon_Engine() {
         surshell::IconId::NetworkShare,
         surshell::IconId::OpticalDrive,
         surshell::IconId::Services,
-        surshell::IconId::EventViewer
+        surshell::IconId::EventViewer,
+        surshell::IconId::AppHub
     };
 
-    TEST_ASSERT(allIcons.size() == 70, "All 70 procedural vector icons enumerated");
+    TEST_ASSERT(allIcons.size() == 71, "All 71 procedural vector icons enumerated");
 
     const int32_t testSizes[] = {14, 16, 24, 28, 32, 48};
     for (surshell::IconId id : allIcons) {
@@ -747,7 +814,7 @@ void Test_Procedural_Icon_Engine() {
         }
     }
 
-    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (70 icons verified across 6 DPI scales).\n";
+    std::cout << "[TEST] Suite 13: Sovereign Procedural Vector Icon Engine PASSED (71 icons verified across 6 DPI scales).\n";
 }
 
 void Test_AltTab_And_Taskbar_Hover_Preview() {
@@ -2409,6 +2476,136 @@ void Test_Event_Viewer_Application() {
     std::cout << "[TEST] Suite 34: Sovereign Event Viewer Console (eventvwr.msc) PASSED.\n";
 }
 
+void Test_Winget_App_Hub() {
+    std::cout << "[TEST] Running Suite 35: Winget Sovereign App Hub & Retail Suite (winget.exe)...\n";
+
+    // 1. Initial State & Catalog Population
+    surshell::AppHubContent hub;
+    TEST_ASSERT(hub.totalPackagesCount() >= 16, "Catalog contains >= 16 seeded sovereign packages");
+    TEST_ASSERT(hub.filteredPackagesCount() == hub.totalPackagesCount(), "Initially all packages visible");
+    TEST_ASSERT(hub.activeCategory() == surshell::AppHubCategory::All, "Default category is All");
+    TEST_ASSERT(hub.searchQuery().empty(), "Search query is empty initially");
+
+    // 2. Category Filtering: Certified Retail Suite (100% NT Parity)
+    hub.setCategory(surshell::AppHubCategory::CertifiedRetail);
+    TEST_ASSERT(hub.activeCategory() == surshell::AppHubCategory::CertifiedRetail, "Category switched to CertifiedRetail");
+    TEST_ASSERT(hub.filteredPackagesCount() >= 8, "Certified Retail category contains all core retail apps");
+    for (const auto& card : hub.filteredCards()) {
+        TEST_ASSERT(card.isRetailCertified, "Card in CertifiedRetail must be marked retail certified");
+    }
+
+    // 3. Category Filtering: Developer Tools
+    hub.setCategory(surshell::AppHubCategory::DeveloperTools);
+    TEST_ASSERT(hub.filteredPackagesCount() >= 5, "Developer Tools category contains developer packages");
+    for (const auto& card : hub.filteredCards()) {
+        TEST_ASSERT(card.category == surshell::AppHubCategory::DeveloperTools, "Card in DeveloperTools must match category");
+    }
+
+    // 4. Category Filtering: System Utilities
+    hub.setCategory(surshell::AppHubCategory::SystemUtilities);
+    TEST_ASSERT(hub.filteredPackagesCount() >= 4, "System Utilities category contains utility packages");
+
+    // 5. Category Filtering: Media & Docs
+    hub.setCategory(surshell::AppHubCategory::MediaDocs);
+    TEST_ASSERT(hub.filteredPackagesCount() >= 2, "Media & Docs category contains VLC and SumatraPDF");
+
+    // 6. Search Query Filtering
+    hub.setCategory(surshell::AppHubCategory::All);
+    hub.setSearchQuery("7z");
+    TEST_ASSERT(hub.filteredPackagesCount() >= 1, "Search for '7z' matches 7-Zip");
+    TEST_ASSERT(hub.filteredCards()[0].id == "7zip.7zip", "Matched package ID is 7zip.7zip");
+
+    hub.setSearchQuery("vlc");
+    TEST_ASSERT(hub.filteredPackagesCount() == 1, "Search for 'vlc' matches VLC");
+    TEST_ASSERT(hub.filteredCards()[0].id == "VideoLAN.VLC", "Matched package ID is VideoLAN.VLC");
+
+    hub.setSearchQuery("nonexistent_package_xyz123");
+    TEST_ASSERT(hub.filteredPackagesCount() == 0, "Nonexistent search returns 0 results");
+
+    // Clear search
+    hub.setSearchQuery("");
+    TEST_ASSERT(hub.filteredPackagesCount() == hub.totalPackagesCount(), "Clearing search restores all packages");
+
+    // 7. Package Installation Lifecycle & SHA-256 Verification
+    bool installNotified = false;
+    hub.setInstallCallback([&installNotified](const std::string& title, const std::string& msg, bool success) {
+        (void)title; (void)msg;
+        if (success) installNotified = true;
+    });
+
+    const size_t installedBefore = hub.installedPackagesCount();
+    TEST_ASSERT(hub.installPackage("7zip.7zip"), "Installation of 7zip.7zip succeeds");
+    TEST_ASSERT(hub.installedPackagesCount() == installedBefore + 1, "Installed package count incremented");
+    TEST_ASSERT(installNotified, "Installation callback fired successfully");
+
+    // Verify card reflects installed state
+    bool foundInstalled = false;
+    for (const auto& card : hub.filteredCards()) {
+        if (card.id == "7zip.7zip") {
+            foundInstalled = true;
+            TEST_ASSERT(card.isInstalled, "Card for 7zip.7zip reflects installed state");
+            break;
+        }
+    }
+    TEST_ASSERT(foundInstalled, "7zip.7zip located in catalog");
+
+    // Installed Category Filter
+    hub.setCategory(surshell::AppHubCategory::Installed);
+    TEST_ASSERT(hub.filteredPackagesCount() >= 1, "Installed category shows installed packages");
+
+    // 8. Package Uninstallation
+    hub.setCategory(surshell::AppHubCategory::All);
+    TEST_ASSERT(hub.uninstallPackage("7zip.7zip"), "Uninstallation of 7zip.7zip succeeds");
+    TEST_ASSERT(hub.installedPackagesCount() == installedBefore, "Installed package count decremented");
+
+    // 9. Input & Interactive Controls
+    hub.onCharInput('g');
+    hub.onCharInput('i');
+    hub.onCharInput('t');
+    TEST_ASSERT(hub.searchQuery() == "git", "Char input appends to search query");
+    TEST_ASSERT(hub.filteredPackagesCount() >= 1, "Search for 'git' matches Git");
+
+    hub.onKeyDown(surshell::KeyCode::Backspace);
+    TEST_ASSERT(hub.searchQuery() == "gi", "Backspace removes character");
+
+    hub.onKeyDown(surshell::KeyCode::Escape);
+    TEST_ASSERT(hub.searchQuery().empty(), "Escape clears search query");
+
+    // Mouse wheel scrolling
+    hub.onMouseWheel(surshell::Point{200, 200}, -5);
+
+    // 10. Surface Rasterization
+    surshell::Surface clientSurf(960, 640, surshell::Color{0, 0, 0, 255});
+    hub.render(clientSurf);
+
+    bool drewVisuals = false;
+    for (uint32_t y = 50; y < 200 && !drewVisuals; ++y) {
+        for (uint32_t x = 50; x < 400 && !drewVisuals; ++x) {
+            if (clientSurf.getPixel(x, y).toRgba() != surshell::Color{0, 0, 0, 255}.toRgba()) {
+                drewVisuals = true;
+            }
+        }
+    }
+    TEST_ASSERT(drewVisuals, "App Hub rendered visual cards and header to client surface");
+
+    // 11. Master Shell Desktop Integration
+    surshell::SurShellDesktop masterDesktop(1920, 1080);
+    const uint32_t winId = masterDesktop.openAppHubWindow("notepad++");
+    TEST_ASSERT(winId > 0, "openAppHubWindow returned valid window ID");
+    auto* win = masterDesktop.windowManager().findWindow(winId);
+    TEST_ASSERT(win != nullptr, "App Hub window exists in WindowManager");
+    TEST_ASSERT(win->title.find("Sovereign App Hub") != std::string::npos, "Window title is Sovereign App Hub");
+    TEST_ASSERT(win->iconId == surshell::IconId::AppHub, "Window icon is IconId::AppHub");
+    TEST_ASSERT(win->content != nullptr, "Window has attached AppHubContent");
+
+    // App ID mapping
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("app_hub") == surshell::IconId::AppHub, "iconForAppId('app_hub') maps to AppHub");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("winget") == surshell::IconId::AppHub, "iconForAppId('winget') maps to AppHub");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("store") == surshell::IconId::AppHub, "iconForAppId('store') maps to AppHub");
+
+    std::cout << "[TEST] Suite 35: Winget Sovereign App Hub & Retail Suite (winget.exe) PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -2449,9 +2646,10 @@ int main() {
     Test_Disk_Management_Application();
     Test_Services_Management_Application();
     Test_Event_Viewer_Application();
+    Test_Winget_App_Hub();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 34 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 35 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

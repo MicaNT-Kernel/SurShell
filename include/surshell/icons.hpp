@@ -110,7 +110,8 @@ enum class IconId {
     // Storage, Cloud & Infrastructure
     CloudDrive,
     NetworkShare,
-    OpticalDrive
+    OpticalDrive,
+    AppHub
 };
 
 class IconRenderer {
@@ -187,6 +188,7 @@ private:
     static void drawCloudDrive(Surface& s, Rect r, std::optional<Color> tint);
     static void drawNetworkShare(Surface& s, Rect r, std::optional<Color> tint);
     static void drawOpticalDrive(Surface& s, Rect r, std::optional<Color> tint);
+    static void drawAppHub(Surface& s, Rect r, std::optional<Color> tint);
 };
 
 } // namespace surshell

@@ -210,6 +210,7 @@ uint32_t SurShellDesktop::openTerminalWindow(std::string workingDir) {
             else if (app == "regedit" || app == "registry") openRegistryEditorWindow();
             else if (app == "services" || app == "services.msc") openServicesWindow();
             else if (app == "eventvwr" || app == "eventvwr.msc" || app == "eventlog") openEventViewerWindow();
+            else if (app == "winget" || app == "store" || app == "app_hub" || app == "hub") openAppHubWindow(args);
             else if (app == "cmd") openTerminalWindow(args.empty() ? "C:\\Users\\admin" : args);
             else kernelBridge_.spawnProcess(app, args);
         });
@@ -362,6 +363,8 @@ uint32_t SurShellDesktop::openRunDialogWindow() {
                 openServicesWindow();
             } else if (lowerCmd == "eventvwr" || lowerCmd == "eventvwr.msc" || lowerCmd == "eventlog" || lowerCmd == "events") {
                 openEventViewerWindow();
+            } else if (lowerCmd == "winget" || lowerCmd == "store" || lowerCmd == "app_hub" || lowerCmd == "hub") {
+                openAppHubWindow();
             } else {
                 kernelBridge_.spawnProcess(cmd, "");
             }
@@ -529,6 +532,24 @@ uint32_t SurShellDesktop::openEventViewerWindow(std::string initialLog) {
     return winId;
 }
 
+uint32_t SurShellDesktop::openAppHubWindow(std::string initialQuery) {
+    const uint32_t winId = windowManager_.createWindow("Sovereign App Hub (winget)", Rect{160, 45, 960, 640}, "[HUB]", IconId::AppHub);
+    virtualDesktops_.assignWindowToDesktop(winId, virtualDesktops_.activeIndex());
+    auto* win = windowManager_.findWindow(winId);
+    if (win) {
+        auto hub = std::make_shared<AppHubContent>();
+        if (!initialQuery.empty()) {
+            hub->setSearchQuery(initialQuery);
+        }
+        hub->setInstallCallback([this](const std::string& title, const std::string& msg, bool success) {
+            toastManager_.showToast(title, msg, success ? IconId::AppHub : IconId::NotificationBell);
+        });
+        win->content = hub;
+        hub->render(win->clientSurface);
+    }
+    return winId;
+}
+
 void SurShellDesktop::openSearchHub() {
     searchHub_.toggle();
     if (searchHub_.isVisible()) {
@@ -628,6 +649,7 @@ void SurShellDesktop::wireSubsystemCallbacks() {
         else if (targetApp == "diskmgmt" || targetApp == "diskmgmt.msc" || targetApp == "diskmanagement" || targetApp == "partitions" || targetApp == "disks") openDiskManagementWindow();
         else if (targetApp == "services" || targetApp == "services.msc" || targetApp == "service") openServicesWindow();
         else if (targetApp == "eventvwr" || targetApp == "eventvwr.msc" || targetApp == "eventlog" || targetApp == "events") openEventViewerWindow();
+        else if (targetApp == "winget" || targetApp == "store" || targetApp == "app_hub" || targetApp == "hub" || targetApp == "market") openAppHubWindow(args);
         else kernelBridge_.spawnProcess(targetApp, args);
     });
 
@@ -685,8 +707,11 @@ void SurShellDesktop::wireSubsystemCallbacks() {
     taskbar_.setTaskViewClickCallback([this]() {
         virtualDesktops_.toggleSwitcher();
         if (virtualDesktops_.isSwitcherVisible()) {
+            virtualDesktops_.updateLayout(width_, height_, taskbar_.bounds().height);
             startMenu_.close();
             quickSettings_.close();
+            actionCenter_.hide();
+            searchHub_.hide();
         }
     });
 
@@ -895,6 +920,8 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openServicesWindow();
         } else if (app.executablePath == "C:\\Windows\\System32\\eventvwr.msc" || app.id == "eventvwr" || app.id == "eventvwr.msc" || app.id == "eventlog") {
             openEventViewerWindow();
+        } else if (app.executablePath == "C:\\Windows\\System32\\winget.exe" || app.id == "app_hub" || app.id == "winget" || app.id == "store") {
+            openAppHubWindow();
         } else {
             const bool spawned = kernelBridge_.spawnProcess(app.executablePath, app.arguments).has_value();
             toastManager_.showToast("Launched Application", app.title, IconRenderer::iconForAppId(app.id));
@@ -1130,6 +1157,11 @@ void SurShellDesktop::onMouseDown(Point pt, MouseButton button) {
 
 void SurShellDesktop::onMouseUp(Point pt, MouseButton button) {
     currentMousePos_ = pt;
+    if (virtualDesktops_.isSwitcherVisible()) {
+        if (virtualDesktops_.onMouseUp(pt, button)) {
+            return;
+        }
+    }
     quickSettings_.onMouseUp(pt, button);
     windowManager_.onMouseUp(pt, button);
     desktop_.onMouseUp(pt, button);
@@ -1248,6 +1280,21 @@ void SurShellDesktop::onKeyDown(KeyCode key, bool ctrl, bool shift, bool alt, bo
         }
     }
 
+    if (virtualDesktops_.isSwitcherVisible()) {
+        if (key == KeyCode::Escape) {
+            virtualDesktops_.hideSwitcher();
+            return;
+        }
+        if (key == KeyCode::Left) {
+            virtualDesktops_.previousDesktop();
+            return;
+        }
+        if (key == KeyCode::Right) {
+            virtualDesktops_.nextDesktop();
+            return;
+        }
+    }
+
     if (altTab_.isActive()) {
         if (key == KeyCode::Tab) {
             cycleAltTab(!shift);
@@ -1259,6 +1306,60 @@ void SurShellDesktop::onKeyDown(KeyCode key, bool ctrl, bool shift, bool alt, bo
             commitAltTab();
             return;
         }
+    }
+
+    // Win + Tab: Toggle Task View
+    if (win && key == KeyCode::Tab) {
+        virtualDesktops_.toggleSwitcher();
+        if (virtualDesktops_.isSwitcherVisible()) {
+            virtualDesktops_.updateLayout(width_, height_, taskbar_.bounds().height);
+            startMenu_.close();
+            quickSettings_.close();
+            actionCenter_.hide();
+            searchHub_.hide();
+        }
+        return;
+    }
+
+    // Alt + Tab: Cycle Application Windows
+    if (alt && key == KeyCode::Tab) {
+        if (!altTab_.isActive()) {
+            triggerAltTab();
+        } else {
+            cycleAltTab(!shift);
+        }
+        return;
+    }
+
+    // Ctrl + Win + Left / Right: Switch Virtual Desktops
+    if (ctrl && win && key == KeyCode::Left) {
+        virtualDesktops_.previousDesktop();
+        toastManager_.showToast("Virtual Desktop", virtualDesktops_.activeDesktop().name, IconId::TaskView);
+        return;
+    }
+
+    if (ctrl && win && key == KeyCode::Right) {
+        virtualDesktops_.nextDesktop();
+        toastManager_.showToast("Virtual Desktop", virtualDesktops_.activeDesktop().name, IconId::TaskView);
+        return;
+    }
+
+    // Ctrl + Win + D: Create New Virtual Desktop
+    if (ctrl && win && key == KeyCode::KeyD) {
+        virtualDesktops_.createDesktop();
+        virtualDesktops_.switchDesktop(virtualDesktops_.desktopCount() - 1);
+        toastManager_.showToast("Desktop Created", virtualDesktops_.activeDesktop().name, IconId::TaskView);
+        return;
+    }
+
+    // Ctrl + Win + F4: Close Active Virtual Desktop
+    if (ctrl && win && key == KeyCode::F4) {
+        if (virtualDesktops_.desktopCount() > 1) {
+            std::string closedName = virtualDesktops_.activeDesktop().name;
+            virtualDesktops_.removeDesktop(virtualDesktops_.activeIndex());
+            toastManager_.showToast("Desktop Closed", closedName, IconId::TaskView);
+        }
+        return;
     }
 
     if (key == KeyCode::Super) {

@@ -78,6 +78,10 @@ public:
 
     bool onMouseDown(Point pt, MouseButton btn);
     bool onMouseMove(Point pt);
+    bool onMouseUp(Point pt, MouseButton btn);
+
+    [[nodiscard]] bool isDraggingWindow() const noexcept { return isDraggingWindow_; }
+    [[nodiscard]] uint32_t draggedWindowId() const noexcept { return isDraggingWindow_ ? dragCandidateWindowId_ : 0; }
 
     void renderSwitcher(Surface& surface, const ThemePalette& theme);
 
@@ -105,6 +109,13 @@ private:
     int32_t hoveredWindowId_{-1};
     int32_t hoveredWindowCloseId_{-1};
     bool isAddDesktopHovered_{false};
+
+    uint32_t dragCandidateWindowId_{0};
+    bool isDraggingWindow_{false};
+    Point dragStartPt_{0, 0};
+    Point dragCurrentPt_{0, 0};
+    int32_t dropTargetDesktopIndex_{-1};
+    bool dropTargetIsNewDesktop_{false};
 
     std::vector<TaskViewWindowCard> activeWindowCards_{};
 

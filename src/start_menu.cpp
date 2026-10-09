@@ -230,6 +230,18 @@ StartMenu::StartMenu() {
         .pinnedToStart = true
     });
 
+    registerApp(ShellAppEntry{
+        .id = "app_hub",
+        .title = "Sovereign App Hub",
+        .subtitle = "winget Package Manager & Retail Suite",
+        .executablePath = "C:\\Windows\\System32\\winget.exe",
+        .arguments = "",
+        .iconGlyph = "[HUB]",
+        .category = AppCategory::Utilities,
+        .pinnedToTaskbar = true,
+        .pinnedToStart = true
+    });
+
     // Sovereign Interactive Power Flyout Options
     powerOptions_ = {
         PowerOptionItem{.action = PowerAction::Sleep, .label = "Sleep", .description = "Save session in low power", .iconId = IconId::Sleep},

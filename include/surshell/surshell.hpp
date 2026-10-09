@@ -41,6 +41,7 @@
 #include "diskmgmt.hpp"
 #include "services.hpp"
 #include "eventviewer.hpp"
+#include "app_hub.hpp"
 
 namespace surshell {
 
@@ -110,6 +111,7 @@ public:
     uint32_t openDiskManagementWindow();
     uint32_t openServicesWindow();
     uint32_t openEventViewerWindow(std::string initialLog = "System");
+    uint32_t openAppHubWindow(std::string initialQuery = "");
 
     // Master Render Loop
     void render();
