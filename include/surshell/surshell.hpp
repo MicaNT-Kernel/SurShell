@@ -43,6 +43,7 @@
 #include "eventviewer.hpp"
 #include "app_hub.hpp"
 #include "wsa.hpp"
+#include "micag.hpp"
 
 namespace surshell {
 

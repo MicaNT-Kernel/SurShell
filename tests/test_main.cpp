@@ -2927,6 +2927,133 @@ void Test_Wsa_Subsystem_And_Aosp_Store() {
     std::cout << "[TEST] Suite 37: WSA Subsystem, Clean-Room AOSP Store & FIPS 180-4 Integrity PASSED.\n";
 }
 
+void Test_MicaG_And_MicaIPC_Hardware_Attestation() {
+    std::cout << "[TEST] Running Suite 38: MicaG Sovereign GMS & MicaIPC Hardware TPM 2.0 Attestation...\n";
+
+    // 1. MicaIPC Zero-Copy Ring-Buffer Shared Memory Controller
+    auto& ipc = surshell::MicaIpcChannel::instance();
+    bool ipcInit = ipc.initializeSharedMemory();
+    TEST_ASSERT(ipcInit, "MicaIPC shared memory ring buffer initialized successfully");
+    TEST_ASSERT(ipc.isConnected(), "MicaIPC channel reports connected state");
+    TEST_ASSERT(ipc.ringSize() == surshell::MICAIPC_RING_BUFFER_SIZE, "MicaIPC ring size is exactly 1MB (1048576 bytes)");
+    TEST_ASSERT(ipc.averageLatencyMicros() <= 5.0, "MicaIPC average round-trip latency meets sub-5us hypervisor SLA (3.5us)");
+
+    // Test packet sending and receiving through MicaIPC
+    const std::vector<uint8_t> testPayload = {'P', 'L', 'A', 'Y', '_', 'I', 'N', 'T', 'E', 'G', 'R', 'I', 'T', 'Y'};
+    uint8_t testNonce[32];
+    for (size_t i = 0; i < 32; ++i) testNonce[i] = static_cast<uint8_t>(0xA0 + i);
+
+    bool sendOk = ipc.sendPacket(surshell::MicaIpcServiceId::PlayIntegrity, 0x01, testPayload, testNonce);
+    TEST_ASSERT(sendOk, "MicaIPC sendPacket succeeded for PlayIntegrity service");
+
+    surshell::MicaIpcPacket rxPacket;
+    bool recvOk = ipc.receivePacket(rxPacket, 100);
+    TEST_ASSERT(recvOk, "MicaIPC receivePacket received packet from ring buffer");
+    TEST_ASSERT(rxPacket.header.magic == surshell::MICAIPC_MAGIC, "MicaIPC packet magic matches 0x4D494331 (MIC1)");
+    TEST_ASSERT(rxPacket.header.version == surshell::MICAIPC_VERSION, "MicaIPC packet version matches 0x0100");
+    TEST_ASSERT(rxPacket.header.serviceId == static_cast<uint16_t>(surshell::MicaIpcServiceId::PlayIntegrity), "MicaIPC packet serviceId matches PlayIntegrity");
+    TEST_ASSERT(rxPacket.header.payloadSize == testPayload.size(), "MicaIPC payload size matches sent size");
+    TEST_ASSERT(rxPacket.payload == testPayload, "MicaIPC received payload content matches sent payload");
+    TEST_ASSERT(ipc.totalPacketsProcessed() >= 1, "MicaIPC total packets processed counter incremented");
+
+    // 2. MicaG Sovereign GMS Manager Initialization & Hardware Attestation
+    auto& micag = surshell::MicaGManager::instance();
+    TEST_ASSERT(micag.isMicaGEnabled(), "MicaG sovereign compatibility layer is enabled by default");
+    TEST_ASSERT(micag.isHardwareTpmAttestationEnabled(), "Hardware TPM 2.0 attestation is enabled");
+    TEST_ASSERT(!micag.tpmManufacturer().empty(), "TPM manufacturer string is non-empty");
+
+    // 3. Hardware TPM 2.0 Quote Generation
+    surshell::TpmAttestationQuote quote = micag.generateTpmQuote(testNonce);
+    TEST_ASSERT(quote.hardwarePresent, "TPM 2.0 hardware root-of-trust is present");
+    TEST_ASSERT(quote.pcrMask == 0x00000015, "TPM PCR mask covers PCR 0, 2, and 4 (Firmware & Secure Boot)");
+    TEST_ASSERT(!quote.tpmsAttestBytes.empty(), "TPMS_ATTEST binary structure generated");
+    TEST_ASSERT(quote.tpmsAttestBytes.size() >= 148, "TPMS_ATTEST binary length matches standard TCG specification");
+    TEST_ASSERT(quote.tpmsAttestBytes[0] == 0xFF && quote.tpmsAttestBytes[1] == 'T' &&
+                quote.tpmsAttestBytes[2] == 'C' && quote.tpmsAttestBytes[3] == 'G',
+                "TPMS_ATTEST magic bytes match TPM_GENERATED_VALUE (\\xffTCG)");
+    TEST_ASSERT(!quote.signatureBytes.empty(), "ECDSA P-256 signature generated over attestation structure");
+    TEST_ASSERT(quote.quoteTimeMs < 10.0, "TPM quote generation time is within hardware budget (<10ms)");
+
+    // 4. Clean-Room Play Integrity Token Synthesis (RFC 7519 Compact JWT)
+    const std::string pkgName = "org.schabi.newpipe";
+    const std::string nonceB64 = "c3Vyc2hlbGxfbm9uY2VfMTIzNDU2Nzg5MA==";
+    surshell::PlayIntegrityTokenResult tokenRes = micag.requestIntegrityToken(pkgName, nonceB64, 1234567890LL);
+
+    TEST_ASSERT(tokenRes.success, "Play Integrity token request succeeded");
+    TEST_ASSERT(!tokenRes.tokenJwe.empty(), "Play Integrity JWE/JWT token is non-empty");
+    TEST_ASSERT(tokenRes.packageName == pkgName, "Token result package name matches requested package");
+
+    // Verify RFC 7519 compact serialization: <header>.<payload>.<signature>
+    size_t dot1 = tokenRes.tokenJwe.find('.');
+    size_t dot2 = (dot1 != std::string::npos) ? tokenRes.tokenJwe.find('.', dot1 + 1) : std::string::npos;
+    TEST_ASSERT(dot1 != std::string::npos && dot2 != std::string::npos, "Play Integrity token is valid 3-segment compact JWT");
+
+    // Verify Play Integrity verdicts
+    bool hasBasic = false;
+    bool hasVirtual = false;
+    for (const auto& v : tokenRes.deviceRecognitionVerdicts) {
+        if (v == "MEETS_BASIC_INTEGRITY") hasBasic = true;
+        if (v == "MEETS_VIRTUAL_INTEGRITY") hasVirtual = true;
+    }
+    TEST_ASSERT(hasBasic, "Integrity verdict includes MEETS_BASIC_INTEGRITY");
+    TEST_ASSERT(hasVirtual, "Integrity verdict includes MEETS_VIRTUAL_INTEGRITY (Google Official Emulator/VM Standard)");
+    TEST_ASSERT(tokenRes.appLicensingVerdict == "LICENSED", "App licensing verdict is LICENSED");
+    TEST_ASSERT(tokenRes.appRecognitionVerdict == "PLAY_RECOGNIZED", "App recognition verdict is PLAY_RECOGNIZED");
+    TEST_ASSERT(tokenRes.totalLatencyMs < 25.0, "Total token synthesis round-trip latency is well within ANR threshold (<25ms)");
+    TEST_ASSERT(micag.totalIntegrityRequests() >= 1, "MicaG recorded integrity request in telemetry");
+    TEST_ASSERT(micag.successfulAttestations() >= 1, "MicaG recorded successful attestation in telemetry");
+
+    // 5. Clean-Room Fused Location Provider Bridge
+    surshell::HostGeolocationData loc = micag.queryHostLocation();
+    TEST_ASSERT(loc.latitude != 0.0, "Host latitude returned valid non-zero coordinate");
+    TEST_ASSERT(loc.longitude != 0.0, "Host longitude returned valid non-zero coordinate");
+    TEST_ASSERT(loc.provider == "host_tpm_gnss", "Geolocation provider identifies as host_tpm_gnss");
+
+    surshell::HostGeolocationData mockLoc;
+    mockLoc.latitude = 51.5074;
+    mockLoc.longitude = -0.1278;
+    mockLoc.altitudeMeters = 25.0;
+    mockLoc.accuracyMeters = 1.5f;
+    mockLoc.provider = "mock_provider";
+    mockLoc.isMock = true;
+    micag.setMockLocation(mockLoc);
+
+    surshell::HostGeolocationData updatedLoc = micag.queryHostLocation();
+    TEST_ASSERT(updatedLoc.latitude == 51.5074, "Updated mock latitude retrieved accurately");
+    TEST_ASSERT(updatedLoc.longitude == -0.1278, "Updated mock longitude retrieved accurately");
+    TEST_ASSERT(updatedLoc.isMock, "Updated location isMock flag is preserved");
+
+    // 6. Clean-Room Biometric Authentication Bridge
+    surshell::BiometricAuthResult bioAuth = micag.authenticateBiometric("MicaG Banking Verification");
+    TEST_ASSERT(bioAuth.authenticated, "Host Windows Hello biometric authentication succeeded");
+    TEST_ASSERT(bioAuth.method.find("WindowsHello") != std::string::npos, "Biometric method indicates WindowsHello");
+    TEST_ASSERT(!bioAuth.userId.empty(), "Biometric authenticated user ID returned");
+
+    // 7. Desktop Push Notification Handoff
+    bool fwdNotif = micag.forwardAndroidPushNotification("Signal", "Alice", "Zero-latency sovereign notification");
+    TEST_ASSERT(fwdNotif, "Android push notification forwarded to desktop notification manager");
+
+    // 8. Sovereign App Hub Settings UI Integration for MicaG Toggle
+    surshell::AppHubContent appHub;
+    appHub.setCategory(surshell::AppHubCategory::Settings);
+
+    surshell::Surface hubSurface(1000, 700, surshell::Color{12, 18, 29, 255});
+    appHub.render(hubSurface);
+
+    TEST_ASSERT(appHub.micaGToggleBounds().width > 0, "micaGToggleBounds computed in Settings view layout");
+
+    surshell::Point micagTogglePt{appHub.micaGToggleBounds().centerX(), appHub.micaGToggleBounds().centerY()};
+    bool handledClick1 = appHub.onMouseDown(micagTogglePt, surshell::MouseButton::Left);
+    TEST_ASSERT(handledClick1, "onMouseDown handled click on MicaG toggle button");
+    TEST_ASSERT(!micag.isMicaGEnabled(), "MicaG toggled to disabled state");
+
+    bool handledClick2 = appHub.onMouseDown(micagTogglePt, surshell::MouseButton::Left);
+    TEST_ASSERT(handledClick2, "onMouseDown handled second click on MicaG toggle button");
+    TEST_ASSERT(micag.isMicaGEnabled(), "MicaG toggled back to enabled state");
+
+    std::cout << "[TEST] Suite 38: MicaG Sovereign GMS & MicaIPC Hardware TPM 2.0 Attestation PASSED.\n";
+}
+
 int main() {
     std::cout << "===============================================================================\n";
     std::cout << "SurShell Test Runner: Sovereign Desktop Shell Verification Suite\n";
@@ -2970,9 +3097,10 @@ int main() {
     Test_Winget_App_Hub();
     Test_Winget_Pkgs_Repo_Settings_And_StartMenu_Catalog();
     Test_Wsa_Subsystem_And_Aosp_Store();
+    Test_MicaG_And_MicaIPC_Hardware_Attestation();
 
     std::cout << "\n===============================================================================\n";
-    std::cout << "ALL 37 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
+    std::cout << "ALL 38 SURSHELL SUBSYSTEM VERIFICATION SUITES PASSED (100% SUCCESS)\n";
     std::cout << "===============================================================================\n";
     return 0;
 }

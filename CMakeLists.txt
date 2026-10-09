@@ -41,6 +41,7 @@ set(SURSHELL_SOURCES
     src/eventviewer.cpp
     src/app_hub.cpp
     src/wsa.cpp
+    src/micag.cpp
     src/surshell.cpp
 )
 

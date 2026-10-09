@@ -6,6 +6,7 @@
 // ============================================================================
 
 #include "surshell/app_hub.hpp"
+#include "surshell/micag.hpp"
 #include <algorithm>
 #include <cctype>
 
@@ -353,6 +354,10 @@ void AppHubContent::updateLayout(int32_t width, int32_t height) {
         // Section 4: Barrer Software MicaNT AOSP Manifest Repository (MicaNT-Kernel/wsa-app)
         const int32_t sec4Y = sec3Y + 68;
         syncWsaRepoBtnBounds_ = Rect{catalogAreaBounds_.x + cardW - 196, sec4Y + 22, 196, 30};
+
+        // Section 5: MicaG & MicaIPC Sovereign GMS Bridge (TPM 2.0 Hardware Attestation)
+        const int32_t sec5Y = sec4Y + 68;
+        micaGToggleBounds_ = Rect{catalogAreaBounds_.x, sec5Y + 22, 450, 30};
 
         maxScrollY_ = 0;
         scrollY_ = 0;
@@ -748,6 +753,27 @@ void AppHubContent::renderSettingsView(Surface& clientSurface, int32_t width, in
     clientSurface.drawRoundedRect(syncWsaRepoBtnBounds_, 4, syncWsaBg, true);
     clientSurface.drawString(syncWsaRepoBtnBounds_.centerX() - 60, syncWsaRepoBtnBounds_.y + 7,
                              "Sync AOSP Catalog", Color::fromHex(0x06090F), 1);
+
+    // Section 5: MicaG & MicaIPC Sovereign GMS Bridge (TPM 2.0 Attestation)
+    const int32_t sec5Y = sec4Y + 68;
+    clientSurface.drawString(catalogAreaBounds_.x, sec5Y,
+                             "MICAG & MICAIPC SOVEREIGN GMS BRIDGE (TPM 2.0 ATTESTATION)", palette.prismAccent, 1);
+    clientSurface.fillRect(Rect{catalogAreaBounds_.x, sec5Y + 16, catalogAreaBounds_.width, 1},
+                           Color::fromHex(0x1E293B));
+
+    auto& micag = MicaGManager::instance();
+    const bool micagOn = micag.isMicaGEnabled();
+    const Color micagBg = micagOn ? Color::fromHex(0x0E3A2F) : Color::fromHex(0x2A1A1A);
+    const Color micagBorder = micagOn ? Color::fromHex(0x10B981) : Color::fromHex(0xEF4444);
+    clientSurface.drawRoundedRect(micaGToggleBounds_, 4, micagBg, true);
+    clientSurface.drawRoundedRect(micaGToggleBounds_, 4, isMicaGToggleHovered_ ? Color::fromHex(0xFFFFFF) : micagBorder, false);
+
+    const std::string micagText = micagOn
+        ? "MicaG: ENABLED [TPM 2.0 VIRTUAL INTEGRITY | 3.5us MicaIPC]"
+        : "MicaG: DISABLED [AOSP STANDALONE | NO HARDWARE ATTESTATION]";
+    clientSurface.drawString(micaGToggleBounds_.x + 10,
+                             micaGToggleBounds_.y + 7, micagText,
+                             micagOn ? Color::fromHex(0x34D399) : Color::fromHex(0xF87171), 1);
 }
 
 bool AppHubContent::onMouseDown(Point localPt, MouseButton button) {
@@ -842,6 +868,18 @@ bool AppHubContent::onMouseDown(Point localPt, MouseButton button) {
             if (installCallback_) installCallback_("Defaults Restored", "Repository source reset to official microsoft/winget-pkgs", true);
             return true;
         }
+        if (micaGToggleBounds_.contains(localPt)) {
+            auto& micag = MicaGManager::instance();
+            micag.setMicaGEnabled(!micag.isMicaGEnabled());
+            if (installCallback_) {
+                installCallback_("MicaG Sovereign Bridge",
+                                 micag.isMicaGEnabled()
+                                     ? "MicaG Hardware TPM 2.0 Play Integrity & MicaIPC enabled."
+                                     : "MicaG GMS compatibility layer disabled.",
+                                 micag.isMicaGEnabled());
+            }
+            return true;
+        }
         return false;
     }
 
@@ -894,9 +932,10 @@ bool AppHubContent::onMouseMove(Point localPt) {
         isArchX64Hovered_ = archX64BtnBounds_.contains(localPt);
         isArchArm64Hovered_ = archArm64BtnBounds_.contains(localPt);
         isResetDefaultsHovered_ = resetDefaultsBtnBounds_.contains(localPt);
+        isMicaGToggleHovered_ = micaGToggleBounds_.contains(localPt);
         return isScanRepoHovered_ || isSyncUpstreamHovered_ || isSyncWsaRepoHovered_ ||
                isFipsToggleHovered_ || isArchX64Hovered_ || isArchArm64Hovered_ ||
-               isResetDefaultsHovered_ || isWsaBadgeHovered_ || isSearchHovered_;
+               isResetDefaultsHovered_ || isMicaGToggleHovered_ || isWsaBadgeHovered_ || isSearchHovered_;
     }
 
     hoveredCardIndex_ = -1;

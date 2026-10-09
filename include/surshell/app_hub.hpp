@@ -87,6 +87,7 @@ public:
     [[nodiscard]] Rect wsaStatusBadgeBounds() const noexcept { return wsaStatusBadgeBounds_; }
     [[nodiscard]] Rect wsaSideloadBtnBounds() const noexcept { return wsaSideloadBtnBounds_; }
     [[nodiscard]] Rect syncWsaRepoBtnBounds() const noexcept { return syncWsaRepoBtnBounds_; }
+    [[nodiscard]] Rect micaGToggleBounds() const noexcept { return micaGToggleBounds_; }
 
     // IWindowContent Interface
     void render(Surface& clientSurface) override;
@@ -134,6 +135,8 @@ private:
     bool isWsaBadgeHovered_{false};
     bool isSideloadBtnHovered_{false};
     bool isSyncWsaRepoHovered_{false};
+    Rect micaGToggleBounds_{};
+    bool isMicaGToggleHovered_{false};
 
     // Settings & Sources UI state
     struct RepoSourceCard {
