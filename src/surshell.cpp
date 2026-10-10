@@ -550,6 +550,27 @@ uint32_t SurShellDesktop::openAppHubWindow(std::string initialQuery) {
     return winId;
 }
 
+size_t SurShellDesktop::checkSoftwareUpdates(bool showToast) {
+    auto& mgr = winget::WinGetManager::Instance();
+    const auto& catalog = mgr.getCatalog();
+    size_t upCount = 0;
+    for (const auto& [pkgId, pkg] : catalog) {
+        auto installedOpt = mgr.getInstalledPackage(pkgId);
+        if (installedOpt) {
+            if (!installedOpt->isPinned && AppHubContent::compareVersions(pkg.packageVersion, installedOpt->packageVersion) > 0) {
+                upCount++;
+            }
+        }
+    }
+
+    if (upCount > 0 && showToast) {
+        std::string title = std::to_string(upCount) + " Software Updates Available";
+        std::string body = "Click to open Sovereign App Hub and review pending package upgrades.";
+        toastManager_.showToast(title, body, IconId::AppHub);
+    }
+    return upCount;
+}
+
 void SurShellDesktop::openSearchHub() {
     searchHub_.toggle();
     if (searchHub_.isVisible()) {

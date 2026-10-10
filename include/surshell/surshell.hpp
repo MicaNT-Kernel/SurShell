@@ -114,6 +114,7 @@ public:
     uint32_t openServicesWindow();
     uint32_t openEventViewerWindow(std::string initialLog = "System");
     uint32_t openAppHubWindow(std::string initialQuery = "");
+    size_t checkSoftwareUpdates(bool showToast = true);
 
     // Master Render Loop
     void render();

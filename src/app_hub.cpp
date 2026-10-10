@@ -31,7 +31,9 @@ static std::string readRegStringVal(HKEY hKey, const wchar_t* valName) {
 }
 #endif
 
-static int compareVersions(std::string_view v1, std::string_view v2) {
+namespace surshell {
+
+int AppHubContent::compareVersions(std::string_view v1, std::string_view v2) {
     size_t i = 0, j = 0;
     while (i < v1.size() || j < v2.size()) {
         int64_t n1 = 0, n2 = 0;
@@ -52,8 +54,6 @@ static int compareVersions(std::string_view v1, std::string_view v2) {
     return 0;
 }
 
-namespace surshell {
-
 AppHubContent::AppHubContent() {
     categoryTabs_ = {
         { AppHubCategory::All, "All Packages", Rect{} },
@@ -62,8 +62,40 @@ AppHubContent::AppHubContent() {
         { AppHubCategory::DeveloperTools, "Developer Tools", Rect{} },
         { AppHubCategory::SystemUtilities, "System Utilities", Rect{} },
         { AppHubCategory::MediaDocs, "Media & Docs", Rect{} },
+        { AppHubCategory::Stacks, "Curated Stacks", Rect{} },
         { AppHubCategory::Installed, "Installed", Rect{} },
         { AppHubCategory::Settings, "Settings & Sources", Rect{} }
+    };
+
+    curatedStacks_ = {
+        {
+            .id = "developer",
+            .name = "Developer Sovereign Stack",
+            .desc = "Essential developer toolchain including Git, VS Code, Windows Terminal, and 7-Zip.",
+            .category = "Developer",
+            .pkgIds = {"Git.Git", "Microsoft.VisualStudioCode", "Microsoft.WindowsTerminal", "7zip.7zip"}
+        },
+        {
+            .id = "privacy",
+            .name = "Privacy & Sovereign Security",
+            .desc = "Zero-telemetry communication, password manager, and private web browser.",
+            .category = "Security",
+            .pkgIds = {"Signal.Signal", "KeePassXCTeam.KeePassXC", "BraveSoftware.BraveBrowser"}
+        },
+        {
+            .id = "media",
+            .name = "Media Production Studio",
+            .desc = "Universal media playback, broadcasting, and audio workstation tools.",
+            .category = "Media",
+            .pkgIds = {"VideoLAN.VLC", "OBSProject.OBSStudio", "Audacity.Audacity"}
+        },
+        {
+            .id = "utilities",
+            .name = "System Diagnostics & Utilities",
+            .desc = "High-speed file indexing, disk partition visualization, and compression tools.",
+            .category = "Utilities",
+            .pkgIds = {"voidtools.Everything", "AntibodySoftware.WizTree", "WinMerge.WinMerge", "7zip.7zip"}
+        }
     };
 
     refreshWsaStatus();
@@ -101,13 +133,20 @@ void AppHubContent::populateCatalog() {
         card.description = pPkg->shortDescription;
         card.moniker = pPkg->moniker;
 
+        card.isPinned = isPackagePinned(card.id);
+        if (!pPkg->installers.empty()) {
+            card.architecture = winget::ArchitectureToString(pPkg->installers[0].architecture);
+            card.downloadUrl = pPkg->installers[0].installerUrl;
+            card.sha256 = pPkg->installers[0].installerSha256;
+        }
+
         // Check if installed in winget engine
         card.isInstalled = mgr.isInstalled(card.id);
         if (card.isInstalled) {
             for (const auto& ip : mgr.getInstalledPackages()) {
                 if (ip.packageIdentifier == card.id) {
                     card.installedVersion = ip.packageVersion;
-                    if (compareVersions(card.version, card.installedVersion) > 0) {
+                    if (!card.isPinned && compareVersions(card.version, card.installedVersion) > 0) {
                         card.hasUpdateAvailable = true;
                     }
                     break;
@@ -224,7 +263,7 @@ void AppHubContent::setCategory(AppHubCategory cat) {
 
 void AppHubContent::updateFilter() {
     filteredCards_.clear();
-    if (activeCategory_ == AppHubCategory::Settings) {
+    if (activeCategory_ == AppHubCategory::Settings || activeCategory_ == AppHubCategory::Stacks) {
         return;
     }
 
@@ -377,7 +416,7 @@ size_t AppHubContent::upgradeAllPackages() {
     size_t count = 0;
     std::vector<std::string> toUpgrade;
     for (const auto& card : allCards_) {
-        if (card.hasUpdateAvailable) {
+        if (card.hasUpdateAvailable && !card.isPinned) {
             toUpgrade.push_back(card.id);
         }
     }
@@ -392,9 +431,61 @@ size_t AppHubContent::upgradeAllPackages() {
 size_t AppHubContent::updateAvailableCount() const noexcept {
     size_t count = 0;
     for (const auto& card : allCards_) {
-        if (card.hasUpdateAvailable) count++;
+        if (card.hasUpdateAvailable && !card.isPinned) count++;
     }
     return count;
+}
+
+bool AppHubContent::pinPackage(const std::string& packageId, bool pin) {
+    if (pin) {
+        if (!isPackagePinned(packageId)) {
+            pinnedPackageIds_.push_back(packageId);
+        }
+    } else {
+        auto it = std::remove(pinnedPackageIds_.begin(), pinnedPackageIds_.end(), packageId);
+        pinnedPackageIds_.erase(it, pinnedPackageIds_.end());
+    }
+    auto& mgr = winget::WinGetManager::Instance();
+    auto installedOpt = mgr.getInstalledPackage(packageId);
+    if (installedOpt) {
+        winget::InstalledPackage ip = *installedOpt;
+        ip.isPinned = pin;
+        mgr.registerInstalled(ip);
+    }
+
+    refresh();
+    if (installCallback_) {
+        installCallback_(pin ? "Package Pinned" : "Package Unpinned",
+                         packageId + (pin ? " is now locked against automatic upgrades." : " updates are now unlocked."),
+                         true);
+    }
+    return true;
+}
+
+bool AppHubContent::isPackagePinned(const std::string& packageId) const {
+    return std::find(pinnedPackageIds_.begin(), pinnedPackageIds_.end(), packageId) != pinnedPackageIds_.end();
+}
+
+size_t AppHubContent::installCuratedStack(const std::string& stackId) {
+    size_t count = 0;
+    for (const auto& s : curatedStacks_) {
+        if (s.id == stackId) {
+            for (const auto& id : s.pkgIds) {
+                if (installPackage(id)) {
+                    ++count;
+                }
+            }
+            if (installCallback_) {
+                installCallback_("Curated Stack Installed", "Provisioned " + std::to_string(count) + " packages from " + s.name, true);
+            }
+            break;
+        }
+    }
+    return count;
+}
+
+void AppHubContent::inspectPackage(const std::string& packageId) {
+    inspectedPackageId_ = packageId;
 }
 
 size_t AppHubContent::scanSystemInstalled() {
@@ -532,10 +623,23 @@ void AppHubContent::updateLayout(int32_t width, int32_t height) {
 
         maxScrollY_ = 0;
         scrollY_ = 0;
-        return;
-    }
+    } else if (activeCategory_ == AppHubCategory::Stacks) {
+        const int32_t stackCardW = catalogAreaBounds_.width;
+        constexpr int32_t stackCardH = 76;
+        constexpr int32_t stackGap = 12;
 
-    // Layout Cards Grid in Catalog Area
+        int32_t curY = catalogAreaBounds_.y + 12 - scrollY_;
+        for (auto& s : curatedStacks_) {
+            s.bounds = Rect{catalogAreaBounds_.x, curY, stackCardW, stackCardH};
+            s.installBtnBounds = Rect{catalogAreaBounds_.x + stackCardW - 130, curY + 22, 118, 32};
+            curY += stackCardH + stackGap;
+        }
+
+        const int32_t totalH = static_cast<int32_t>(curatedStacks_.size()) * (stackCardH + stackGap);
+        maxScrollY_ = std::max(0, totalH - catalogAreaBounds_.height);
+        scrollY_ = std::clamp(scrollY_, 0, maxScrollY_);
+    } else {
+        // Layout Cards Grid in Catalog Area
     constexpr int32_t cardGap = 12;
     constexpr int32_t cardH = 96;
     const int32_t cols = (catalogAreaBounds_.width > 700) ? 2 : 1;
@@ -566,12 +670,28 @@ void AppHubContent::updateLayout(int32_t width, int32_t height) {
         constexpr int32_t btnW = 96;
         constexpr int32_t btnH = 26;
         card.actionBtnBounds = Rect{cx + cardW - btnW - 12, cy + cardH - btnH - 12, btnW, btnH};
+
+        // Pin button bounds (to the left of action button)
+        card.pinBtnBounds = Rect{card.actionBtnBounds.x - 32, card.actionBtnBounds.y, 26, btnH};
+
+        // Inspect button bounds (to the left of pin button)
+        card.inspectBtnBounds = Rect{card.pinBtnBounds.x - 32, card.actionBtnBounds.y, 26, btnH};
     }
 
     const int32_t totalRows = (static_cast<int32_t>(filteredCards_.size()) + cols - 1) / cols;
     const int32_t contentTotalH = (hasTopBanner ? 48 : 0) + totalRows * (cardH + cardGap);
-    maxScrollY_ = std::max(0, contentTotalH - catalogAreaBounds_.height);
-    scrollY_ = std::clamp(scrollY_, 0, maxScrollY_);
+        maxScrollY_ = std::max(0, contentTotalH - catalogAreaBounds_.height);
+        scrollY_ = std::clamp(scrollY_, 0, maxScrollY_);
+    }
+
+    if (inspectedPackageId_.has_value()) {
+        const int32_t modalW = std::min(680, catalogAreaBounds_.width - 20);
+        const int32_t modalH = 380;
+        const Rect modalRect{catalogAreaBounds_.centerX() - modalW / 2, catalogAreaBounds_.centerY() - modalH / 2, modalW, modalH};
+        inspectorCloseBtnBounds_ = Rect{modalRect.right() - 34, modalRect.y + 10, 24, 24};
+    } else {
+        inspectorCloseBtnBounds_ = Rect{};
+    }
 }
 
 void AppHubContent::render(Surface& clientSurface) {
@@ -666,164 +786,196 @@ void AppHubContent::render(Surface& clientSurface) {
         return;
     }
 
-    // Android WSA Sideload Banner (if AndroidWsa category active)
-    if (activeCategory_ == AppHubCategory::AndroidWsa) {
-        const Color sBg = isSideloadBtnHovered_ ? Color::fromHex(0x18283E) : Color::fromHex(0x0E1928);
-        const Color sBorder = isSideloadBtnHovered_ ? palette.prismAccent : Color::fromHex(0x10B981);
-        clientSurface.drawRoundedRect(wsaSideloadBtnBounds_, 6, sBg, true);
-        clientSurface.drawRoundedRect(wsaSideloadBtnBounds_, 6, sBorder, false);
+    if (activeCategory_ == AppHubCategory::Stacks) {
+        renderStacksView(clientSurface, width, height);
+    } else {
+        // Android WSA Sideload Banner (if AndroidWsa category active)
+        if (activeCategory_ == AppHubCategory::AndroidWsa) {
+            const Color sBg = isSideloadBtnHovered_ ? Color::fromHex(0x18283E) : Color::fromHex(0x0E1928);
+            const Color sBorder = isSideloadBtnHovered_ ? palette.prismAccent : Color::fromHex(0x10B981);
+            clientSurface.drawRoundedRect(wsaSideloadBtnBounds_, 6, sBg, true);
+            clientSurface.drawRoundedRect(wsaSideloadBtnBounds_, 6, sBorder, false);
 
-        IconRenderer::draw(clientSurface, IconId::FileExplorer,
-                           Rect{wsaSideloadBtnBounds_.x + 10, wsaSideloadBtnBounds_.y + 9, 20, 20},
-                           Color::fromHex(0x10B981));
+            IconRenderer::draw(clientSurface, IconId::FileExplorer,
+                               Rect{wsaSideloadBtnBounds_.x + 10, wsaSideloadBtnBounds_.y + 9, 20, 20},
+                               Color::fromHex(0x10B981));
 
-        clientSurface.drawString(wsaSideloadBtnBounds_.x + 36, wsaSideloadBtnBounds_.y + 11,
-                                 "Sideload Local .APK (Drag & Drop or Click)  |  MicaNT-Kernel Pure AOSP Engine",
-                                 Color::fromHex(0xE2E8F0), 1);
+            clientSurface.drawString(wsaSideloadBtnBounds_.x + 36, wsaSideloadBtnBounds_.y + 11,
+                                     "Sideload Local .APK (Drag & Drop or Click)  |  MicaNT-Kernel Pure AOSP Engine",
+                                     Color::fromHex(0xE2E8F0), 1);
 
-        const Rect sideBtn{wsaSideloadBtnBounds_.right() - 110, wsaSideloadBtnBounds_.y + 6, 100, 26};
-        clientSurface.drawRoundedRect(sideBtn, 4, isSideloadBtnHovered_ ? Color::fromHex(0x059669) : Color::fromHex(0x10B981), true);
-        clientSurface.drawString(sideBtn.x + 12, sideBtn.y + 6, "Sideload APK", Color::fromHex(0x06090F), 1);
-    }
-
-    // Installed Subsystem Banner (if Installed category active)
-    if (activeCategory_ == AppHubCategory::Installed) {
-        const Color scBg = isScanSystemBtnHovered_ ? Color::fromHex(0x1D4ED8) : Color::fromHex(0x1E3A8A);
-        clientSurface.drawRoundedRect(scanSystemBtnBounds_, 6, scBg, true);
-        clientSurface.drawRoundedRect(scanSystemBtnBounds_, 6, Color::fromHex(0x3B82F6), false);
-        clientSurface.drawString(scanSystemBtnBounds_.x + 14, scanSystemBtnBounds_.y + 8, "Scan System Apps", Color::fromHex(0xBFDBFE), 1);
-
-        const size_t upCount = updateAvailableCount();
-        if (upCount > 0) {
-            const Color upBg = isUpdateAllBtnHovered_ ? Color::fromHex(0xD97706) : Color::fromHex(0xB45309);
-            clientSurface.drawRoundedRect(updateAllBtnBounds_, 6, upBg, true);
-            clientSurface.drawRoundedRect(updateAllBtnBounds_, 6, Color::fromHex(0xF59E0B), false);
-            std::string upLabel = "Update All (" + std::to_string(upCount) + ")";
-            clientSurface.drawString(updateAllBtnBounds_.x + 18, updateAllBtnBounds_.y + 8, upLabel, Color::fromHex(0xFFFBEB), 1);
+            const Rect sideBtn{wsaSideloadBtnBounds_.right() - 110, wsaSideloadBtnBounds_.y + 6, 100, 26};
+            clientSurface.drawRoundedRect(sideBtn, 4, isSideloadBtnHovered_ ? Color::fromHex(0x059669) : Color::fromHex(0x10B981), true);
+            clientSurface.drawString(sideBtn.x + 12, sideBtn.y + 6, "Sideload APK", Color::fromHex(0x06090F), 1);
         }
 
-        std::string summary = std::to_string(installedPackagesCount()) + " Installed Packages  |  " + std::to_string(upCount) + " Updates Ready";
-        int32_t summaryX = (upCount > 0) ? (updateAllBtnBounds_.right() + 20) : (scanSystemBtnBounds_.right() + 20);
-        clientSurface.drawString(summaryX, catalogAreaBounds_.y + 14, summary, palette.textSecondary, 1);
-    }
+        // Installed Subsystem Banner (if Installed category active)
+        if (activeCategory_ == AppHubCategory::Installed) {
+            const Color scBg = isScanSystemBtnHovered_ ? Color::fromHex(0x1D4ED8) : Color::fromHex(0x1E3A8A);
+            clientSurface.drawRoundedRect(scanSystemBtnBounds_, 6, scBg, true);
+            clientSurface.drawRoundedRect(scanSystemBtnBounds_, 6, Color::fromHex(0x3B82F6), false);
+            clientSurface.drawString(scanSystemBtnBounds_.x + 14, scanSystemBtnBounds_.y + 8, "Scan System Apps", Color::fromHex(0xBFDBFE), 1);
 
-    // 5. Package Cards Grid (Rendered inside Catalog Area)
-    for (size_t i = 0; i < filteredCards_.size(); ++i) {
-        const auto& card = filteredCards_[i];
-        if (card.cardBounds.bottom() < catalogAreaBounds_.y || card.cardBounds.top() > catalogAreaBounds_.bottom()) {
-            continue;
+            const size_t upCount = updateAvailableCount();
+            if (upCount > 0) {
+                const Color upBg = isUpdateAllBtnHovered_ ? Color::fromHex(0xD97706) : Color::fromHex(0xB45309);
+                clientSurface.drawRoundedRect(updateAllBtnBounds_, 6, upBg, true);
+                clientSurface.drawRoundedRect(updateAllBtnBounds_, 6, Color::fromHex(0xF59E0B), false);
+                std::string upLabel = "Update All (" + std::to_string(upCount) + ")";
+                clientSurface.drawString(updateAllBtnBounds_.x + 18, updateAllBtnBounds_.y + 8, upLabel, Color::fromHex(0xFFFBEB), 1);
+            }
+
+            std::string summary = std::to_string(installedPackagesCount()) + " Installed Packages  |  " + std::to_string(upCount) + " Updates Ready";
+            int32_t summaryX = (upCount > 0) ? (updateAllBtnBounds_.right() + 20) : (scanSystemBtnBounds_.right() + 20);
+            clientSurface.drawString(summaryX, catalogAreaBounds_.y + 14, summary, palette.textSecondary, 1);
         }
 
-        const bool isHov = (static_cast<int32_t>(i) == hoveredCardIndex_);
-        const bool isBtnHov = (static_cast<int32_t>(i) == hoveredActionBtnIndex_);
+        // 5. Package Cards Grid (Rendered inside Catalog Area)
+        for (size_t i = 0; i < filteredCards_.size(); ++i) {
+            const auto& card = filteredCards_[i];
+            if (card.cardBounds.bottom() < catalogAreaBounds_.y || card.cardBounds.top() > catalogAreaBounds_.bottom()) {
+                continue;
+            }
 
-        clientSurface.drawDropShadow(card.cardBounds, 10, 0.35f);
+            const bool isHov = (static_cast<int32_t>(i) == hoveredCardIndex_);
+            const bool isBtnHov = (static_cast<int32_t>(i) == hoveredActionBtnIndex_);
+            const bool isPinHov = (static_cast<int32_t>(i) == hoveredPinBtnIndex_);
+            const bool isInspectHov = (static_cast<int32_t>(i) == hoveredInspectBtnIndex_);
 
-        const Color cardBg = isHov ? Color::fromHex(0x131E2E) : Color::fromHex(0x0E1624);
-        clientSurface.drawRoundedRect(card.cardBounds, 8, cardBg, true);
-        clientSurface.drawRoundedRect(card.cardBounds, 8,
-                                      isHov ? palette.prismAccent : Color::fromHex(0x202E42), false);
+            clientSurface.drawDropShadow(card.cardBounds, 10, 0.35f);
 
-        // Icon Box
-        const Rect iconBox{card.cardBounds.x + 12, card.cardBounds.y + 12, 38, 38};
-        clientSurface.drawRoundedRect(iconBox, 6, Color::fromHex(0x182436), true);
-        clientSurface.drawRoundedRect(iconBox, 6, Color::fromHex(0x283A52), false);
-        IconRenderer::draw(clientSurface, card.iconId,
-                           Rect{iconBox.x + 5, iconBox.y + 5, 28, 28},
-                           palette.prismAccent);
+            const Color cardBg = isHov ? Color::fromHex(0x131E2E) : Color::fromHex(0x0E1624);
+            clientSurface.drawRoundedRect(card.cardBounds, 8, cardBg, true);
+            clientSurface.drawRoundedRect(card.cardBounds, 8,
+                                          isHov ? palette.prismAccent : Color::fromHex(0x202E42), false);
 
-        // Title & Publisher
-        clientSurface.drawString(card.cardBounds.x + 58, card.cardBounds.y + 12,
-                                 card.name, Color::fromHex(0xFFFFFF), 1);
+            // Icon Box
+            const Rect iconBox{card.cardBounds.x + 12, card.cardBounds.y + 12, 38, 38};
+            clientSurface.drawRoundedRect(iconBox, 6, Color::fromHex(0x182436), true);
+            clientSurface.drawRoundedRect(iconBox, 6, Color::fromHex(0x283A52), false);
+            IconRenderer::draw(clientSurface, card.iconId,
+                               Rect{iconBox.x + 5, iconBox.y + 5, 28, 28},
+                               palette.prismAccent);
 
-        // 100% NT Retail Badge OR Pure AOSP / WSA Badge
-        if (card.isAndroidApp) {
-            const int32_t nameW = static_cast<int32_t>(card.name.size()) * 8;
-            const Rect badgeRect{card.cardBounds.x + 64 + nameW, card.cardBounds.y + 11, 130, 18};
-            clientSurface.drawRoundedRect(badgeRect, 4, Color::fromHex(0x0E3A2F), true);
-            clientSurface.drawRoundedRect(badgeRect, 4, Color::fromHex(0x10B981), false);
-            clientSurface.drawString(badgeRect.x + 4, badgeRect.y + 3, "AOSP CLEAN-ROOM", Color::fromHex(0x34D399), 1);
+            // Title & Publisher
+            clientSurface.drawString(card.cardBounds.x + 58, card.cardBounds.y + 12,
+                                     card.name, Color::fromHex(0xFFFFFF), 1);
 
-            // Architecture tag
-            const Rect archBadge{badgeRect.right() + 6, card.cardBounds.y + 11, 74, 18};
-            clientSurface.drawRoundedRect(archBadge, 4, Color::fromHex(0x182436), true);
-            clientSurface.drawRoundedRect(archBadge, 4, Color::fromHex(0x38BDF8), false);
-            clientSurface.drawString(archBadge.x + 6, archBadge.y + 3, card.architecture, Color::fromHex(0x7DD3FC), 1);
-        } else if (card.isRetailCertified) {
-            const int32_t nameW = static_cast<int32_t>(card.name.size()) * 8;
-            const Rect badgeRect{card.cardBounds.x + 64 + nameW, card.cardBounds.y + 11, 120, 18};
-            clientSurface.drawRoundedRect(badgeRect, 4, Color::fromHex(0x0E3A42), true);
-            clientSurface.drawRoundedRect(badgeRect, 4, Color::fromHex(0x00B4D8), false);
-            clientSurface.drawString(badgeRect.x + 4, badgeRect.y + 3, "100% NT RETAIL", Color::fromHex(0x00B4D8), 1);
-        }
-
-        // Moniker & Version & License Tag
-        std::string tag;
-        if (card.hasUpdateAvailable && !card.installedVersion.empty()) {
-            tag = card.id + " | v" + card.installedVersion + " -> v" + card.version + " (Update Available)";
-        } else {
-            tag = card.id + " | v" + card.version + " | " + card.license;
-        }
-        clientSurface.drawString(card.cardBounds.x + 58, card.cardBounds.y + 30,
-                                 tag, card.hasUpdateAvailable ? Color::fromHex(0xFBBF24) : palette.textSecondary, 1);
-
-        // Description
-        const int32_t maxDescW = card.actionBtnBounds.x - (card.cardBounds.x + 58) - 10;
-        const int32_t maxDescChars = std::max(8, maxDescW / 8);
-        std::string desc = card.description;
-        if (static_cast<int32_t>(desc.size()) > maxDescChars) {
-            desc = desc.substr(0, static_cast<size_t>(maxDescChars - 2)) + "..";
-        }
-        clientSurface.drawString(card.cardBounds.x + 58, card.cardBounds.y + 52,
-                                 desc, Color::fromHex(0x94A3B8), 1);
-
-        // Action Button
-        if (card.hasUpdateAvailable) {
-            // Update action button (Amber/Gold)
-            const Color btnBg = isBtnHov ? Color::fromHex(0xD97706) : Color::fromHex(0xB45309);
-            const Color borderCol = Color::fromHex(0xF59E0B);
-            clientSurface.drawRoundedRect(card.actionBtnBounds, 6, btnBg, true);
-            clientSurface.drawRoundedRect(card.actionBtnBounds, 6, borderCol, false);
-
-            const std::string btnLabel = "Update";
-            const int32_t bw = static_cast<int32_t>(btnLabel.size()) * 8;
-            clientSurface.drawString(card.actionBtnBounds.centerX() - bw / 2,
-                                     card.actionBtnBounds.y + 6,
-                                     btnLabel, Color::fromHex(0xFFFBEB), 1);
-        } else if (card.isInstalled) {
+            // Badges: Retail, AOSP, Architecture, Pinned
+            int32_t badgeOffset = 64 + static_cast<int32_t>(card.name.size()) * 8;
             if (card.isAndroidApp) {
-                // Android App installed -> "Launch" action
-                const Color btnBg = isBtnHov ? Color::fromHex(0x059669) : Color::fromHex(0x10B981);
+                const Rect badgeRect{card.cardBounds.x + badgeOffset, card.cardBounds.y + 11, 130, 18};
+                clientSurface.drawRoundedRect(badgeRect, 4, Color::fromHex(0x0E3A2F), true);
+                clientSurface.drawRoundedRect(badgeRect, 4, Color::fromHex(0x10B981), false);
+                clientSurface.drawString(badgeRect.x + 4, badgeRect.y + 3, "AOSP CLEAN-ROOM", Color::fromHex(0x34D399), 1);
+                badgeOffset += 136;
+
+                const Rect archBadge{card.cardBounds.x + badgeOffset, card.cardBounds.y + 11, 74, 18};
+                clientSurface.drawRoundedRect(archBadge, 4, Color::fromHex(0x182436), true);
+                clientSurface.drawRoundedRect(archBadge, 4, Color::fromHex(0x38BDF8), false);
+                clientSurface.drawString(archBadge.x + 6, archBadge.y + 3, card.architecture, Color::fromHex(0x7DD3FC), 1);
+                badgeOffset += 80;
+            } else if (card.isRetailCertified) {
+                const Rect badgeRect{card.cardBounds.x + badgeOffset, card.cardBounds.y + 11, 120, 18};
+                clientSurface.drawRoundedRect(badgeRect, 4, Color::fromHex(0x0E3A42), true);
+                clientSurface.drawRoundedRect(badgeRect, 4, Color::fromHex(0x00B4D8), false);
+                clientSurface.drawString(badgeRect.x + 4, badgeRect.y + 3, "100% NT RETAIL", Color::fromHex(0x00B4D8), 1);
+                badgeOffset += 126;
+            }
+
+            if (card.isPinned) {
+                const Rect pinBadge{card.cardBounds.x + badgeOffset, card.cardBounds.y + 11, 62, 18};
+                clientSurface.drawRoundedRect(pinBadge, 4, Color::fromHex(0x451A03), true);
+                clientSurface.drawRoundedRect(pinBadge, 4, Color::fromHex(0xF59E0B), false);
+                clientSurface.drawString(pinBadge.x + 6, pinBadge.y + 3, "PINNED", Color::fromHex(0xFCD34D), 1);
+            }
+
+            // Moniker & Version & License Tag
+            std::string tag;
+            if (card.hasUpdateAvailable && !card.installedVersion.empty()) {
+                tag = card.id + " | v" + card.installedVersion + " -> v" + card.version + " (Update Available)";
+            } else {
+                tag = card.id + " | v" + card.version + " | " + card.license;
+            }
+            clientSurface.drawString(card.cardBounds.x + 58, card.cardBounds.y + 30,
+                                     tag, card.hasUpdateAvailable ? Color::fromHex(0xFBBF24) : palette.textSecondary, 1);
+
+            // Description
+            const int32_t maxDescW = card.inspectBtnBounds.x - (card.cardBounds.x + 58) - 10;
+            const int32_t maxDescChars = std::max(8, maxDescW / 8);
+            std::string desc = card.description;
+            if (static_cast<int32_t>(desc.size()) > maxDescChars) {
+                desc = desc.substr(0, static_cast<size_t>(maxDescChars - 2)) + "..";
+            }
+            clientSurface.drawString(card.cardBounds.x + 58, card.cardBounds.y + 52,
+                                     desc, Color::fromHex(0x94A3B8), 1);
+
+            // Inspect Button
+            const Color inspBg = isInspectHov ? Color::fromHex(0x1E293B) : Color::fromHex(0x131C2A);
+            const Color inspBorder = isInspectHov ? palette.prismAccent : Color::fromHex(0x334155);
+            clientSurface.drawRoundedRect(card.inspectBtnBounds, 4, inspBg, true);
+            clientSurface.drawRoundedRect(card.inspectBtnBounds, 4, inspBorder, false);
+            clientSurface.drawString(card.inspectBtnBounds.centerX() - 3, card.inspectBtnBounds.y + 6, "i",
+                                     isInspectHov ? Color::fromHex(0xFFFFFF) : Color::fromHex(0x94A3B8), 1);
+
+            // Pin Button
+            const Color pinBg = card.isPinned
+                ? (isPinHov ? Color::fromHex(0x78350F) : Color::fromHex(0x451A03))
+                : (isPinHov ? Color::fromHex(0x1E293B) : Color::fromHex(0x131C2A));
+            const Color pinBorder = card.isPinned ? Color::fromHex(0xF59E0B) : (isPinHov ? palette.prismAccent : Color::fromHex(0x334155));
+            clientSurface.drawRoundedRect(card.pinBtnBounds, 4, pinBg, true);
+            clientSurface.drawRoundedRect(card.pinBtnBounds, 4, pinBorder, false);
+            clientSurface.drawString(card.pinBtnBounds.centerX() - 3, card.pinBtnBounds.y + 6, card.isPinned ? "*" : "P",
+                                     card.isPinned ? Color::fromHex(0xFCD34D) : (isPinHov ? Color::fromHex(0xFFFFFF) : Color::fromHex(0x94A3B8)), 1);
+
+            // Action Button
+            if (card.hasUpdateAvailable) {
+                // Update action button (Amber/Gold)
+                const Color btnBg = isBtnHov ? Color::fromHex(0xD97706) : Color::fromHex(0xB45309);
+                const Color borderCol = Color::fromHex(0xF59E0B);
                 clientSurface.drawRoundedRect(card.actionBtnBounds, 6, btnBg, true);
-                const std::string btnLabel = "Launch";
+                clientSurface.drawRoundedRect(card.actionBtnBounds, 6, borderCol, false);
+
+                const std::string btnLabel = "Update";
+                const int32_t bw = static_cast<int32_t>(btnLabel.size()) * 8;
+                clientSurface.drawString(card.actionBtnBounds.centerX() - bw / 2,
+                                         card.actionBtnBounds.y + 6,
+                                         btnLabel, Color::fromHex(0xFFFBEB), 1);
+            } else if (card.isInstalled) {
+                if (card.isAndroidApp) {
+                    // Android App installed -> "Launch" action
+                    const Color btnBg = isBtnHov ? Color::fromHex(0x059669) : Color::fromHex(0x10B981);
+                    clientSurface.drawRoundedRect(card.actionBtnBounds, 6, btnBg, true);
+                    const std::string btnLabel = "Launch";
+                    const int32_t bw = static_cast<int32_t>(btnLabel.size()) * 8;
+                    clientSurface.drawString(card.actionBtnBounds.centerX() - bw / 2,
+                                             card.actionBtnBounds.y + 6,
+                                             btnLabel, Color::fromHex(0x06090F), 1);
+                } else {
+                    // Already installed -> Show subtle Installed badge / Uninstall action
+                    const Color btnBg = isBtnHov ? Color::fromHex(0x7F1D1D) : Color::fromHex(0x132E27);
+                    const Color borderCol = isBtnHov ? Color::fromHex(0xEF4444) : Color::fromHex(0x10B981);
+                    clientSurface.drawRoundedRect(card.actionBtnBounds, 6, btnBg, true);
+                    clientSurface.drawRoundedRect(card.actionBtnBounds, 6, borderCol, false);
+
+                    const std::string btnLabel = isBtnHov ? "Uninstall" : "Installed";
+                    const int32_t bw = static_cast<int32_t>(btnLabel.size()) * 8;
+                    clientSurface.drawString(card.actionBtnBounds.centerX() - bw / 2,
+                                             card.actionBtnBounds.y + 6,
+                                             btnLabel,
+                                             isBtnHov ? Color::fromHex(0xFCA5A5) : Color::fromHex(0x6EE7B7), 1);
+                }
+            } else {
+                // Not installed -> Show Install Button
+                const Color btnBg = isBtnHov ? Color::fromHex(0x48CAE4) : Color::fromHex(0x00B4D8);
+                clientSurface.drawRoundedRect(card.actionBtnBounds, 6, btnBg, true);
+
+                const std::string btnLabel = card.isAndroidApp ? "Install APK" : "Install";
                 const int32_t bw = static_cast<int32_t>(btnLabel.size()) * 8;
                 clientSurface.drawString(card.actionBtnBounds.centerX() - bw / 2,
                                          card.actionBtnBounds.y + 6,
                                          btnLabel, Color::fromHex(0x06090F), 1);
-            } else {
-                // Already installed -> Show subtle Installed badge / Uninstall action
-                const Color btnBg = isBtnHov ? Color::fromHex(0x7F1D1D) : Color::fromHex(0x132E27);
-                const Color borderCol = isBtnHov ? Color::fromHex(0xEF4444) : Color::fromHex(0x10B981);
-                clientSurface.drawRoundedRect(card.actionBtnBounds, 6, btnBg, true);
-                clientSurface.drawRoundedRect(card.actionBtnBounds, 6, borderCol, false);
-
-                const std::string btnLabel = isBtnHov ? "Uninstall" : "Installed";
-                const int32_t bw = static_cast<int32_t>(btnLabel.size()) * 8;
-                clientSurface.drawString(card.actionBtnBounds.centerX() - bw / 2,
-                                         card.actionBtnBounds.y + 6,
-                                         btnLabel,
-                                         isBtnHov ? Color::fromHex(0xFCA5A5) : Color::fromHex(0x6EE7B7), 1);
             }
-        } else {
-            // Not installed -> Show Install Button
-            const Color btnBg = isBtnHov ? Color::fromHex(0x48CAE4) : Color::fromHex(0x00B4D8);
-            clientSurface.drawRoundedRect(card.actionBtnBounds, 6, btnBg, true);
-
-            const std::string btnLabel = card.isAndroidApp ? "Install APK" : "Install";
-            const int32_t bw = static_cast<int32_t>(btnLabel.size()) * 8;
-            clientSurface.drawString(card.actionBtnBounds.centerX() - bw / 2,
-                                     card.actionBtnBounds.y + 6,
-                                     btnLabel, Color::fromHex(0x06090F), 1);
         }
     }
 
@@ -839,6 +991,11 @@ void AppHubContent::render(Surface& clientSurface) {
         const int32_t thumbY = barY + static_cast<int32_t>((barH - thumbH) * (static_cast<float>(scrollY_) / static_cast<float>(maxScrollY_)));
 
         clientSurface.drawRoundedRect(Rect{barX - 1, thumbY, 6, thumbH}, 3, Color::fromHex(0x00B4D8), true);
+    }
+
+    // 7. Inspector Modal (Overlays everything if active)
+    if (inspectedPackageId_.has_value()) {
+        renderInspectorModal(clientSurface, width, height);
     }
 }
 
@@ -994,8 +1151,145 @@ void AppHubContent::renderSettingsView(Surface& clientSurface, int32_t width, in
                              micagOn ? Color::fromHex(0x34D399) : Color::fromHex(0xF87171), 1);
 }
 
+void AppHubContent::renderStacksView(Surface& clientSurface, int32_t width, int32_t height) {
+    (void)width;
+    (void)height;
+    const auto& palette = ThemeManager::instance().palette();
+
+    clientSurface.drawString(catalogAreaBounds_.x, catalogAreaBounds_.y + 4,
+                             "CURATED SOVEREIGN APPLICATION STACKS (1-CLICK WORKFLOWS)", palette.prismAccent, 1);
+    clientSurface.fillRect(Rect{catalogAreaBounds_.x, catalogAreaBounds_.y + 20, catalogAreaBounds_.width, 1},
+                           Color::fromHex(0x1E293B));
+
+    for (size_t i = 0; i < curatedStacks_.size(); ++i) {
+        const auto& s = curatedStacks_[i];
+        if (s.bounds.bottom() < catalogAreaBounds_.y || s.bounds.top() > catalogAreaBounds_.bottom()) {
+            continue;
+        }
+
+        const bool isHov = (static_cast<int32_t>(i) == hoveredStackIndex_);
+        const bool isBtnHov = (static_cast<int32_t>(i) == hoveredStackInstallBtnIndex_);
+
+        clientSurface.drawDropShadow(s.bounds, 8, 0.3f);
+        clientSurface.drawRoundedRect(s.bounds, 8, isHov ? Color::fromHex(0x131E2E) : Color::fromHex(0x0E1624), true);
+        clientSurface.drawRoundedRect(s.bounds, 8, isHov ? palette.prismAccent : Color::fromHex(0x202E42), false);
+
+        // Icon Box
+        const Rect iconR{s.bounds.x + 12, s.bounds.y + 12, 48, 48};
+        clientSurface.drawRoundedRect(iconR, 6, Color::fromHex(0x182436), true);
+        clientSurface.drawRoundedRect(iconR, 6, Color::fromHex(0x283A52), false);
+        IconRenderer::draw(clientSurface, IconId::AppHub, Rect{iconR.x + 10, iconR.y + 10, 28, 28}, palette.prismAccent);
+
+        // Stack Name & Category Tag
+        clientSurface.drawString(s.bounds.x + 70, s.bounds.y + 12, s.name, Color::fromHex(0xFFFFFF), 1);
+        const int32_t nameW = static_cast<int32_t>(s.name.size()) * 8;
+        const Rect catBadge{s.bounds.x + 76 + nameW, s.bounds.y + 11, static_cast<int32_t>(s.category.size()) * 8 + 14, 18};
+        clientSurface.drawRoundedRect(catBadge, 4, Color::fromHex(0x0E3A42), true);
+        clientSurface.drawRoundedRect(catBadge, 4, Color::fromHex(0x00B4D8), false);
+        clientSurface.drawString(catBadge.x + 7, catBadge.y + 3, s.category, Color::fromHex(0x00B4D8), 1);
+
+        // Description
+        clientSurface.drawString(s.bounds.x + 70, s.bounds.y + 32, s.desc, Color::fromHex(0x94A3B8), 1);
+
+        // Package Summary
+        std::string pkgsSummary = "Packages (" + std::to_string(s.pkgIds.size()) + "): ";
+        for (size_t p = 0; p < s.pkgIds.size(); ++p) {
+            if (p > 0) pkgsSummary += ", ";
+            pkgsSummary += s.pkgIds[p];
+        }
+        if (pkgsSummary.size() > 70) pkgsSummary = pkgsSummary.substr(0, 68) + "..";
+        clientSurface.drawString(s.bounds.x + 70, s.bounds.y + 50, pkgsSummary, Color::fromHex(0x38BDF8), 1);
+
+        // Deploy Stack Button
+        const Color btnBg = isBtnHov ? Color::fromHex(0x48CAE4) : Color::fromHex(0x00B4D8);
+        clientSurface.drawRoundedRect(s.installBtnBounds, 6, btnBg, true);
+        const std::string btnLabel = "Deploy Stack";
+        const int32_t bw = static_cast<int32_t>(btnLabel.size()) * 8;
+        clientSurface.drawString(s.installBtnBounds.centerX() - bw / 2, s.installBtnBounds.y + 8, btnLabel, Color::fromHex(0x06090F), 1);
+    }
+}
+
+void AppHubContent::renderInspectorModal(Surface& clientSurface, int32_t width, int32_t height) {
+    if (!inspectedPackageId_.has_value()) return;
+
+    const auto& palette = ThemeManager::instance().palette();
+    const std::string& pkgId = inspectedPackageId_.value();
+
+    const AppHubCard* foundCard = nullptr;
+    for (const auto& c : allCards_) {
+        if (c.id == pkgId) {
+            foundCard = &c;
+            break;
+        }
+    }
+    if (!foundCard) return;
+
+    // Dim background overlay with acrylic glass
+    clientSurface.applyAcrylicTint(Rect{0, 0, width, height}, Color{0, 0, 0, 180}, 4);
+
+    const int32_t modalW = std::min(680, catalogAreaBounds_.width - 20);
+    const int32_t modalH = 380;
+    const Rect modalRect{catalogAreaBounds_.centerX() - modalW / 2, catalogAreaBounds_.centerY() - modalH / 2, modalW, modalH};
+
+    clientSurface.drawDropShadow(modalRect, 16, 0.5f);
+    clientSurface.drawRoundedRect(modalRect, 8, Color::fromHex(0x0C121D), true);
+    clientSurface.drawRoundedRect(modalRect, 8, palette.prismAccent, false);
+
+    // Modal Header
+    const Rect headerRect{modalRect.x, modalRect.y, modalRect.width, 42};
+    clientSurface.drawRoundedRect(headerRect, 8, Color::fromHex(0x131E2E), true);
+    clientSurface.fillRect(Rect{modalRect.x, modalRect.y + 41, modalRect.width, 1}, Color::fromHex(0x1E293B));
+
+    IconRenderer::draw(clientSurface, foundCard->iconId, Rect{modalRect.x + 14, modalRect.y + 10, 22, 22}, palette.prismAccent);
+    std::string title = "Package Inspector: " + foundCard->name + " (" + foundCard->id + ")";
+    clientSurface.drawString(modalRect.x + 44, modalRect.y + 12, title, Color::fromHex(0xFFFFFF), 1);
+
+    // Close Button [X]
+    const Color closeBg = isInspectorCloseBtnHovered_ ? Color::fromHex(0xEF4444) : Color::fromHex(0x1E293B);
+    clientSurface.drawRoundedRect(inspectorCloseBtnBounds_, 4, closeBg, true);
+    clientSurface.drawString(inspectorCloseBtnBounds_.centerX() - 4, inspectorCloseBtnBounds_.y + 5, "X", Color::fromHex(0xFFFFFF), 1);
+
+    // Details Rows
+    int32_t curY = modalRect.y + 54;
+    auto drawDetail = [&](const std::string& label, const std::string& val, Color valCol = Color::fromHex(0xE2E8F0)) {
+        clientSurface.drawString(modalRect.x + 20, curY, label, Color::fromHex(0x94A3B8), 1);
+        clientSurface.drawString(modalRect.x + 180, curY, val, valCol, 1);
+        curY += 26;
+    };
+
+    drawDetail("Package ID:", foundCard->id);
+    drawDetail("Catalog Version:", "v" + foundCard->version);
+    drawDetail("Publisher / Vendor:", foundCard->publisher);
+    drawDetail("License:", foundCard->license);
+    drawDetail("Target Architecture:", foundCard->architecture);
+    drawDetail("Clean-Room FIPS SHA-256:", foundCard->sha256.empty() ? "(Catalog verified digest)" : foundCard->sha256, Color::fromHex(0x38BDF8));
+    drawDetail("Installer URL:", foundCard->downloadUrl.empty() ? "https://github.com/microsoft/winget-pkgs" : foundCard->downloadUrl, Color::fromHex(0x7DD3FC));
+    drawDetail("Pin Status:", foundCard->isPinned ? "PINNED (Locked against upgrades)" : "UNPINNED (Eligible for auto-updates)", foundCard->isPinned ? Color::fromHex(0xFCD34D) : Color::fromHex(0x34D399));
+    drawDetail("Install Status:", foundCard->isInstalled ? ("Installed (v" + (foundCard->installedVersion.empty() ? foundCard->version : foundCard->installedVersion) + ")") : "Not Installed", foundCard->isInstalled ? Color::fromHex(0x34D399) : Color::fromHex(0x94A3B8));
+
+    curY += 4;
+    clientSurface.drawString(modalRect.x + 20, curY, "Description:", Color::fromHex(0x94A3B8), 1);
+    clientSurface.drawString(modalRect.x + 180, curY, foundCard->description, Color::fromHex(0xE2E8F0), 1);
+}
+
 bool AppHubContent::onMouseDown(Point localPt, MouseButton button) {
     if (button != MouseButton::Left) return false;
+
+    // Check if Inspector modal is open
+    if (inspectedPackageId_.has_value()) {
+        if (inspectorCloseBtnBounds_.contains(localPt)) {
+            closeInspector();
+            return true;
+        }
+        const int32_t modalW = std::min(680, catalogAreaBounds_.width - 20);
+        const int32_t modalH = 380;
+        const Rect modalRect{catalogAreaBounds_.centerX() - modalW / 2, catalogAreaBounds_.centerY() - modalH / 2, modalW, modalH};
+        if (!modalRect.contains(localPt)) {
+            closeInspector();
+            return true;
+        }
+        return true; // Modal consumes click
+    }
 
     // Check Category Tabs
     for (const auto& tab : categoryTabs_) {
@@ -1003,6 +1297,17 @@ bool AppHubContent::onMouseDown(Point localPt, MouseButton button) {
             setCategory(tab.cat);
             return true;
         }
+    }
+
+    // Check Curated Stacks Install Buttons
+    if (activeCategory_ == AppHubCategory::Stacks) {
+        for (const auto& s : curatedStacks_) {
+            if (s.installBtnBounds.contains(localPt)) {
+                installCuratedStack(s.id);
+                return true;
+            }
+        }
+        return false;
     }
 
     // Check WSA Status Badge click (probe runtime)
@@ -1113,8 +1418,16 @@ bool AppHubContent::onMouseDown(Point localPt, MouseButton button) {
         return false;
     }
 
-    // Check Action Buttons on Cards
+    // Check Action Buttons, Pin Buttons, and Inspect Buttons on Cards
     for (const auto& card : filteredCards_) {
+        if (card.inspectBtnBounds.contains(localPt)) {
+            inspectPackage(card.id);
+            return true;
+        }
+        if (card.pinBtnBounds.contains(localPt)) {
+            pinPackage(card.id, !card.isPinned);
+            return true;
+        }
         if (card.actionBtnBounds.contains(localPt)) {
             if (card.hasUpdateAvailable) {
                 upgradePackage(card.id);
@@ -1131,6 +1444,11 @@ bool AppHubContent::onMouseDown(Point localPt, MouseButton button) {
 }
 
 bool AppHubContent::onMouseMove(Point localPt) {
+    if (inspectedPackageId_.has_value()) {
+        isInspectorCloseBtnHovered_ = inspectorCloseBtnBounds_.contains(localPt);
+        return true;
+    }
+
     isSearchHovered_ = searchBarBounds_.contains(localPt);
     isWsaBadgeHovered_ = wsaStatusBadgeBounds_.contains(localPt);
     isSideloadBtnHovered_ = (activeCategory_ == AppHubCategory::AndroidWsa && wsaSideloadBtnBounds_.contains(localPt));
@@ -1141,6 +1459,23 @@ bool AppHubContent::onMouseMove(Point localPt) {
             hoveredCategoryTabIndex_ = static_cast<int32_t>(i);
             break;
         }
+    }
+
+    if (activeCategory_ == AppHubCategory::Stacks) {
+        hoveredStackIndex_ = -1;
+        hoveredStackInstallBtnIndex_ = -1;
+        for (size_t i = 0; i < curatedStacks_.size(); ++i) {
+            if (curatedStacks_[i].installBtnBounds.contains(localPt)) {
+                hoveredStackInstallBtnIndex_ = static_cast<int32_t>(i);
+                hoveredStackIndex_ = static_cast<int32_t>(i);
+                return true;
+            }
+            if (curatedStacks_[i].bounds.contains(localPt)) {
+                hoveredStackIndex_ = static_cast<int32_t>(i);
+                return true;
+            }
+        }
+        return isSearchHovered_ || hoveredCategoryTabIndex_ >= 0;
     }
 
     if (activeCategory_ == AppHubCategory::Settings) {
@@ -1180,9 +1515,21 @@ bool AppHubContent::onMouseMove(Point localPt) {
 
     hoveredCardIndex_ = -1;
     hoveredActionBtnIndex_ = -1;
+    hoveredPinBtnIndex_ = -1;
+    hoveredInspectBtnIndex_ = -1;
     for (size_t i = 0; i < filteredCards_.size(); ++i) {
         if (filteredCards_[i].actionBtnBounds.contains(localPt)) {
             hoveredActionBtnIndex_ = static_cast<int32_t>(i);
+            hoveredCardIndex_ = static_cast<int32_t>(i);
+            return true;
+        }
+        if (filteredCards_[i].pinBtnBounds.contains(localPt)) {
+            hoveredPinBtnIndex_ = static_cast<int32_t>(i);
+            hoveredCardIndex_ = static_cast<int32_t>(i);
+            return true;
+        }
+        if (filteredCards_[i].inspectBtnBounds.contains(localPt)) {
+            hoveredInspectBtnIndex_ = static_cast<int32_t>(i);
             hoveredCardIndex_ = static_cast<int32_t>(i);
             return true;
         }
@@ -1212,15 +1559,19 @@ bool AppHubContent::onCharInput(char c) {
 
 bool AppHubContent::onKeyDown(KeyCode key, bool ctrl, bool shift, bool alt) {
     (void)ctrl; (void)shift; (void)alt;
-    if (key == KeyCode::Backspace) {
+    if (key == KeyCode::Escape) {
+        if (inspectedPackageId_.has_value()) {
+            closeInspector();
+            return true;
+        }
+        if (!searchQuery_.empty()) {
+            setSearchQuery("");
+            return true;
+        }
+    } else if (key == KeyCode::Backspace) {
         if (!searchQuery_.empty()) {
             searchQuery_.pop_back();
             setSearchQuery(searchQuery_);
-            return true;
-        }
-    } else if (key == KeyCode::Escape) {
-        if (!searchQuery_.empty()) {
-            setSearchQuery("");
             return true;
         }
     } else if (key == KeyCode::Up) {

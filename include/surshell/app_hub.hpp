@@ -32,6 +32,7 @@ enum class AppHubCategory {
     DeveloperTools,
     SystemUtilities,
     MediaDocs,
+    Stacks,
     Installed,
     Settings
 };
@@ -54,9 +55,22 @@ struct AppHubCard {
     std::string sha256{};
     std::string installedVersion{};
     bool hasUpdateAvailable{false};
+    bool isPinned{false};
     Rect cardBounds{};
     Rect actionBtnBounds{};
     Rect updateBtnBounds{};
+    Rect pinBtnBounds{};
+    Rect inspectBtnBounds{};
+};
+
+struct CuratedAppStack {
+    std::string id;
+    std::string name;
+    std::string desc;
+    std::string category;
+    std::vector<std::string> pkgIds;
+    Rect bounds{};
+    Rect installBtnBounds{};
 };
 
 class AppHubContent : public IWindowContent {
@@ -64,6 +78,8 @@ public:
     using InstallCallback = std::function<void(const std::string& title, const std::string& message, bool success)>;
 
     AppHubContent();
+
+    static int compareVersions(std::string_view v1, std::string_view v2);
 
     void refresh();
 
@@ -84,6 +100,16 @@ public:
     size_t scanSystemInstalled();
     size_t upgradeAllPackages();
     [[nodiscard]] size_t updateAvailableCount() const noexcept;
+
+    // Pinning & Curated Stacks & Inspector
+    bool pinPackage(const std::string& packageId, bool pin = true);
+    [[nodiscard]] bool isPackagePinned(const std::string& packageId) const;
+    [[nodiscard]] const std::vector<CuratedAppStack>& curatedStacks() const noexcept { return curatedStacks_; }
+    size_t installCuratedStack(const std::string& stackId);
+    void inspectPackage(const std::string& packageId);
+    void closeInspector() noexcept { inspectedPackageId_.reset(); }
+    [[nodiscard]] const std::optional<std::string>& inspectedPackageId() const noexcept { return inspectedPackageId_; }
+    [[nodiscard]] Rect inspectorCloseBtnBounds() const noexcept { return inspectorCloseBtnBounds_; }
 
     void setInstallCallback(InstallCallback cb) { installCallback_ = std::move(cb); }
 
@@ -177,10 +203,22 @@ private:
     bool isArchArm64Hovered_{false};
     bool isResetDefaultsHovered_{false};
 
+    std::vector<std::string> pinnedPackageIds_{};
+    std::vector<CuratedAppStack> curatedStacks_{};
+    std::optional<std::string> inspectedPackageId_{};
+    Rect inspectorCloseBtnBounds_{};
+    bool isInspectorCloseBtnHovered_{false};
+    int32_t hoveredStackIndex_{-1};
+    int32_t hoveredStackInstallBtnIndex_{-1};
+    int32_t hoveredPinBtnIndex_{-1};
+    int32_t hoveredInspectBtnIndex_{-1};
+
     void populateCatalog();
     void updateFilter();
     void updateLayout(int32_t width, int32_t height);
     void renderSettingsView(Surface& clientSurface, int32_t width, int32_t height);
+    void renderStacksView(Surface& clientSurface, int32_t width, int32_t height);
+    void renderInspectorModal(Surface& clientSurface, int32_t width, int32_t height);
 };
 
 } // namespace surshell

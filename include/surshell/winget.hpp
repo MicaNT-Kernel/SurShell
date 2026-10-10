@@ -802,6 +802,15 @@ public:
         return m_installed.find(packageId) != m_installed.end();
     }
 
+    std::optional<InstalledPackage> getInstalledPackage(const std::string& packageId) const {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        auto it = m_installed.find(packageId);
+        if (it != m_installed.end()) {
+            return it->second;
+        }
+        return std::nullopt;
+    }
+
     std::vector<InstalledPackage> getInstalledPackages() const {
         std::vector<InstalledPackage> res;
         for (const auto& [_, p] : m_installed) {

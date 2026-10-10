@@ -2646,6 +2646,67 @@ void Test_Winget_App_Hub() {
     size_t scanned = hub.scanSystemInstalled();
     (void)scanned;
 
+    // 13. Package Version Pinning & Protection
+    winget::WinGetManager::Instance().registerInstalled(outdatedPkg);
+    hub.refresh();
+    TEST_ASSERT(hub.updateAvailableCount() >= 1, "updateAvailableCount reports update ready before pin");
+
+    TEST_ASSERT(hub.pinPackage("Git.Git", true), "pinPackage('Git.Git', true) succeeded");
+    TEST_ASSERT(hub.isPackagePinned("Git.Git"), "isPackagePinned('Git.Git') is true");
+
+    // With Git.Git pinned, it must be excluded from updateAvailableCount
+    TEST_ASSERT(hub.updateAvailableCount() == 0, "Pinned package is excluded from updateAvailableCount");
+
+    // Unpin package
+    TEST_ASSERT(hub.pinPackage("Git.Git", false), "pinPackage('Git.Git', false) succeeded");
+    TEST_ASSERT(!hub.isPackagePinned("Git.Git"), "isPackagePinned('Git.Git') is false after unpin");
+    TEST_ASSERT(hub.updateAvailableCount() >= 1, "updateAvailableCount restored after unpin");
+
+    // Clean up: upgrade Git.Git
+    hub.upgradePackage("Git.Git");
+
+    // 14. Curated Sovereign Application Stacks
+    hub.setCategory(surshell::AppHubCategory::Stacks);
+    TEST_ASSERT(hub.activeCategory() == surshell::AppHubCategory::Stacks, "Category set to Stacks");
+    const auto& stacks = hub.curatedStacks();
+    TEST_ASSERT(stacks.size() >= 4, "Curated stacks catalog contains >= 4 sovereign stacks");
+
+    bool foundDevStack = false;
+    for (const auto& s : stacks) {
+        if (s.id == "developer") {
+            foundDevStack = true;
+            TEST_ASSERT(s.pkgIds.size() >= 4, "Developer stack contains >= 4 packages");
+            break;
+        }
+    }
+    TEST_ASSERT(foundDevStack, "Found developer stack in curated stacks");
+
+    size_t installedStackPkgs = hub.installCuratedStack("developer");
+    TEST_ASSERT(installedStackPkgs >= 1, "installCuratedStack successfully provisioned developer stack");
+
+    // 15. Detailed Package Inspector Modal
+    TEST_ASSERT(!hub.inspectedPackageId().has_value(), "Inspector closed initially");
+    hub.inspectPackage("7zip.7zip");
+    TEST_ASSERT(hub.inspectedPackageId().has_value(), "Inspector opened");
+    TEST_ASSERT(hub.inspectedPackageId().value() == "7zip.7zip", "Inspected package ID matches 7zip.7zip");
+
+    hub.render(clientSurf);
+    TEST_ASSERT(hub.inspectorCloseBtnBounds().width > 0, "Inspector modal close button rendered");
+
+    // Close inspector via closeInspector()
+    hub.closeInspector();
+    TEST_ASSERT(!hub.inspectedPackageId().has_value(), "Inspector closed after closeInspector()");
+
+    // Open and close via Escape key
+    hub.inspectPackage("Notepad++.Notepad++");
+    TEST_ASSERT(hub.inspectedPackageId().has_value(), "Inspector opened for Notepad++");
+    hub.onKeyDown(surshell::KeyCode::Escape);
+    TEST_ASSERT(!hub.inspectedPackageId().has_value(), "Inspector closed on Escape key");
+
+    // 16. Background Software Update Checker & Toast Integration
+    size_t updatesFound = masterDesktop.checkSoftwareUpdates(false);
+    (void)updatesFound;
+
     std::cout << "[TEST] Suite 35: Winget Sovereign App Hub & Retail Suite (winget.exe) PASSED.\n";
 }
 
