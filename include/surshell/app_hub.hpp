@@ -52,8 +52,11 @@ struct AppHubCard {
     std::string architecture{"x64"};
     std::string downloadUrl{};
     std::string sha256{};
+    std::string installedVersion{};
+    bool hasUpdateAvailable{false};
     Rect cardBounds{};
     Rect actionBtnBounds{};
+    Rect updateBtnBounds{};
 };
 
 class AppHubContent : public IWindowContent {
@@ -77,6 +80,10 @@ public:
 
     bool installPackage(const std::string& packageId);
     bool uninstallPackage(const std::string& packageId);
+    bool upgradePackage(const std::string& packageId);
+    size_t scanSystemInstalled();
+    size_t upgradeAllPackages();
+    [[nodiscard]] size_t updateAvailableCount() const noexcept;
 
     void setInstallCallback(InstallCallback cb) { installCallback_ = std::move(cb); }
 
@@ -88,6 +95,8 @@ public:
     [[nodiscard]] Rect wsaSideloadBtnBounds() const noexcept { return wsaSideloadBtnBounds_; }
     [[nodiscard]] Rect syncWsaRepoBtnBounds() const noexcept { return syncWsaRepoBtnBounds_; }
     [[nodiscard]] Rect micaGToggleBounds() const noexcept { return micaGToggleBounds_; }
+    [[nodiscard]] Rect scanSystemBtnBounds() const noexcept { return scanSystemBtnBounds_; }
+    [[nodiscard]] Rect updateAllBtnBounds() const noexcept { return updateAllBtnBounds_; }
 
     // IWindowContent Interface
     void render(Surface& clientSurface) override;
@@ -137,6 +146,10 @@ private:
     bool isSyncWsaRepoHovered_{false};
     Rect micaGToggleBounds_{};
     bool isMicaGToggleHovered_{false};
+    Rect scanSystemBtnBounds_{};
+    Rect updateAllBtnBounds_{};
+    bool isScanSystemBtnHovered_{false};
+    bool isUpdateAllBtnHovered_{false};
 
     // Settings & Sources UI state
     struct RepoSourceCard {

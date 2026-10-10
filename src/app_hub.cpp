@@ -10,6 +10,48 @@
 #include <algorithm>
 #include <cctype>
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
+static std::string readRegStringVal(HKEY hKey, const wchar_t* valName) {
+    DWORD type = 0, bytes = 0;
+    if (RegQueryValueExW(hKey, valName, nullptr, &type, nullptr, &bytes) != ERROR_SUCCESS || bytes == 0) return {};
+    std::wstring ws(bytes / sizeof(wchar_t), L'\0');
+    if (RegQueryValueExW(hKey, valName, nullptr, &type, reinterpret_cast<LPBYTE>(ws.data()), &bytes) != ERROR_SUCCESS) return {};
+    while (!ws.empty() && ws.back() == L'\0') ws.pop_back();
+    if (ws.empty()) return {};
+    int len = WideCharToMultiByte(CP_UTF8, 0, ws.data(), static_cast<int>(ws.size()), nullptr, 0, nullptr, nullptr);
+    if (len <= 0) return {};
+    std::string s(len, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, ws.data(), static_cast<int>(ws.size()), s.data(), len, nullptr, nullptr);
+    return s;
+}
+#endif
+
+static int compareVersions(std::string_view v1, std::string_view v2) {
+    size_t i = 0, j = 0;
+    while (i < v1.size() || j < v2.size()) {
+        int64_t n1 = 0, n2 = 0;
+        while (i < v1.size() && v1[i] >= '0' && v1[i] <= '9') {
+            n1 = n1 * 10 + (v1[i] - '0');
+            ++i;
+        }
+        while (j < v2.size() && v2[j] >= '0' && v2[j] <= '9') {
+            n2 = n2 * 10 + (v2[j] - '0');
+            ++j;
+        }
+        if (n1 < n2) return -1;
+        if (n1 > n2) return 1;
+
+        if (i < v1.size() && (v1[i] == '.' || v1[i] == '-' || v1[i] == '+')) ++i;
+        if (j < v2.size() && (v2[j] == '.' || v2[j] == '-' || v2[j] == '+')) ++j;
+    }
+    return 0;
+}
+
 namespace surshell {
 
 AppHubContent::AppHubContent() {
@@ -61,6 +103,17 @@ void AppHubContent::populateCatalog() {
 
         // Check if installed in winget engine
         card.isInstalled = mgr.isInstalled(card.id);
+        if (card.isInstalled) {
+            for (const auto& ip : mgr.getInstalledPackages()) {
+                if (ip.packageIdentifier == card.id) {
+                    card.installedVersion = ip.packageVersion;
+                    if (compareVersions(card.version, card.installedVersion) > 0) {
+                        card.hasUpdateAvailable = true;
+                    }
+                    break;
+                }
+            }
+        }
 
         // Classify Category, Certified Retail, and Icon
         if (card.id == "7zip.7zip") {
@@ -296,6 +349,124 @@ bool AppHubContent::uninstallPackage(const std::string& packageId) {
     return success;
 }
 
+bool AppHubContent::upgradePackage(const std::string& packageId) {
+    auto& mgr = winget::WinGetManager::Instance();
+    std::vector<std::string> log;
+    int32_t hr = mgr.upgrade(packageId, log);
+    const bool success = (hr == winget::WINGET_S_OK);
+
+    const auto* pkg = mgr.findPackage(packageId);
+    std::string name = pkg ? pkg->packageName : packageId;
+
+    if (success) {
+        if (installCallback_) {
+            installCallback_("Package Upgraded", name + " was updated to the latest version.", true);
+        }
+    } else {
+        std::string err = log.empty() ? "Upgrade failed" : log.back();
+        if (installCallback_) {
+            installCallback_("Upgrade Failed", name + ": " + err, false);
+        }
+    }
+
+    refresh();
+    return success;
+}
+
+size_t AppHubContent::upgradeAllPackages() {
+    size_t count = 0;
+    std::vector<std::string> toUpgrade;
+    for (const auto& card : allCards_) {
+        if (card.hasUpdateAvailable) {
+            toUpgrade.push_back(card.id);
+        }
+    }
+    for (const auto& id : toUpgrade) {
+        if (upgradePackage(id)) {
+            count++;
+        }
+    }
+    return count;
+}
+
+size_t AppHubContent::updateAvailableCount() const noexcept {
+    size_t count = 0;
+    for (const auto& card : allCards_) {
+        if (card.hasUpdateAvailable) count++;
+    }
+    return count;
+}
+
+size_t AppHubContent::scanSystemInstalled() {
+    auto& mgr = winget::WinGetManager::Instance();
+    size_t foundCount = 0;
+
+#if defined(_WIN32)
+    auto scanRegistry = [&](HKEY root, const wchar_t* subKey, REGSAM sam) {
+        HKEY hRoot = nullptr;
+        if (RegOpenKeyExW(root, subKey, 0, KEY_READ | sam, &hRoot) != ERROR_SUCCESS) return;
+
+        DWORD subCount = 0, maxLen = 0;
+        if (RegQueryInfoKeyW(hRoot, nullptr, nullptr, nullptr, &subCount, &maxLen, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr) == ERROR_SUCCESS) {
+            std::vector<wchar_t> keyBuf(maxLen + 2, 0);
+            for (DWORD i = 0; i < subCount; ++i) {
+                DWORD len = static_cast<DWORD>(keyBuf.size());
+                if (RegEnumKeyExW(hRoot, i, keyBuf.data(), &len, nullptr, nullptr, nullptr, nullptr) != ERROR_SUCCESS) continue;
+
+                HKEY hApp = nullptr;
+                if (RegOpenKeyExW(hRoot, keyBuf.data(), 0, KEY_READ | sam, &hApp) != ERROR_SUCCESS) continue;
+
+                std::string name = readRegStringVal(hApp, L"DisplayName");
+                std::string ver = readRegStringVal(hApp, L"DisplayVersion");
+                std::string pub = readRegStringVal(hApp, L"Publisher");
+                std::string loc = readRegStringVal(hApp, L"InstallLocation");
+                RegCloseKey(hApp);
+
+                if (name.empty()) continue;
+
+                std::string lowerName = name;
+                std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), [](unsigned char c) {
+                    return static_cast<char>(std::tolower(c));
+                });
+
+                for (const auto& [pkgId, pkg] : mgr.getCatalog()) {
+                    std::string pName = pkg.packageName;
+                    std::transform(pName.begin(), pName.end(), pName.begin(), [](unsigned char c) {
+                        return static_cast<char>(std::tolower(c));
+                    });
+
+                    if (lowerName.find(pName) != std::string::npos || pName.find(lowerName) != std::string::npos) {
+                        winget::InstalledPackage ip;
+                        ip.packageIdentifier = pkg.packageIdentifier;
+                        ip.packageVersion = ver.empty() ? pkg.packageVersion : ver;
+                        ip.packageName = pkg.packageName;
+                        ip.publisher = pub.empty() ? pkg.publisher : pub;
+                        ip.installDate = "Discovered";
+                        ip.installLocation = loc;
+                        ip.isPinned = false;
+
+                        mgr.registerInstalled(ip);
+                        foundCount++;
+                        break;
+                    }
+                }
+            }
+        }
+        RegCloseKey(hRoot);
+    };
+
+    scanRegistry(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall", KEY_WOW64_64KEY);
+    scanRegistry(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall", KEY_WOW64_32KEY);
+    scanRegistry(HKEY_CURRENT_USER, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall", 0);
+#endif
+
+    refresh();
+    if (installCallback_) {
+        installCallback_("System Scan Complete", "Discovered " + std::to_string(foundCount) + " installed apps matching repository manifests.", true);
+    }
+    return foundCount;
+}
+
 void AppHubContent::updateLayout(int32_t width, int32_t height) {
     constexpr int32_t padding = 16;
     constexpr int32_t headerH = 100;
@@ -370,7 +541,16 @@ void AppHubContent::updateLayout(int32_t width, int32_t height) {
     const int32_t cols = (catalogAreaBounds_.width > 700) ? 2 : 1;
     const int32_t cardW = (catalogAreaBounds_.width - (cols - 1) * cardGap) / cols;
 
-    const int32_t startY = (activeCategory_ == AppHubCategory::AndroidWsa) ? (catalogAreaBounds_.y + 48) : catalogAreaBounds_.y;
+    const bool hasTopBanner = (activeCategory_ == AppHubCategory::AndroidWsa || activeCategory_ == AppHubCategory::Installed);
+    const int32_t startY = hasTopBanner ? (catalogAreaBounds_.y + 48) : catalogAreaBounds_.y;
+
+    if (activeCategory_ == AppHubCategory::Installed) {
+        scanSystemBtnBounds_ = Rect{catalogAreaBounds_.x, catalogAreaBounds_.y + 6, 160, 32};
+        updateAllBtnBounds_ = Rect{catalogAreaBounds_.x + 172, catalogAreaBounds_.y + 6, 150, 32};
+    } else {
+        scanSystemBtnBounds_ = Rect{};
+        updateAllBtnBounds_ = Rect{};
+    }
 
     for (size_t i = 0; i < filteredCards_.size(); ++i) {
         const int32_t row = static_cast<int32_t>(i) / cols;
@@ -389,7 +569,7 @@ void AppHubContent::updateLayout(int32_t width, int32_t height) {
     }
 
     const int32_t totalRows = (static_cast<int32_t>(filteredCards_.size()) + cols - 1) / cols;
-    const int32_t contentTotalH = ((activeCategory_ == AppHubCategory::AndroidWsa) ? 48 : 0) + totalRows * (cardH + cardGap);
+    const int32_t contentTotalH = (hasTopBanner ? 48 : 0) + totalRows * (cardH + cardGap);
     maxScrollY_ = std::max(0, contentTotalH - catalogAreaBounds_.height);
     scrollY_ = std::clamp(scrollY_, 0, maxScrollY_);
 }
@@ -506,6 +686,27 @@ void AppHubContent::render(Surface& clientSurface) {
         clientSurface.drawString(sideBtn.x + 12, sideBtn.y + 6, "Sideload APK", Color::fromHex(0x06090F), 1);
     }
 
+    // Installed Subsystem Banner (if Installed category active)
+    if (activeCategory_ == AppHubCategory::Installed) {
+        const Color scBg = isScanSystemBtnHovered_ ? Color::fromHex(0x1D4ED8) : Color::fromHex(0x1E3A8A);
+        clientSurface.drawRoundedRect(scanSystemBtnBounds_, 6, scBg, true);
+        clientSurface.drawRoundedRect(scanSystemBtnBounds_, 6, Color::fromHex(0x3B82F6), false);
+        clientSurface.drawString(scanSystemBtnBounds_.x + 14, scanSystemBtnBounds_.y + 8, "Scan System Apps", Color::fromHex(0xBFDBFE), 1);
+
+        const size_t upCount = updateAvailableCount();
+        if (upCount > 0) {
+            const Color upBg = isUpdateAllBtnHovered_ ? Color::fromHex(0xD97706) : Color::fromHex(0xB45309);
+            clientSurface.drawRoundedRect(updateAllBtnBounds_, 6, upBg, true);
+            clientSurface.drawRoundedRect(updateAllBtnBounds_, 6, Color::fromHex(0xF59E0B), false);
+            std::string upLabel = "Update All (" + std::to_string(upCount) + ")";
+            clientSurface.drawString(updateAllBtnBounds_.x + 18, updateAllBtnBounds_.y + 8, upLabel, Color::fromHex(0xFFFBEB), 1);
+        }
+
+        std::string summary = std::to_string(installedPackagesCount()) + " Installed Packages  |  " + std::to_string(upCount) + " Updates Ready";
+        int32_t summaryX = (upCount > 0) ? (updateAllBtnBounds_.right() + 20) : (scanSystemBtnBounds_.right() + 20);
+        clientSurface.drawString(summaryX, catalogAreaBounds_.y + 14, summary, palette.textSecondary, 1);
+    }
+
     // 5. Package Cards Grid (Rendered inside Catalog Area)
     for (size_t i = 0; i < filteredCards_.size(); ++i) {
         const auto& card = filteredCards_[i];
@@ -557,9 +758,14 @@ void AppHubContent::render(Surface& clientSurface) {
         }
 
         // Moniker & Version & License Tag
-        const std::string tag = card.id + " | v" + card.version + " | " + card.license;
+        std::string tag;
+        if (card.hasUpdateAvailable && !card.installedVersion.empty()) {
+            tag = card.id + " | v" + card.installedVersion + " -> v" + card.version + " (Update Available)";
+        } else {
+            tag = card.id + " | v" + card.version + " | " + card.license;
+        }
         clientSurface.drawString(card.cardBounds.x + 58, card.cardBounds.y + 30,
-                                 tag, palette.textSecondary, 1);
+                                 tag, card.hasUpdateAvailable ? Color::fromHex(0xFBBF24) : palette.textSecondary, 1);
 
         // Description
         const int32_t maxDescW = card.actionBtnBounds.x - (card.cardBounds.x + 58) - 10;
@@ -572,7 +778,19 @@ void AppHubContent::render(Surface& clientSurface) {
                                  desc, Color::fromHex(0x94A3B8), 1);
 
         // Action Button
-        if (card.isInstalled) {
+        if (card.hasUpdateAvailable) {
+            // Update action button (Amber/Gold)
+            const Color btnBg = isBtnHov ? Color::fromHex(0xD97706) : Color::fromHex(0xB45309);
+            const Color borderCol = Color::fromHex(0xF59E0B);
+            clientSurface.drawRoundedRect(card.actionBtnBounds, 6, btnBg, true);
+            clientSurface.drawRoundedRect(card.actionBtnBounds, 6, borderCol, false);
+
+            const std::string btnLabel = "Update";
+            const int32_t bw = static_cast<int32_t>(btnLabel.size()) * 8;
+            clientSurface.drawString(card.actionBtnBounds.centerX() - bw / 2,
+                                     card.actionBtnBounds.y + 6,
+                                     btnLabel, Color::fromHex(0xFFFBEB), 1);
+        } else if (card.isInstalled) {
             if (card.isAndroidApp) {
                 // Android App installed -> "Launch" action
                 const Color btnBg = isBtnHov ? Color::fromHex(0x059669) : Color::fromHex(0x10B981);
@@ -804,6 +1022,18 @@ bool AppHubContent::onMouseDown(Point localPt, MouseButton button) {
         return true;
     }
 
+    // Check Installed Subsystem buttons (Scan System Apps & Update All)
+    if (activeCategory_ == AppHubCategory::Installed) {
+        if (scanSystemBtnBounds_.contains(localPt)) {
+            scanSystemInstalled();
+            return true;
+        }
+        if (updateAvailableCount() > 0 && updateAllBtnBounds_.contains(localPt)) {
+            upgradeAllPackages();
+            return true;
+        }
+    }
+
     if (activeCategory_ == AppHubCategory::Settings) {
         auto& mgr = winget::WinGetManager::Instance();
         for (const auto& sc : repoSourceCards_) {
@@ -886,7 +1116,9 @@ bool AppHubContent::onMouseDown(Point localPt, MouseButton button) {
     // Check Action Buttons on Cards
     for (const auto& card : filteredCards_) {
         if (card.actionBtnBounds.contains(localPt)) {
-            if (card.isInstalled) {
+            if (card.hasUpdateAvailable) {
+                upgradePackage(card.id);
+            } else if (card.isInstalled) {
                 uninstallPackage(card.id);
             } else {
                 installPackage(card.id);
@@ -938,6 +1170,14 @@ bool AppHubContent::onMouseMove(Point localPt) {
                isResetDefaultsHovered_ || isMicaGToggleHovered_ || isWsaBadgeHovered_ || isSearchHovered_;
     }
 
+    if (activeCategory_ == AppHubCategory::Installed) {
+        isScanSystemBtnHovered_ = scanSystemBtnBounds_.contains(localPt);
+        isUpdateAllBtnHovered_ = (updateAvailableCount() > 0 && updateAllBtnBounds_.contains(localPt));
+    } else {
+        isScanSystemBtnHovered_ = false;
+        isUpdateAllBtnHovered_ = false;
+    }
+
     hoveredCardIndex_ = -1;
     hoveredActionBtnIndex_ = -1;
     for (size_t i = 0; i < filteredCards_.size(); ++i) {
@@ -952,7 +1192,7 @@ bool AppHubContent::onMouseMove(Point localPt) {
         }
     }
 
-    return isSearchHovered_ || hoveredCategoryTabIndex_ >= 0;
+    return isSearchHovered_ || hoveredCategoryTabIndex_ >= 0 || isScanSystemBtnHovered_ || isUpdateAllBtnHovered_;
 }
 
 bool AppHubContent::onMouseWheel(Point localPt, int32_t delta) {

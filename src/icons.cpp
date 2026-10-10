@@ -289,7 +289,7 @@ IconId IconRenderer::iconForAppId(std::string_view appId) {
     if (appId == "eventvwr" || appId == "eventvwr.msc" || appId == "eventlog" || appId == "events" || appId == "event_viewer") return IconId::EventViewer;
     if (appId == "cloud" || appId == "gdrive" || appId == "google_drive") return IconId::CloudDrive;
     if (appId == "nas" || appId == "share" || appId == "storage") return IconId::NetworkShare;
-    if (appId == "app_hub" || appId == "winget" || appId == "store" || appId == "hub" || appId == "market") return IconId::AppHub;
+    if (appId == "app_hub" || appId == "winget" || appId == "store" || appId == "hub" || appId == "market" || appId == "micamgr" || appId == "micamgr.exe" || appId == "software_manager") return IconId::AppHub;
     if (appId == "taskview" || appId == "virtual_desktops") return IconId::TaskView;
     if (appId == "7zip" || appId == "7zip.7zip") return IconId::FileArchive;
     if (appId == "notepadplusplus" || appId == "Notepad++.Notepad++") return IconId::FileCode;

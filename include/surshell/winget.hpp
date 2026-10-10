@@ -821,6 +821,15 @@ public:
         return true;
     }
 
+    void registerInstalled(const InstalledPackage& pkg) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_installed[pkg.packageIdentifier] = pkg;
+    }
+
+    const std::unordered_map<std::string, PackageManifest>& getCatalog() const {
+        return m_catalog;
+    }
+
 private:
     void seedDefaultSources() {
         m_sources.push_back({"micant-apps", "https://github.com/MicaNT-Kernel/micant-apps", "MicaNT.Native.Win32ManifestTree", true});

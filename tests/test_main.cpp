@@ -2609,6 +2609,42 @@ void Test_Winget_App_Hub() {
     TEST_ASSERT(surshell::IconRenderer::iconForAppId("app_hub") == surshell::IconId::AppHub, "iconForAppId('app_hub') maps to AppHub");
     TEST_ASSERT(surshell::IconRenderer::iconForAppId("winget") == surshell::IconId::AppHub, "iconForAppId('winget') maps to AppHub");
     TEST_ASSERT(surshell::IconRenderer::iconForAppId("store") == surshell::IconId::AppHub, "iconForAppId('store') maps to AppHub");
+    TEST_ASSERT(surshell::IconRenderer::iconForAppId("micamgr") == surshell::IconId::AppHub, "iconForAppId('micamgr') maps to AppHub");
+
+    // 12. Installed Subsystem Scanning, Update Detection, and One-Click Upgrade
+    hub.setCategory(surshell::AppHubCategory::Installed);
+    hub.render(clientSurf);
+    TEST_ASSERT(hub.scanSystemBtnBounds().width > 0, "Scan System Apps button rendered in Installed view");
+
+    // Manually register an older version of a package to test update detection
+    winget::InstalledPackage outdatedPkg;
+    outdatedPkg.packageIdentifier = "Git.Git";
+    outdatedPkg.packageName = "Git";
+    outdatedPkg.packageVersion = "2.40.0";
+    winget::WinGetManager::Instance().registerInstalled(outdatedPkg);
+    hub.refresh();
+
+    // Verify Git.Git now reports an update available
+    bool foundOutdatedGit = false;
+    for (const auto& card : hub.filteredCards()) {
+        if (card.id == "Git.Git") {
+            foundOutdatedGit = true;
+            TEST_ASSERT(card.isInstalled, "Git.Git is installed");
+            TEST_ASSERT(card.hasUpdateAvailable, "Git.Git has update available (2.40.0 < catalog version)");
+            TEST_ASSERT(card.installedVersion == "2.40.0", "Git.Git recorded installed version 2.40.0");
+            break;
+        }
+    }
+    TEST_ASSERT(foundOutdatedGit, "Found outdated Git.Git package in Installed category");
+    TEST_ASSERT(hub.updateAvailableCount() >= 1, "updateAvailableCount reports at least 1 update ready");
+
+    // Upgrade the outdated package
+    bool upgraded = hub.upgradePackage("Git.Git");
+    TEST_ASSERT(upgraded, "upgradePackage successfully upgraded Git.Git");
+
+    // Scan system apps registry inventory
+    size_t scanned = hub.scanSystemInstalled();
+    (void)scanned;
 
     std::cout << "[TEST] Suite 35: Winget Sovereign App Hub & Retail Suite (winget.exe) PASSED.\n";
 }
