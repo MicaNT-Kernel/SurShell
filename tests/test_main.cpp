@@ -2788,7 +2788,7 @@ void Test_Wsa_Subsystem_And_Aosp_Store() {
 
     // 2. Pre-seeded AOSP Catalog (Clean-Room Certified Packages)
     surshell::WsaCatalog catalog;
-    TEST_ASSERT(catalog.size() == 10, "WSA Catalog initialized with 10 certified clean-room AOSP packages");
+    TEST_ASSERT(catalog.size() == 11, "WSA Catalog initialized with 11 certified clean-room AOSP packages");
 
     // Verify compliance: No Google Play binaries, no GMS/GSF
     for (const auto& pkg : catalog.packages()) {
@@ -2827,7 +2827,7 @@ void Test_Wsa_Subsystem_And_Aosp_Store() {
     surshell::WsaCatalog loadedCatalog;
     bool loadedJson = loadedCatalog.loadFromJson(jsonCatalog);
     TEST_ASSERT(loadedJson, "loadFromJson successfully parsed exported catalog JSON");
-    TEST_ASSERT(loadedCatalog.size() == 10, "Parsed catalog has 10 packages");
+    TEST_ASSERT(loadedCatalog.size() == 11, "Parsed catalog has 11 packages");
     const auto pVlc = loadedCatalog.findPackage("org.videolan.vlc");
     TEST_ASSERT(pVlc.has_value(), "Parsed catalog contains VLC");
     TEST_ASSERT(pVlc->vendor == "VideoLAN", "Parsed VLC vendor matches");
@@ -2876,12 +2876,12 @@ void Test_Wsa_Subsystem_And_Aosp_Store() {
 
     // 8. Sovereign App Hub Integration with AndroidWsa Category
     surshell::AppHubContent appHub;
-    TEST_ASSERT(appHub.wsaCatalog().size() == 10, "AppHubContent loaded WSA catalog");
+    TEST_ASSERT(appHub.wsaCatalog().size() == 11, "AppHubContent loaded WSA catalog");
 
     // Switch to AndroidWsa category
     appHub.setCategory(surshell::AppHubCategory::AndroidWsa);
     TEST_ASSERT(appHub.activeCategory() == surshell::AppHubCategory::AndroidWsa, "AppHub active category is AndroidWsa");
-    TEST_ASSERT(appHub.filteredCards().size() == 10, "10 Android cards visible under AndroidWsa category");
+    TEST_ASSERT(appHub.filteredCards().size() == 11, "11 Android cards visible under AndroidWsa category");
 
     // Filter within Android packages
     appHub.setSearchQuery("NewPipe");
@@ -2891,7 +2891,7 @@ void Test_Wsa_Subsystem_And_Aosp_Store() {
 
     // Clear search
     appHub.setSearchQuery("");
-    TEST_ASSERT(appHub.filteredCards().size() == 10, "Search query cleared restores all 10 cards");
+    TEST_ASSERT(appHub.filteredCards().size() == 11, "Search query cleared restores all 11 cards");
 
     // Install/Launch package flow
     bool installResult = appHub.installPackage("org.schabi.newpipe");

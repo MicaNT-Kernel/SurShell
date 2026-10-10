@@ -359,6 +359,24 @@ void WsaCatalog::seedDefaultMicaNtApps() {
         .iconId = IconId::FileText,
         .isInstalled = false
     });
+
+    // 11. MicaG Sovereign GMS & TPM 2.0 Compatibility Layer (Barrer Software)
+    packages_.push_back(WsaPackageManifest{
+        .id = "com.barrer.micag",
+        .name = "MicaG Sovereign Services",
+        .version = "1.0.0",
+        .vendor = "Barrer Software",
+        .license = "Clean-Room Fair Use",
+        .homepage = "https://github.com/MicaNT-Kernel/MicaG",
+        .downloadUrl = "https://github.com/MicaNT-Kernel/MicaG/releases/download/v1.0.0/MicaG-Core.apk",
+        .sha256 = "146927640728c7f217ec37ff5a22d46e7f21221b72a6ebbb4377bb46c6508931",
+        .architecture = "universal",
+        .category = "System & Runtime",
+        .description = "Clean-room sovereign GMS compatibility layer, Play Integrity bridge, and TPM 2.0 hardware attestation provider.",
+        .iconGlyph = "[MCG]",
+        .iconId = IconId::ShieldAdmin,
+        .isInstalled = true
+    });
 }
 
 std::vector<WsaPackageManifest> WsaCatalog::search(std::string_view query) const {
