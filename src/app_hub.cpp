@@ -531,13 +531,22 @@ size_t AppHubContent::scanSystemInstalled() {
                 HKEY hApp = nullptr;
                 if (RegOpenKeyExW(hRoot, keyBuf.data(), 0, KEY_READ | sam, &hApp) != ERROR_SUCCESS) continue;
 
+                DWORD sysComp = 0, scType = 0, scBytes = sizeof(DWORD);
+                if (RegQueryValueExW(hApp, L"SystemComponent", nullptr, &scType, reinterpret_cast<LPBYTE>(&sysComp), &scBytes) == ERROR_SUCCESS && sysComp != 0) {
+                    RegCloseKey(hApp);
+                    continue;
+                }
+
                 std::string name = readRegStringVal(hApp, L"DisplayName");
+                if (name.empty()) {
+                    RegCloseKey(hApp);
+                    continue;
+                }
+
                 std::string ver = readRegStringVal(hApp, L"DisplayVersion");
                 std::string pub = readRegStringVal(hApp, L"Publisher");
                 std::string loc = readRegStringVal(hApp, L"InstallLocation");
                 RegCloseKey(hApp);
-
-                if (name.empty()) continue;
 
                 std::string lowerName = name;
                 std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), [](unsigned char c) {
