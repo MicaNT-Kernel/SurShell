@@ -23,11 +23,35 @@ static std::string readRegStringVal(HKEY hKey, const wchar_t* valName) {
     if (RegQueryValueExW(hKey, valName, nullptr, &type, reinterpret_cast<LPBYTE>(ws.data()), &bytes) != ERROR_SUCCESS) return {};
     while (!ws.empty() && ws.back() == L'\0') ws.pop_back();
     if (ws.empty()) return {};
+
+    // Support REG_EXPAND_SZ environment variable expansion
+    if (type == REG_EXPAND_SZ) {
+        DWORD expLen = ExpandEnvironmentStringsW(ws.c_str(), nullptr, 0);
+        if (expLen > 0) {
+            std::wstring expanded(expLen, L'\0');
+            ExpandEnvironmentStringsW(ws.c_str(), expanded.data(), expLen);
+            while (!expanded.empty() && expanded.back() == L'\0') expanded.pop_back();
+            ws = std::move(expanded);
+        }
+    }
+
     int len = WideCharToMultiByte(CP_UTF8, 0, ws.data(), static_cast<int>(ws.size()), nullptr, 0, nullptr, nullptr);
     if (len <= 0) return {};
     std::string s(len, '\0');
     WideCharToMultiByte(CP_UTF8, 0, ws.data(), static_cast<int>(ws.size()), s.data(), len, nullptr, nullptr);
     return s;
+}
+
+static bool containsWord(std::string_view text, std::string_view word) noexcept {
+    if (word.empty() || text.size() < word.size()) return false;
+    size_t pos = 0;
+    while ((pos = text.find(word, pos)) != std::string_view::npos) {
+        bool leftOk = (pos == 0) || !std::isalnum(static_cast<unsigned char>(text[pos - 1]));
+        bool rightOk = (pos + word.size() >= text.size()) || !std::isalnum(static_cast<unsigned char>(text[pos + word.size()]));
+        if (leftOk && rightOk) return true;
+        pos += 1;
+    }
+    return false;
 }
 #endif
 
@@ -526,18 +550,28 @@ size_t AppHubContent::scanSystemInstalled() {
                         return static_cast<char>(std::tolower(c));
                     });
 
-                    if (lowerName.find(pName) != std::string::npos || pName.find(lowerName) != std::string::npos) {
-                        winget::InstalledPackage ip;
-                        ip.packageIdentifier = pkg.packageIdentifier;
-                        ip.packageVersion = ver.empty() ? pkg.packageVersion : ver;
-                        ip.packageName = pkg.packageName;
-                        ip.publisher = pub.empty() ? pkg.publisher : pub;
-                        ip.installDate = "Discovered";
-                        ip.installLocation = loc;
-                        ip.isPinned = false;
+                    // Prevent disastrous false positives: exact match or strict word-boundary match for tokens >= 3 chars
+                    bool isMatch = false;
+                    if (lowerName == pName) {
+                        isMatch = true;
+                    } else if (pName.size() >= 3 && containsWord(lowerName, pName)) {
+                        isMatch = true;
+                    }
 
-                        mgr.registerInstalled(ip);
-                        foundCount++;
+                    if (isMatch) {
+                        if (!mgr.isInstalled(pkg.packageIdentifier)) {
+                            winget::InstalledPackage ip;
+                            ip.packageIdentifier = pkg.packageIdentifier;
+                            ip.packageVersion = ver.empty() ? pkg.packageVersion : ver;
+                            ip.packageName = pkg.packageName;
+                            ip.publisher = pub.empty() ? pkg.publisher : pub;
+                            ip.installDate = "Discovered";
+                            ip.installLocation = loc;
+                            ip.isPinned = false;
+
+                            mgr.registerInstalled(ip);
+                            foundCount++;
+                        }
                         break;
                     }
                 }
@@ -548,7 +582,8 @@ size_t AppHubContent::scanSystemInstalled() {
 
     scanRegistry(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall", KEY_WOW64_64KEY);
     scanRegistry(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall", KEY_WOW64_32KEY);
-    scanRegistry(HKEY_CURRENT_USER, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall", 0);
+    scanRegistry(HKEY_CURRENT_USER, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall", KEY_WOW64_64KEY);
+    scanRegistry(HKEY_CURRENT_USER, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall", KEY_WOW64_32KEY);
 #endif
 
     refresh();
