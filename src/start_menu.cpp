@@ -243,6 +243,18 @@ StartMenu::StartMenu() {
     });
 
     registerApp(ShellAppEntry{
+        .id = "micamgr",
+        .title = "Mica Software Manager",
+        .subtitle = "Sovereign Package Hub & App Store",
+        .executablePath = "C:\\Program Files\\MicaSoftwareManager\\micamgr.exe",
+        .arguments = "",
+        .iconGlyph = "[MSM]",
+        .category = AppCategory::Utilities,
+        .pinnedToTaskbar = true,
+        .pinnedToStart = true
+    });
+
+    registerApp(ShellAppEntry{
         .id = "terminal",
         .title = "Sovereign Terminal",
         .subtitle = "Tabbed ISO C++23 Modern Terminal",

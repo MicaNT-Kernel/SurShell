@@ -920,7 +920,7 @@ void SurShellDesktop::wireSubsystemCallbacks() {
             openServicesWindow();
         } else if (app.executablePath == "C:\\Windows\\System32\\eventvwr.msc" || app.id == "eventvwr" || app.id == "eventvwr.msc" || app.id == "eventlog") {
             openEventViewerWindow();
-        } else if (app.executablePath == "C:\\Windows\\System32\\winget.exe" || app.id == "app_hub" || app.id == "winget" || app.id == "store") {
+        } else if (app.executablePath == "C:\\Windows\\System32\\winget.exe" || app.id == "app_hub" || app.id == "winget" || app.id == "store" || app.id == "micamgr") {
             openAppHubWindow();
         } else if (app.id == "terminal" || app.id == "wt") {
             openTerminalWindow("C:\\Users\\admin");
